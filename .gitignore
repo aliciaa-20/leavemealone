@@ -1,0 +1,5 @@
+# Saved portal pages contain a student's name and attendance: never commit
+Pages/
+node_modules/
+*.zip
+.DS_Store
