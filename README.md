@@ -11,6 +11,14 @@ A Chrome / Edge extension for the CUE student portal. It reads your attendance p
 - **Reconciles with the portal:** hours the portal already labels (e.g. Medical Leave) are picked up and locked. Hours you marked that the portal has since updated are flagged so you can **Confirm present** and nothing is counted twice.
 - **Semester-end handling:** once the portal shows a Co-curricular column, it has already added those hours, so the extension adds none of its own.
 - **Daily alert:** a notification if a course is below your minimum (can be turned off).
+- **Plan a bunk:** open your CUE **Timetable** page once and the extension saves it. The drawer's *Plan a bunk* tab then shows:
+  - **Best days to bunk:** safe days first, then the ones that make a long break with a holiday, then days with few classes.
+  - **Calendar picker:** holidays are greyed and you can skip single periods.
+  - **Result:** each course's % before and after.
+  - **"Safe means" switch:** *right after the bunk* or *end of semester* (assumes you attend everything else).
+
+### Academic calendar (contributors, please update yearly)
+Holidays, vacations, mid-sem exams, working Saturdays and semester dates live in `extension/calendar.js`, taken from the university's public academic calendar PDF. Third Saturdays are treated as off unless listed in `workingSaturdays`. When a new academic year starts, add a new entry to `YEARS`; until then the planner falls back to "Mon–Sat, minus third Saturdays" and says so.
 
 ## Privacy
 Everything stays in your browser (`chrome.storage.local`). The extension makes **no requests to any server** (it only loads its own bundled stylesheet) and sends nothing anywhere. It only runs on `https://cue.christuniversity.in/*`.

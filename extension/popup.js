@@ -31,7 +31,7 @@ const save = (patch) => chrome.storage.local.set(patch).then(load);
 
 function load() {
   return chrome.storage.local
-    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {} })
+    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now" })
     .then((d) => {
       D = d;
       if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || Object.keys(d.snapshots).sort((a, b) => rank(b) - rank(a))[0];
@@ -89,6 +89,29 @@ function draw() {
     o.medical ? h("div", { class: "note", style: "color:var(--primary)" }, `Medical ${fmt(o.medical)} h: ${Calc.medicalText(o)}`) : null,
     o.ccIncluded ? h("div", { class: "note muted" }, "Co-curricular is already included by the portal.") : null
   );
+
+  // ---- best days to bunk (top 3; full planner lives in the drawer on CUE)
+  let bestCard = null;
+  if (viewSem === D.latest) {
+    const n = new Date();
+    const from = Cal.addDays(new Date(n.getFullYear(), n.getMonth(), n.getDate()), 1);
+    const label = (d) => d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+    if (!D.timetable) {
+      bestCard = h("div", {}, h("div", { class: "sec" }, "Best days to bunk"),
+        h("div", { class: "sub" }, "Open your CUE timetable once to unlock bunk planning."));
+    } else {
+      const best = Plan.bestDays({ eff, tt: D.timetable, courses: eff.courses, basis: D.bunkBasis, t, from, limit: 3 });
+      bestCard = h("div", {},
+        h("div", { class: "sec" }, "Best days to bunk"),
+        h("div", { class: "card" },
+          best.days.length
+            ? best.days.map((b) => h("div", { class: "course" },
+                h("div", { class: "row" }, h("b", {}, label(b.date)), h("span", { class: `chip ${b.safe ? "good" : "bad"}` }, b.safe ? "safe" : "risky")),
+                h("div", { class: "sub" }, [`${b.classes} class${b.classes > 1 ? "es" : ""}`, ...b.tags].join(" · "))))
+            : h("div", { class: "sub" }, "No class days left this semester."),
+          h("div", { style: "margin-top:8px" }, openBtn("Plan on CUE"))));
+    }
+  }
 
   // ---- 2. needs attention (portal order)
   const needs = h(
@@ -190,7 +213,9 @@ function draw() {
     )
   );
 
-  document.getElementById("app").replaceChildren(header, overall, whatIf, needs, safeBox, pending, adjBox, settings, h("div", { style: "margin-top:12px" }, openBtn()));
+  document.getElementById("app").replaceChildren(
+    ...[header, overall, bestCard, whatIf, needs, safeBox, pending, adjBox, settings, h("div", { style: "margin-top:12px" }, openBtn())].filter(Boolean)
+  );
 }
 
 function courseRow(c, thr, t, showAfter) {

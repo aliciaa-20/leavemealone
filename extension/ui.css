@@ -113,6 +113,37 @@
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px; font-size: 12px;
 }
 
+/* ---- drawer tabs ---- */
+.tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 12px; }
+.tab { flex: 1; background: transparent; border: 0; border-radius: 9px; padding: 6px 8px; font-weight: 600; color: var(--muted); }
+.tab.on { background: var(--primary); color: var(--bg3); }
+
+/* ---- plan a bunk ---- */
+.bestday { display: block; width: 100%; text-align: left; background: transparent; border: 0; border-top: 1px solid var(--line); padding: 8px 2px; }
+.bestday:first-child { border-top: 0; }
+.bestday:hover { background: rgba(148,163,184,.08); }
+.bestday.on { background: rgba(142,184,255,.12); border-radius: 10px; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.tagchip { font-size: 10.5px; padding: 1px 7px; border-radius: 99px; background: rgba(142,184,255,.14); color: var(--primary); }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.chead { text-align: center; font-size: 10.5px; color: var(--muted); font-weight: 600; }
+.cday {
+  position: relative; height: 38px; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; border: 1px solid transparent; background: transparent; padding: 0;
+}
+.cday i { font-style: normal; font-size: 8px; letter-spacing: -1px; color: var(--muted); line-height: 1; }
+.cday.open { border-color: var(--line); background: var(--surface); }
+.cday.open:hover { border-color: var(--primary); }
+.cday.sel { background: var(--primary); color: var(--bg3); border-color: var(--primary); }
+.cday.sel i { color: var(--bg3); }
+.cday.off { color: rgba(148,163,184,.45); }
+.cday.hol { color: #fda4af; background: rgba(244,63,94,.14); }
+.cday.empty { visibility: hidden; }
+.x:disabled { opacity: .3; cursor: default; }
+.period { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+.period input { accent-color: var(--primary); }
+.period .sub { margin-left: auto; text-align: right; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---- popup ---- */
 body.cue { width: 380px; margin: 0; padding: 14px; background: linear-gradient(180deg, var(--bg), var(--bg3)); min-height: 200px; }
 select, input[type=number] {

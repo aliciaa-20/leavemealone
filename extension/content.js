@@ -3,6 +3,7 @@
 //   /main/attendence    -> parse the course table, save a snapshot, show a pill + drawer,
 //                          remember which course's "View Details" you click
 //   /main/AbsentDetails -> mark each absent hour as absent / co-curricular / medical / later
+//   /main/timeTable     -> save the weekly timetable for the "Plan a bunk" tab
 // All UI lives in one Shadow DOM host so the portal's CSS and ours never touch.
 (() => {
   const store = {
@@ -11,7 +12,7 @@
   };
   const route = () => {
     const p = location.pathname.toLowerCase();
-    return p.includes("/main/attendence") ? "att" : p.includes("/main/absentdetails") ? "abs" : null;
+    return p.includes("/main/attendence") ? "att" : p.includes("/main/absentdetails") ? "abs" : p.includes("/main/timetable") ? "tt" : null;
   };
   const pair = (txt) => {
     const m = /(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/.exec(txt || "");
@@ -107,14 +108,20 @@
     h("div", { class: "bar" }, h("i", { class: tone(pct, thr), style: `width:${Math.min(100, Math.max(0, pct))}%` }), h("b", { style: `left:${thr}%` }));
 
   // ---------------------------------------------------------------- attendance page
+  // A = everything the drawer needs: { snap, threshold, adj, exc, open, sortBy, tt, basis }
   let attOpen = false;
   let attSig = "";
-  let attArgs = null;
+  let A = null;
+  let tab = "overview";          // "overview" | "plan"
+  let planSel = new Map();       // dayKey -> Set(periods) | null (whole day)
+  let planMonth = 0;             // months after the first plannable month
+  let planOpenDay = null;        // day whose periods are expanded
 
+  const rerender = () => { if (A) { attSig = ""; renderAtt(A); } };
   function setOpen(v) {
     attOpen = v;
     store.set({ panelOpen: v });
-    if (attArgs) { attArgs[4] = v; renderAtt(...attArgs); }
+    if (A) { A.open = v; rerender(); }
   }
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && attOpen) setOpen(false); });
   document.addEventListener("click", (e) => {
@@ -137,27 +144,14 @@
     return out;
   }
 
-  async function renderAtt(snap, threshold, adj, exc, open, sortBy = "portal") {
-    attArgs = [snap, threshold, adj, exc, open, sortBy];
-    attOpen = open;
-    const eff = Calc.effective(snap, adj, exc);
-    const sig = JSON.stringify([eff, threshold, open, snap.semester, sortBy]);
-    if (sig === attSig && host?.isConnected) return;
-    await ensureHost();
-    attSig = sig;
-    const o = eff.overall, t = threshold / 100;
+  const dayLabel = (d) => d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+  const today0 = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
+
+  // ---- Overview tab
+  function overviewView(eff, threshold, t) {
+    const o = eff.overall;
     const op = Calc.percent(o.attended, o.scheduled);
-    const courses = eff.courses.filter((c) => c.scheduled > 0); // portal order
-    const lowN = courses.filter((c) => Calc.percent(c.attended, c.scheduled) < threshold).length;
-
-    const pill = h(
-      "button",
-      { class: `pill ${tone(op, threshold)}`, "aria-expanded": String(open), "aria-label": "Attendance summary", onclick: () => setOpen(!attOpen) },
-      h("span", { class: "dot" }),
-      `${op.toFixed(1)}%`,
-      lowN ? h("span", { class: "sub" }, `${lowN} low`) : null
-    );
-
+    const courses = eff.courses.filter((c) => c.scheduled > 0);
     const notes = [];
     if (o.medical) notes.push(h("div", { class: "note", style: "color:var(--primary)" }, `Medical ${fmt(o.medical)} h: ${Calc.medicalText(o)}`));
     if (o.ccIncluded) notes.push(h("div", { class: "note muted" }, "Co-curricular is already included by the portal."));
@@ -170,12 +164,8 @@
           { class: "card", style: "border-color:var(--c-later)" },
           h("div", { class: "sec", style: "margin-top:0" }, "Needs review"),
           review.map((c) =>
-            h(
-              "div",
-              { class: "note" },
-              h("b", {}, c.code || c.name),
-              c.goneHrs ? ` · ${fmt(c.goneHrs)} h updated on the portal: open View Details and press Confirm present` : " · the portal's numbers changed since you adjusted this; check it"
-            )
+            h("div", { class: "note" }, h("b", {}, c.code || c.name),
+              c.goneHrs ? ` · ${fmt(c.goneHrs)} h updated on the portal: open View Details and press Confirm present` : " · the portal's numbers changed since you adjusted this; check it")
           )
         )
       : null;
@@ -188,23 +178,12 @@
         "label",
         { class: "sub", style: "display:flex;align-items:center;gap:6px" },
         "Sort by",
-        h(
-          "select",
-          {
-            class: "sort",
-            "aria-label": "Sort courses",
-            onchange: (e) => {
-              const v = e.target.value;
-              store.set({ sortBy: v });
-              if (attArgs) { attArgs[5] = v; renderAtt(...attArgs); }
-            },
-          },
-          SORTS.map((s) => h("option", { value: s.v, selected: s.v === sortBy }, s.label))
-        )
+        h("select", { class: "sort", "aria-label": "Sort courses", onchange: (e) => { A.sortBy = e.target.value; store.set({ sortBy: A.sortBy }); rerender(); } },
+          SORTS.map((s) => h("option", { value: s.v, selected: s.v === A.sortBy }, s.label)))
       )
     );
 
-    const list = sortCourses(courses, sortBy).map((c) => {
+    const list = sortCourses(courses, A.sortBy).map((c) => {
       const pct = Calc.percent(c.attended, c.scheduled);
       const low = pct < threshold;
       const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
@@ -216,50 +195,247 @@
       return h(
         "div",
         { class: "course", title: tip },
-        h(
-          "div",
-          { class: "row" },
+        h("div", { class: "row" },
           h("div", { class: "name" }, h("span", { class: "code" }, c.code || c.name), adjusted ? h("span", { class: "badge" }, "adj") : null, c.code ? h("div", { class: "full" }, c.name) : null),
-          h("div", { style: "text-align:right" }, h("span", { class: `pct ${tone(pct, threshold)}` }, `${pct.toFixed(0)}%`), " ", chip)
-        ),
+          h("div", { style: "text-align:right" }, h("span", { class: `pct ${tone(pct, threshold)}` }, `${pct.toFixed(0)}%`), " ", chip)),
         bar(pct, threshold)
       );
     });
 
-    const drawer = h(
-      "div",
-      { class: `drawer${open ? " open" : ""}`, role: "dialog", "aria-label": "Attendance details" },
-      h(
-        "div",
-        { class: "dh" },
-        h("div", {}, h("div", { class: "title" }, "Attendance"), h("div", { class: "sub" }, `${snap.semester} · minimum ${threshold}%`)),
-        h("button", { class: "x", "aria-label": "Close", onclick: () => setOpen(false) }, "✕")
-      ),
-      h(
-        "div",
-        { class: "card" },
+    return [
+      h("div", { class: "card" },
         h("div", { class: "row" }, h("span", { class: `big ${tone(op, threshold)}` }, `${op.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled} hrs`)),
         bar(op, threshold),
-        notes
-      ),
+        notes),
       reviewBox,
       sortBar,
       h("div", { class: "card" }, list),
+    ];
+  }
+
+  // ---- Plan a bunk tab
+  function planView(eff, threshold, t) {
+    if (!A.tt) {
+      return [h("div", { class: "card" },
+        h("div", { class: "title" }, "Open your timetable once"),
+        h("p", { class: "sub" }, "I need your weekly timetable to know which classes you'd miss. Open it once and come back."),
+        h("button", { class: "btn solid", onclick: () => location.assign("/main/timeTable") }, "Open timetable"))];
+    }
+    const from = Cal.addDays(today0(), 1);
+    const end = Cal.semesterEnd(from);
+    const courses = eff.courses;
+    const out = [];
+
+    out.push(h("div", { class: "row", style: "margin-bottom:8px" },
+      h("span", { class: "sub" }, "Safe means"),
+      h("select", { class: "sort", "aria-label": "Safe means", onchange: (e) => { A.basis = e.target.value; store.set({ bunkBasis: A.basis }); rerender(); } },
+        h("option", { value: "now", selected: A.basis !== "end" }, "Right after the bunk"),
+        h("option", { value: "end", selected: A.basis === "end" }, "End of semester (attend the rest)"))));
+    if (!Cal.known(from)) out.push(h("div", { class: "note warn" }, "This year's academic calendar isn't in the extension yet, so holidays aren't known."));
+
+    // Best days to bunk
+    const best = Plan.bestDays({ eff, tt: A.tt, courses, basis: A.basis, t, from });
+    out.push(h("div", { class: "sec" }, "Best days to bunk"));
+    out.push(h("div", { class: "card" },
+      best.days.length
+        ? best.days.map((b) => h("button", {
+            class: `bestday${planSel.has(b.key) ? " on" : ""}`,
+            onclick: () => { planSel = new Map([[b.key, null]]); planOpenDay = b.key; planMonth = monthOffset(from, b.date); rerender(); },
+          },
+          h("div", { class: "row" },
+            h("b", {}, dayLabel(b.date)),
+            h("span", { class: `chip ${b.safe ? "good" : "bad"}` }, b.safe ? "safe" : "risky")),
+          h("div", { class: "sub" }, `${b.classes} class${b.classes > 1 ? "es" : ""}${b.lowest != null ? ` · lowest after: ${b.lowest.toFixed(0)}%` : ""}`),
+          b.tags.length ? h("div", { class: "tags" }, b.tags.map((x) => h("span", { class: "tagchip" }, x))) : null))
+        : h("div", { class: "sub" }, "No class days left this semester.")));
+
+    // Calendar picker
+    out.push(h("div", { class: "sec" }, "Pick days"));
+    out.push(calendarView(from, end));
+
+    // Expanded day: choose single periods
+    if (planOpenDay && planSel.has(planOpenDay)) {
+      const d = Cal.parse(planOpenDay);
+      const cls = Plan.classesOn(d, A.tt);
+      const cur = planSel.get(planOpenDay);
+      out.push(h("div", { class: "card" },
+        h("div", { class: "row" }, h("b", {}, dayLabel(d)), h("span", { class: "sub" }, "untick the classes you'll attend")),
+        cls.map((c) => h("label", { class: "period" },
+          h("input", { type: "checkbox", checked: !cur || cur.has(c.period), onchange: (e) => {
+            const set = new Set(cur ? cur : cls.map((x) => x.period));
+            e.target.checked ? set.add(c.period) : set.delete(c.period);
+            if (!set.size) { planSel.delete(planOpenDay); planOpenDay = null; }
+            else planSel.set(planOpenDay, set.size === cls.length ? null : set);
+            rerender();
+          } }),
+          h("span", {}, `${c.period.replace("Period-", "P")} · ${c.time || ""}`), h("span", { class: "sub" }, c.name)))));
+    }
+
+    // Result
+    if (planSel.size) {
+      const remaining = A.basis === "end" ? best.remaining : {};
+      const { missed, unknown } = Plan.missedFor(planSel, A.tt, courses);
+      const imp = Plan.impact(eff, missed, A.basis, remaining, t);
+      const arrow = (r) => [`${r.before.toFixed(1)}% → `, h("b", { class: r.safe ? "good" : "bad" }, `${r.after.toFixed(1)}%`)];
+      out.push(h("div", { class: "sec" }, "If you bunk"));
+      out.push(h("div", { class: "card", style: `border-color:${imp.safe ? "var(--good)" : "var(--bad)"}` },
+        h("div", { class: "row" },
+          h("b", { class: imp.safe ? "good" : "bad" }, imp.safe ? "Safe to bunk" : "Not safe"),
+          h("span", { class: "sub" }, `${planSel.size} day${planSel.size > 1 ? "s" : ""} · ${imp.overall.k} class${imp.overall.k === 1 ? "" : "es"} missed`)),
+        h("div", { class: "note" }, h("b", {}, "Overall "), arrow(imp.overall)),
+        imp.rows.map((r) => h("div", { class: "course" },
+          h("div", { class: "row" },
+            h("div", { class: "name" }, h("span", { class: "code" }, r.code || r.name), h("span", { class: "sub" }, `  −${r.k} h`)),
+            h("div", { style: "text-align:right" }, arrow(r), " ",
+              r.safe ? h("span", { class: "chip good" }, "safe")
+                : h("span", { class: "chip bad" }, A.basis === "end" ? `below ${threshold}%` : `attend next ${r.recover}`))))),
+        unknown.length ? h("div", { class: "note muted" }, `Not in your attendance table: ${unknown.join(", ")}`) : null,
+        A.basis === "end" ? h("div", { class: "note muted" }, `Assumes you attend every other class until ${end ? dayLabel(end) : "the semester ends"}.`) : null,
+        h("div", { class: "actions" }, h("button", { class: "btn small", onclick: () => { planSel = new Map(); planOpenDay = null; rerender(); } }, "Clear selection"))));
+    }
+    return out;
+  }
+
+  const monthOffset = (a, b) => (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
+
+  function calendarView(from, end) {
+    const maxOff = end ? Math.max(0, monthOffset(from, end)) : 3;
+    planMonth = Math.min(Math.max(0, planMonth), maxOff);
+    const first = new Date(from.getFullYear(), from.getMonth() + planMonth, 1);
+    const daysIn = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    const lead = (first.getDay() + 6) % 7; // Monday-first grid
+    const cells = [];
+    for (let i = 0; i < lead; i++) cells.push(h("span", { class: "cday empty" }));
+    for (let n = 1; n <= daysIn; n++) {
+      const d = new Date(first.getFullYear(), first.getMonth(), n);
+      const k = Cal.key(d);
+      const info = Cal.dayInfo(d);
+      const cls = Plan.classesOn(d, A.tt).length;
+      const usable = d >= from && (!end || d <= end) && info.classDay && cls > 0;
+      const sel = planSel.has(k);
+      const kind = !usable ? (info.holiday ? "hol" : "off") : sel ? "sel" : "open";
+      const title = usable ? `${cls} class${cls > 1 ? "es" : ""}` : info.reason || (d < from ? "Past" : "No classes");
+      cells.push(h(usable ? "button" : "span", {
+        class: `cday ${kind}`, title, "aria-label": `${dayLabel(d)}: ${title}`, "aria-pressed": usable ? String(sel) : null,
+        onclick: usable ? () => {
+          if (sel) { planSel.delete(k); if (planOpenDay === k) planOpenDay = null; }
+          else { planSel.set(k, null); planOpenDay = k; }
+          rerender();
+        } : null,
+      }, String(n), usable ? h("i", {}, "•".repeat(Math.min(cls, 6))) : null));
+    }
+    return h("div", { class: "card" },
+      h("div", { class: "row", style: "margin-bottom:6px" },
+        h("button", { class: "x", "aria-label": "Previous month", disabled: planMonth <= 0, onclick: () => { planMonth--; rerender(); } }, "‹"),
+        h("b", {}, first.toLocaleDateString("en-IN", { month: "long", year: "numeric" })),
+        h("button", { class: "x", "aria-label": "Next month", disabled: planMonth >= maxOff, onclick: () => { planMonth++; rerender(); } }, "›")),
+      h("div", { class: "cal" }, ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((x) => h("span", { class: "chead" }, x)), cells),
+      h("div", { class: "legend", style: "margin:8px 0 0" },
+        h("span", {}, h("b", { style: "background:var(--primary)" }, ""), "selected"),
+        h("span", {}, h("b", { style: "background:rgba(244,63,94,.35)" }, ""), "holiday / no classes")));
+  }
+
+  async function renderAtt(state) {
+    A = state;
+    attOpen = A.open;
+    const { snap, threshold } = A;
+    const eff = Calc.effective(snap, A.adj, A.exc);
+    const sig = JSON.stringify([eff, threshold, A.open, snap.semester, A.sortBy, A.basis, A.tt, tab, [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, planOpenDay]);
+    if (sig === attSig && host?.isConnected) return;
+    await ensureHost();
+    attSig = sig;
+    const t = threshold / 100;
+    const o = eff.overall;
+    const op = Calc.percent(o.attended, o.scheduled);
+    const lowN = eff.courses.filter((c) => c.scheduled > 0 && Calc.percent(c.attended, c.scheduled) < threshold).length;
+
+    const pill = h(
+      "button",
+      { class: `pill ${tone(op, threshold)}`, "aria-expanded": String(A.open), "aria-label": "Attendance summary", onclick: () => setOpen(!attOpen) },
+      h("span", { class: "dot" }),
+      `${op.toFixed(1)}%`,
+      lowN ? h("span", { class: "sub" }, `${lowN} low`) : null
+    );
+
+    const tabBtn = (id, label) => h("button", { class: `tab${tab === id ? " on" : ""}`, role: "tab", "aria-selected": String(tab === id), onclick: () => { tab = id; rerender(); } }, label);
+    const scroll = A.open ? dock.querySelector(".drawer")?.scrollTop || 0 : 0;
+    const drawer = h(
+      "div",
+      { class: `drawer${A.open ? " open" : ""}`, role: "dialog", "aria-label": "Attendance details" },
+      h("div", { class: "dh" },
+        h("div", {}, h("div", { class: "title" }, "Attendance"), h("div", { class: "sub" }, `${snap.semester} · minimum ${threshold}%`)),
+        h("button", { class: "x", "aria-label": "Close", onclick: () => setOpen(false) }, "✕")),
+      h("div", { class: "tabs", role: "tablist" }, tabBtn("overview", "Overview"), tabBtn("plan", "Plan a bunk")),
+      tab === "plan" ? planView(eff, threshold, t) : overviewView(eff, threshold, t),
       h("div", { class: "tag" }, "Vibecoded UI just like this website")
     );
     dock.replaceChildren(drawer, pill);
+    drawer.scrollTop = scroll; // keep position while clicking around the planner
   }
 
   async function tickAtt() {
     const snap = parseCourses();
     if (!snap) return;
-    const d = await store.get({ threshold: 75, snapshots: {}, adjust: {}, excused: {}, panelOpen: false, sortBy: "portal" });
+    const d = await store.get({ threshold: 75, snapshots: {}, adjust: {}, excused: {}, panelOpen: false, sortBy: "portal", timetable: null, bunkBasis: "now" });
     d.snapshots[snap.semester] = snap;
     const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
     const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
     const latest = Object.keys(d.snapshots).sort((a, b) => rank(b) - rank(a))[0];
     await store.set({ snapshots: d.snapshots, latest });
-    renderAtt(snap, d.threshold, d.adjust[snap.semester], d.excused[snap.semester], d.panelOpen, d.sortBy);
+    renderAtt({
+      snap, threshold: d.threshold, adj: d.adjust[snap.semester], exc: d.excused[snap.semester],
+      open: d.panelOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis,
+    });
+  }
+
+  // ---------------------------------------------------------------- timetable page
+  const DOW = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+  function parseTimetable() {
+    const table = [...document.querySelectorAll("main table")].find((x) => /monday/i.test(x.querySelector("thead")?.textContent || ""));
+    if (!table) return null;
+    const heads = [...table.querySelectorAll("thead th")].map((th) => {
+      const m = /(sunday|monday|tuesday|wednesday|thursday|friday|saturday)/i.exec(th.textContent);
+      return m ? DOW[m[1].toLowerCase()] : null;
+    });
+    const days = {};
+    for (const tr of table.querySelectorAll("tbody tr")) {
+      const tds = tr.querySelectorAll("td");
+      const ps = tds[0]?.querySelectorAll("p") || [];
+      const period = ps[0]?.textContent.trim();
+      if (!period) continue;
+      const time = (ps[1]?.textContent || "").replace(/\s+/g, " ").trim();
+      tds.forEach((td, i) => {
+        const dow = heads[i];
+        if (i === 0 || dow == null) return;
+        td.querySelectorAll('[role="button"][aria-label]').forEach((el) => {
+          const label = el.getAttribute("aria-label");
+          if (!label || label === "null") return;
+          const name = label.split(", Faculty")[0].trim();
+          if (name) (days[dow] ||= []).push({ period, time, name, type: (el.querySelector(".MuiChip-label")?.textContent || "").trim() });
+        });
+      });
+    }
+    return Object.keys(days).length ? days : null;
+  }
+
+  let ttSig = "";
+  async function tickTt() {
+    const days = parseTimetable();
+    if (!days) return;
+    const d = await store.get({ timetable: null, snapshots: {}, latest: null });
+    if (JSON.stringify(days) !== JSON.stringify(d.timetable)) await store.set({ timetable: days, timetableSavedAt: Date.now() });
+    const count = Object.values(days).reduce((n, x) => n + x.length, 0);
+    const known = new Set((d.snapshots[d.latest]?.courses || []).map((c) => c.name.trim().toUpperCase()));
+    const unknown = known.size ? [...new Set(Object.values(days).flat().map((c) => c.name))].filter((n) => !known.has(n.toUpperCase())) : [];
+    const sig = JSON.stringify([count, unknown]);
+    if (sig === ttSig && host?.isConnected) return;
+    await ensureHost();
+    ttSig = sig;
+    dock.replaceChildren(h("div", { class: "panel" },
+      h("div", { class: "title good" }, "✓ Timetable saved for planning"),
+      h("div", { class: "sub" }, `${count} classes a week. Open Attendance → Plan a bunk to use it.`),
+      unknown.length ? h("div", { class: "note warn" }, `Not in your attendance table: ${unknown.join(", ")}`) : null,
+      h("div", { class: "actions" }, h("button", { class: "btn solid small", onclick: () => location.assign("/main/attendence") }, "Plan a bunk"))));
   }
 
   // ---------------------------------------------------------------- absent details page
@@ -494,14 +670,15 @@
   let timer, lastRoute = null;
   function tick() {
     const r = route();
-    if (r !== lastRoute) { dock?.replaceChildren(); attSig = ""; absSig = ""; lastRoute = r; } // page changed: clear the old UI
-    if (r !== "att" && r !== "abs") {
+    if (r !== lastRoute) { dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; lastRoute = r; } // page changed: clear the old UI
+    if (!r) {
       host?.remove();
       host = null;
       return;
     }
-    if (r === "att") { absSig = ""; tickAtt(); }
-    else { attSig = ""; tickAbs(); }
+    if (r === "att") tickAtt();
+    else if (r === "abs") tickAbs();
+    else tickTt();
   }
   new MutationObserver((muts) => {
     if (muts.every((mu) => mu.target === host || host?.contains(mu.target))) return; // ignore our own DOM changes
