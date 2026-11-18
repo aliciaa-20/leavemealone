@@ -206,7 +206,7 @@
       h("div", { class: "card" }, list),
       h("div", { class: "sub" }, "Same order as the portal's table.")
     );
-    dock.replaceChildren(drawer, pill);
+    dock.replaceChildren(drawer, pill, h("div", { class: "tag" }, "vibe-coded ui"));
   }
 
   async function tickAtt() {
