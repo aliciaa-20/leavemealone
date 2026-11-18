@@ -121,17 +121,33 @@
     if (attOpen && host && !e.composedPath().includes(host)) setOpen(false);
   });
 
-  async function renderAtt(snap, threshold, adj, exc, open) {
-    attArgs = [snap, threshold, adj, exc, open];
+  // Sort options for the course list (default: same order as the portal's table).
+  const SORTS = [
+    { v: "portal", label: "Portal order" },
+    { v: "low", label: "Lowest % first" },
+    { v: "high", label: "Highest % first" },
+    { v: "az", label: "Course name (A-Z)" },
+  ];
+  function sortCourses(list, by) {
+    const pct = (c) => Calc.percent(c.attended, c.scheduled);
+    const out = [...list];
+    if (by === "low") out.sort((a, b) => pct(a) - pct(b));
+    else if (by === "high") out.sort((a, b) => pct(b) - pct(a));
+    else if (by === "az") out.sort((a, b) => a.name.localeCompare(b.name));
+    return out;
+  }
+
+  async function renderAtt(snap, threshold, adj, exc, open, sortBy = "portal") {
+    attArgs = [snap, threshold, adj, exc, open, sortBy];
     attOpen = open;
     const eff = Calc.effective(snap, adj, exc);
-    const sig = JSON.stringify([eff, threshold, open, snap.semester]);
+    const sig = JSON.stringify([eff, threshold, open, snap.semester, sortBy]);
     if (sig === attSig && host?.isConnected) return;
     await ensureHost();
     attSig = sig;
     const o = eff.overall, t = threshold / 100;
     const op = Calc.percent(o.attended, o.scheduled);
-    const courses = eff.courses.filter((c) => c.scheduled > 0); // portal order, on purpose
+    const courses = eff.courses.filter((c) => c.scheduled > 0); // portal order
     const lowN = courses.filter((c) => Calc.percent(c.attended, c.scheduled) < threshold).length;
 
     const pill = h(
@@ -164,7 +180,31 @@
         )
       : null;
 
-    const list = courses.map((c) => {
+    const sortBar = h(
+      "div",
+      { class: "row", style: "margin-bottom:6px" },
+      h("span", { class: "sec", style: "margin:0" }, "Courses"),
+      h(
+        "label",
+        { class: "sub", style: "display:flex;align-items:center;gap:6px" },
+        "Sort by",
+        h(
+          "select",
+          {
+            class: "sort",
+            "aria-label": "Sort courses",
+            onchange: (e) => {
+              const v = e.target.value;
+              store.set({ sortBy: v });
+              if (attArgs) { attArgs[5] = v; renderAtt(...attArgs); }
+            },
+          },
+          SORTS.map((s) => h("option", { value: s.v, selected: s.v === sortBy }, s.label))
+        )
+      )
+    );
+
+    const list = sortCourses(courses, sortBy).map((c) => {
       const pct = Calc.percent(c.attended, c.scheduled);
       const low = pct < threshold;
       const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
@@ -203,22 +243,23 @@
         notes
       ),
       reviewBox,
+      sortBar,
       h("div", { class: "card" }, list),
-      h("div", { class: "sub" }, "Same order as the portal's table.")
+      h("div", { class: "tag" }, "Vibecoded UI just like this website")
     );
-    dock.replaceChildren(drawer, pill, h("div", { class: "tag" }, "vibe-coded ui"));
+    dock.replaceChildren(drawer, pill);
   }
 
   async function tickAtt() {
     const snap = parseCourses();
     if (!snap) return;
-    const d = await store.get({ threshold: 75, snapshots: {}, adjust: {}, excused: {}, panelOpen: false });
+    const d = await store.get({ threshold: 75, snapshots: {}, adjust: {}, excused: {}, panelOpen: false, sortBy: "portal" });
     d.snapshots[snap.semester] = snap;
     const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
     const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
     const latest = Object.keys(d.snapshots).sort((a, b) => rank(b) - rank(a))[0];
     await store.set({ snapshots: d.snapshots, latest });
-    renderAtt(snap, d.threshold, d.adjust[snap.semester], d.excused[snap.semester], d.panelOpen);
+    renderAtt(snap, d.threshold, d.adjust[snap.semester], d.excused[snap.semester], d.panelOpen, d.sortBy);
   }
 
   // ---------------------------------------------------------------- absent details page
