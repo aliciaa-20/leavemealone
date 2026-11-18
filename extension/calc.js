@@ -17,10 +17,12 @@ const Calc = {
     return Calc.percent(a, s + n);
   },
   medicalText(o) {
-    const withMed = Calc.percent(o.attended + o.medical, o.scheduled).toFixed(1);
-    if (o.medicalState === "applies") return `aggregate is 74.5-84.4%, so it may apply → ${withMed}%`;
-    if (o.medicalState === "not-needed") return "not needed, aggregate is already 84.5% or more";
-    return "not considered, aggregate is below 74.5%";
+    if (o.medicalState === "applies") {
+      const before = Calc.percent(o.withoutMedical, o.scheduled).toFixed(1);
+      return `added, since the aggregate (${before}%) is below 85% → ${Calc.percent(o.attended, o.scheduled).toFixed(1)}%`;
+    }
+    if (o.medicalState === "not-needed") return "not added, aggregate is already 85% or more";
+    return "not added, aggregate is below 74.5% so medical leave isn't considered";
   },
   // Portal snapshot + your own adjustments for that semester:
   // adj = { cocurricular: hrs, courses: { [code]: { att, sch, baseSch } } }
@@ -72,18 +74,20 @@ const Calc = {
     // Co-curricular claims (typed or marked on Absent Details) add to the overall aggregate only.
     const sum = (k) => courses.reduce((n, c) => n + c[k], 0);
     const cc = (snap.hasCc ? 0 : (adj && adj.cocurricular) || 0) + sum("ccHrs");
-    const attended = sum("attended") + cc, scheduled = sum("scheduled");
-    // Medical hours are not added: the portal says they are only considered if the aggregate
-    // is above 74.5% at semester end, so we just report them and whether that bar is met.
-    // Policy text: applied to aggregates from 74.50% up to 84.49% (with co-curricular).
+    const withCc = sum("attended") + cc, scheduled = sum("scheduled");
+    // Medical leave (policy text): only considered when the aggregate with co-curricular is
+    // at least 74.5%, and only applied when it is below 85%. In that band the hours are
+    // added to the overall attended; otherwise they are just reported.
     const medical = sum("medHrs");
-    const pct = Calc.percent(attended, scheduled);
-    const medicalState = pct < 74.5 ? "below" : pct < 84.5 ? "applies" : "not-needed";
+    const pct = Calc.percent(withCc, scheduled);
+    const medicalState = !medical ? "none" : pct < 74.5 ? "below" : pct < 85 ? "applies" : "not-needed";
+    const medicalAdded = medicalState === "applies" ? medical : 0;
     return {
       courses,
       overall: {
-        attended, scheduled, cocurricular: cc, medical, medicalState, medicalApplies: medicalState === "applies",
-        ccIncluded: !!snap.hasCc, goneHrs: sum("goneHrs"),
+        attended: withCc + medicalAdded, scheduled, cocurricular: cc,
+        medical, medicalAdded, medicalState, medicalApplies: medicalState === "applies",
+        withoutMedical: withCc, ccIncluded: !!snap.hasCc, goneHrs: sum("goneHrs"),
       },
     };
   },
