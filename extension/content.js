@@ -905,7 +905,7 @@
   let absOpen = false, absShell = null;
   let absMark = false;           // the "Mark hours" toggle of the all-courses drawer
   let absRows = [], absData = null;
-  const legendEl = () => h("div", { class: "lg" }, CHOICES.map((c) => h("span", { title: c.tip }, h("b", { style: `background:${c.color}` }, c.letter), c.label))); // A / C / M / L key, shared by both marking views
+  const legendEl = (grid) => h("div", { class: `lg${grid ? " grid" : ""}` }, CHOICES.map((c) => h("span", { title: c.tip }, h("b", { style: `background:${c.color}` }, c.letter), c.label))); // A / C / M / L key, shared by both marking views
   const absKey = (r) => (r.code && r.code.toUpperCase() !== "N/A" ? r.code : r.name);
   async function refreshAbsData() {
     const d = await store.get({ latest: null, snapshots: {}, excused: {}, adjust: {} });
@@ -927,7 +927,7 @@
     if (!absShell || !absData) return;
     const focused = host.shadowRoot.activeElement;
     const fk = focused && absShell.drawer.contains(focused) ? focused.dataset.key : null;
-    absShell.markBtn.setAttribute("aria-pressed", String(absMark));
+    absShell.markBtn.setAttribute("aria-checked", String(absMark));
     absShell.markBtn.classList.toggle("on", absMark);
     const snap = absData.snap;
     const selOf = (r) => { const u = (absData.excused[absKey(r)]?.rows || []).find((x) => x.k === `${r.date}|${r.period}` && !x.gone); return u ? (u.s === "cc" || u.s === "med" ? u.s : "later") : "abs"; };
@@ -938,7 +938,7 @@
       const base = Calc.effective(snap, {}, {}), now = Calc.effective(snap, absData.adjust, absData.excused);
       const bp = Calc.percent(base.overall.attended, base.overall.scheduled), np = Calc.percent(now.overall.attended, now.overall.scheduled);
       preview = h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "With your marks")), h("span", { class: "big" }, `${bp.toFixed(1)}% to `, h("b", { class: np > bp ? "good" : "" }, `${np.toFixed(1)}%`))),
-        h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one."), legendEl());
+        h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one."), legendEl(true));
     }
     absShell.body.replaceChildren(...[preview, absentDays(absRows, opts)].flat(Infinity).filter(Boolean));
     if (fk) absShell.drawer.querySelector(`[data-key="${fk}"]`)?.focus({ preventScroll: true });
@@ -971,7 +971,8 @@
       pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
       const sub = h("div", { class: "sub" });
       const body = h("div", { class: "blk" });
-      const markBtn = h("button", { class: "btn sm", "aria-pressed": "false", "data-key": "mark-toggle", onclick: () => { absMark = !absMark; drawAbsBody(); } }, "Mark hours");
+      // A real on/off switch: the label and track change colour when marking is on.
+      const markBtn = h("button", { class: "mkt", role: "switch", "aria-checked": "false", "data-key": "mark-toggle", onclick: () => { absMark = !absMark; drawAbsBody(); } }, h("span", {}, "Mark hours"), h("span", { class: "trk" }));
       const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Absent hours" },
         h("div", { class: "top" }, h("div", {}, h("b", {}, "Absent hours"), sub), h("span", { class: "topa" }, markBtn, h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close")))),
         body, h("div", { class: "tagline" }, UI.TAGLINE));

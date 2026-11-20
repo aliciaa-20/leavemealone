@@ -425,7 +425,6 @@ body.cue .hero .v { font-size: 36px; }
 .tact { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
 /* All-courses absent drawer: the "Mark hours" toggle sits next to close. */
 .topa { display: flex; align-items: center; gap: var(--s2); }
-.btn.sm[aria-pressed="true"] { background: var(--card2); border-color: var(--pick); }
 .arow.mk { grid-template-columns: 24px 1fr auto; }
 .arow.mk .pt { display: none; }
 /* Skip card, tightened: one clear title, aligned chips, even row rhythm, a divided summary. */
@@ -443,4 +442,12 @@ body.cue .hero .v { font-size: 36px; }
 .cbar { display: flex; align-items: center; gap: var(--s3); }
 .cbar .bar { flex: 1; }
 .xb { flex: none; min-width: 28px; }
-.topa .btn { flex: none; white-space: nowrap; }
+/* "Mark hours" switch in the all-courses drawer: label + track, both light up when marking is on. */
+.mkt { display: inline-flex; align-items: center; gap: var(--s2); height: 28px; padding: 0 var(--s1); background: transparent; border: 0; border-radius: var(--r-ctl); color: var(--mute); font: 600 var(--t12) var(--font-head); white-space: nowrap; flex: none; transition: color var(--d-hover) var(--ease); }
+.mkt:hover { color: var(--ink); }
+.mkt.on { color: var(--pick); }
+.mkt .trk { position: relative; display: inline-block; width: 36px; height: 20px; border-radius: 10px; background: var(--card2); transition: background-color 200ms var(--ease); }
+.mkt .trk::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--mute); transition: transform 200ms var(--ease), background-color 200ms var(--ease); }
+.mkt.on .trk { background: var(--pick); }
+.mkt.on .trk::after { transform: translateX(16px); background: var(--onpick); }
+.lg.grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2) var(--s3); }
