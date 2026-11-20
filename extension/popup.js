@@ -31,7 +31,7 @@ const save = (patch) => chrome.storage.local.set(patch).then(load);
 
 function load() {
   return chrome.storage.local
-    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now" })
+    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: undefined })
     .then((d) => {
       D = d;
       if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || Object.keys(d.snapshots).sort((a, b) => rank(b) - rank(a))[0];
@@ -91,16 +91,33 @@ function draw() {
   );
 
   // ---- best days to bunk (top 3; full planner lives in the drawer on CUE)
-  let bestCard = null;
+  let bestCard = null, examCard = null;
   if (viewSem === D.latest) {
     const n = new Date();
-    const from = Cal.addDays(new Date(n.getFullYear(), n.getMonth(), n.getDate()), 1);
+    const today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    const from = Cal.addDays(today, 1);
     const label = (d) => d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+    const basis = Plan.resolveBasis(D.bunkBasis, from);
+    const line = Plan.thresholdFor(basis, t, Math.min(100, Math.max(1, D.eseTarget ?? thr)));
+
+    // ---- exam countdown + MSE budget summary
+    const inDays = (d) => { const k = Math.round((d - today) / 86400000); return k === 1 ? "1 day" : `${k} days`; };
+    const mse = Cal.mseWindow(today), mseCut = Cal.cutoff("mse", from), eseEnd = Cal.semesterEnd(from);
+    const lines = [];
+    if (mse && mseCut) lines.push(`MSE in ${inDays(mse.from)} (${label(mse.from)}) · attendance counts till ${label(mseCut)}`);
+    if (eseEnd) lines.push(`ESE cutoff in ${inDays(eseEnd)} (${label(eseEnd)})`);
+    const mb = D.timetable && mseCut ? Plan.budgets({ eff, tt: D.timetable, basis: "mse", t: Plan.MSE_MIN, from }) : null;
+    if (mb) {
+      const none = mb.rows.filter((r) => r.reachable && r.budget === 0).length, out = mb.rows.filter((r) => !r.reachable).length;
+      const parts = [none ? `${none} with no spare classes before MSE` : null, out ? `${out} out of reach for MSE` : null].filter(Boolean);
+      if (parts.length) lines.push(parts.join(" · "));
+    }
+    if (lines.length) examCard = h("div", { class: "card" }, lines.map((x) => h("div", { class: "sub" }, x)));
     if (!D.timetable) {
       bestCard = h("div", {}, h("div", { class: "sec" }, "Best days to bunk"),
         h("div", { class: "sub" }, "Open your CUE timetable once to unlock bunk planning."));
     } else {
-      const best = Plan.bestDays({ eff, tt: D.timetable, courses: eff.courses, basis: D.bunkBasis, t, from, limit: 3 });
+      const best = Plan.bestDays({ eff, tt: D.timetable, courses: eff.courses, basis, t: line, from, limit: 3 });
       bestCard = h("div", {},
         h("div", { class: "sec" }, "Best days to bunk"),
         h("div", { class: "card" },
@@ -214,7 +231,7 @@ function draw() {
   );
 
   document.getElementById("app").replaceChildren(
-    ...[header, overall, bestCard, whatIf, needs, safeBox, pending, adjBox, settings, h("div", { style: "margin-top:12px" }, openBtn())].filter(Boolean)
+    ...[header, overall, examCard, bestCard, whatIf, needs, safeBox, pending, adjBox, settings, h("div", { style: "margin-top:12px" }, openBtn())].filter(Boolean)
   );
 }
 
