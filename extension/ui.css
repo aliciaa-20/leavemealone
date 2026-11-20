@@ -402,12 +402,9 @@ body.cue .hero .v { font-size: 36px; }
 .notes { display: grid; gap: 2px; margin: var(--s4) 0 var(--s3); }
 .notes p { margin: 0; }
 .notes b { color: var(--ink); font-weight: 600; }
-.ft { display: inline-flex; align-items: center; gap: 6px; }
 .dl { font: 600 var(--t12) var(--font-head); color: var(--mute); }
 .dl.good { color: var(--good); } .dl.bad { color: var(--bad); }
 .alegend .dl { margin-left: 4px; }
-.ft .ic { width: 12px; height: 12px; color: var(--mute); }
-.ftc { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 /* Press feedback on the controls that had none, and small-width fixes for the Actual tab. */
 .ah:active { background: color-mix(in srgb, var(--ink) 4%, transparent); transition-duration: var(--d-press); }
 .pills button:active:not(.on):not(:disabled) { transform: scale(.97); transition-duration: var(--d-press); }
