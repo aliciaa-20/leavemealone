@@ -401,6 +401,8 @@ body.cue .hero .v { font-size: 36px; }
 .arow.nt { grid-template-columns: 28px 1fr auto; }
 .pday.tot { border-top: 1px solid var(--line); margin-top: var(--s2); padding-top: var(--s3); }
 .pday.tot b:last-child { color: var(--gold); }
-.notes { display: grid; gap: 2px; margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--line); }
+.notes { display: grid; gap: 2px; margin: var(--s4) 0 var(--s3); }
 .notes p { margin: 0; }
 .notes b { color: var(--ink); font-weight: 600; }
+.ft { display: inline-flex; align-items: center; gap: 6px; }
+.ft .ic { width: 12px; height: 12px; color: var(--mute); }

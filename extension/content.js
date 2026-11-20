@@ -271,31 +271,33 @@
         typedItems.map((it) => h("div", { class: "arow nt" }, h("span", {}), codeCell(it), chipFor(it)))] : null];
     const hasSrc = items.length > 0;
 
-    // 4. Course by course, only the ones that differ.
-    const rows = effMarks.courses.map((m, i) => [effPortal.courses[i], m]).filter(([p, m]) => differs(p, m) && m.scheduled > 0);
+    // 4. Course by course, only the ones that differ. For reference, co-curricular hours you marked also count in their own course here.
+    const act = (m) => ({ ...m, attended: m.attended + m.ccHrs });
+    const rows = effMarks.courses.map((m, i) => [effPortal.courses[i], act(m)]).filter(([p, m]) => differs(p, m) && m.scheduled > 0);
     const same = effMarks.courses.filter((c) => c.scheduled > 0).length - rows.length;
     const list = rows.map(([p, m]) => {
       const a = Calc.percent(p.attended, p.scheduled), b = Calc.percent(m.attended, m.scheduled);
       return h("div", { class: "it2" },
         h("div", { class: "row" },
           h("span", {}, h("b", { class: "nm", title: m.name }, m.name || m.code), m.code ? h("div", { class: "cl" }, h("span", { class: "sub" }, m.code), m.stale ? chip("warn", "review") : null) : null),
-          h("span", {}, h("span", { class: "p", style: `color:var(--${tone(b, threshold)})` }, `${b.toFixed(1)}%`), " ", deltaChip(b - a))),
-        h("div", { class: "sub" }, `Portal ${fmt(p.attended)}/${p.scheduled}h (${a.toFixed(1)}%), yours ${fmt(m.attended)}/${m.scheduled}h`));
+          h("span", { class: "ft" }, h("span", { class: "sub" }, `${a.toFixed(1)}%`), ico("right"), h("span", { class: "p", style: `color:var(--${tone(b, threshold)})` }, `${b.toFixed(1)}%`))),
+        h("div", { class: "row sub" }, h("span", {}, `${fmt(p.attended)} / ${p.scheduled}h to ${fmt(m.attended)} / ${m.scheduled}h`), deltaChip(b - a)));
     });
     const note = same > 0 ? h("p", { class: "sub" }, `${plural(same, rows.length ? "other course" : "course")} ${same === 1 ? "matches" : "match"} the portal.`) : null;
 
     const has = (...k) => items.some((x) => k.includes(x.kind));
     const notes = hasSrc ? h("div", { class: "notes" },
       has("later") ? h("p", { class: "sub" }, h("b", {}, "Later: "), "attendance will be updated later.") : null,
-      has("cc", "tcc") ? h("p", { class: "sub" }, h("b", {}, "Co-curricular: "), "added to the overall at the end of the semester.") : null,
+      has("cc", "tcc") ? h("p", { class: "sub" }, h("b", {}, "Co-curricular: "), "counted in the overall and in each course here, for reference.") : null,
       has("med") ? h("p", { class: "sub" }, h("b", {}, "Medical: "), "counts only if the overall is 74.5% to 84.49% at semester end.") : null) : null;
-    // Order = importance: the number, then the courses it changed, then the detail behind it.
+    // Order: the number, where it comes from, then the from-to per course.
     return [hero,
-      rows.length ? sc("Courses it changed") : null,
-      rows.length ? h("div", { class: "blk" }, list) : null,
       hasSrc ? acc({ title: "Where the extra hours come from", sub: [`+${fmt(extra)}h added`, sep(), (dayList.length ? plural(dayList.length, "day") : "typed in")], open: accOpen.has("extra"), key: "acc-extra",
         ontoggle: (v) => { v ? accOpen.add("extra") : accOpen.delete("extra"); rerender(); } },
-        srcList, h("div", { class: "pday tot" }, h("b", {}, "Added to attended"), h("b", {}, `+${fmt(extra)}h`)), notes) : null,
+        srcList, h("div", { class: "pday tot" }, h("b", {}, "Added to attended"), h("b", {}, `+${fmt(extra)}h`))) : null,
+      rows.length ? sc("Course by course") : null,
+      rows.length ? h("div", { class: "blk" }, list) : null,
+      notes,
       note];
   }
 
