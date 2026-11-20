@@ -19,17 +19,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Script loading order matters.** No modules: files share globals. Both `manifest.json` content_scripts and `popup.html` load `calc.js` → `calendar.js` → `plan.js` → then `content.js` / `popup.js`. A new shared file must be added to both lists, in dependency order.
 
 - `calc.js` (`Calc`): pure maths. `Calc.effective(snap, adj, exc)` is the core: it merges the portal snapshot with the user's adjustments and absent-hour marks into effective per-course and overall numbers. Every view (pill, drawer, popup, planner) should go through it rather than recomputing.
-- `calendar.js` (`Cal`): academic-calendar data (`YEARS`: semesters, holidays, working Saturdays) plus `dayInfo(date)`. Third Saturdays are off unless listed in `workingSaturdays`. Needs a new `YEARS` entry each academic year; otherwise the planner falls back to Mon–Sat minus third Saturdays.
-- `plan.js` (`Plan`): pure bunk-planning functions shared by the drawer and popup. The timetable is keyed by `Date.getDay()`; courses are matched to timetable entries by upper-cased name.
+- `calendar.js` (`Cal`): academic-calendar data (`YEARS`: semesters, holidays, working Saturdays) plus `dayInfo(date)`, `mseWindow(date)` and `cutoff("mse"|"ese", date)` (the last day attendance counts for an exam). Third Saturdays are off unless listed in `workingSaturdays`. Needs a new `YEARS` entry each academic year; otherwise the planner falls back to Mon–Sat minus third Saturdays.
+- `plan.js` (`Plan`): pure bunk-planning functions shared by the drawer and popup. `basis` is `now | mse | end`; `thresholdFor(basis, t, esePct)` gives the line and `horizon(basis, from)` the cutoff, and `budgets` / `mseRisks` give the per-course bunk budget. The timetable is keyed by `Date.getDay()`; courses are matched to timetable entries by upper-cased name.
 - `content.js`: runs on every portal page. The portal is a SPA, so it routes on `location.pathname`: `/main/attendence` (sic) parses the course table and saves a snapshot; `/main/AbsentDetails` handles marking; `/main/timeTable` saves the timetable. All injected UI lives in one Shadow DOM host; `ui.css` is fetched via `web_accessible_resources` and injected into it.
-- `popup.js`: toolbar popup, reads the same storage. `background.js`: daily alarm + notification.
+- `popup.js`: toolbar popup, reads the same storage. `background.js`: daily alarm + notification; it loads `calc.js`, `calendar.js` and `plan.js` with `importScripts` at the top so it can warn about the MSE line (`Plan.mseRisks`).
 
 **State** is all in `chrome.storage.local`, keyed per semester label (the portal's semester combobox text):
 - `snapshots[sem]` (portal data), `latest` (highest semester by trailing Roman numeral)
 - `adjust[sem]` = `{ cocurricular, courses: { [key]: { att, sch, baseSch } } }`: hours typed in that aren't on the portal yet
 - `excused[sem][key]` = `{ rows: [{ k, h, s, p?, gone? }], baseAbsent }`: per-absent-hour marks, `s` ∈ `later | cc | med`
 - `lastCourse`: the Absent Details page doesn't say which course it shows, so the course whose "View Details" was last clicked is remembered
-- `threshold`, `alerts`, `timetable`, `panelOpen`, `sortBy`, `bunkBasis`
+- `threshold`, `alerts`, `timetable`, `panelOpen`, `sortBy`, `bunkBasis` (`now | mse | end`, where `end` is ESE), `eseTarget` (ESE target %, unset = the minimum)
 
 Course key = `code || name`.
 
