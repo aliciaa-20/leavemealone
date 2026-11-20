@@ -102,13 +102,13 @@ const Plan = (() => {
   }
 
   function impact(eff, missed, basis, remaining, t) {
-    const thr = t * 100;
+    const thr = t * 100, cthr = courseLine(basis, t) * 100, cr = criteria(basis);
     const rows = eff.courses
       .filter((c) => missed[c.key])
       .map((c) => {
         const k = missed[c.key], R = remaining[c.key] || 0;
         const p = project(c.attended, c.scheduled, k, R, basis);
-        const safe = p.after >= thr;
+        const safe = p.after >= cthr;
         // How many classes to attend afterwards to get back to the minimum (right-now view).
         const recover = safe ? 0 : C.mustAttend(c.attended, c.scheduled + k, t);
         return { key: c.key, name: c.name, code: c.code, k, R, ...p, safe, recover };
@@ -117,10 +117,17 @@ const Plan = (() => {
     const kAll = Object.values(missed).reduce((n, x) => n + x, 0);
     const RAll = Object.values(remaining).reduce((n, x) => n + x, 0);
     const op = project(o.attended, o.scheduled, kAll, RAll, basis);
-    return { rows, overall: { k: kAll, ...op, safe: op.after >= thr }, safe: rows.every((r) => r.safe) && op.after >= thr };
+    const overallSafe = op.after >= thr;
+    return { rows, overall: { k: kAll, ...op, safe: overallSafe }, safe: (!cr.course || rows.every((r) => r.safe)) && (!cr.overall || overallSafe) };
   }
 
-  const MSE_MIN = 0.75; // attendance needed to write MSE
+  const MSE_MIN = 0.75; // MSE: every course needs this much (there is no overall criterion)
+  const ESE_OVERALL = 85; // ESE: the overall attendance needed, in percent (courses are not the criterion); medical leave helps the overall get there
+  // Which numbers decide "safe" for a basis: now = courses and overall, mse = every course, end (ESE) = the overall.
+  const CRITERIA = { now: { course: true, overall: true }, mse: { course: true, overall: false }, end: { course: false, overall: true } };
+  const criteria = (basis) => CRITERIA[basis] || CRITERIA.now;
+  // The line a single course is held to (a fraction). For ESE the line t is the overall target, so courses keep the plain minimum.
+  const courseLine = (basis, t) => (basis === "end" ? Math.min(t, MSE_MIN) : t);
 
   // The percentage line (fraction) that "safe" is measured against for a basis.
   // t = the user's minimum (fraction), esePct = their ESE target (percent).
@@ -159,12 +166,20 @@ const Plan = (() => {
     for (const day of Object.values(tt)) for (const c of day) if (km[norm(c.name)]) inTimetable.add(km[norm(c.name)]);
     const row = (key, name, code, a, s, R, matched = true) => {
       const bestCase = C.bestCase(a, s, R);
-      return { key, name, code, pct: C.percent(a, s), R, budget: C.budget(a, s, R, t), bestCase, reachable: bestCase >= t * 100 - 1e-9, matched };
+      const line = key === "overall" ? t : courseLine(basis, t); // a course is held to the course line, the overall to the basis line
+      return { key, name, code, pct: C.percent(a, s), R, budget: C.budget(a, s, R, line), bestCase, reachable: bestCase >= line * 100 - 1e-9, matched };
     };
     const rows = eff.courses.filter((c) => c.scheduled > 0).map((c) => row(c.key, c.name, c.code, c.attended, c.scheduled, remaining[c.key] || 0, inTimetable.has(c.key)));
     const RAll = Object.values(remaining).reduce((n, x) => n + x, 0);
     const o = eff.overall;
-    return { end, rows, overall: row("overall", "Overall", "", o.attended, o.scheduled, RAll) };
+    const overall = row("overall", "Overall", "", o.attended, o.scheduled, RAll);
+    // What decides it for this basis: every (known) course for MSE, the overall for ESE.
+    const cr = criteria(basis), judged = rows.filter((r) => r.matched);
+    const unreachable = cr.course ? judged.filter((r) => !r.reachable) : [];
+    const reachable = (!cr.course || !unreachable.length) && (!cr.overall || overall.reachable);
+    const tightest = cr.course && judged.length ? judged.reduce((m, r) => (r.budget < m.budget ? r : m)) : null;
+    const spare = cr.course ? { n: tightest ? tightest.budget : 0, row: tightest } : { n: overall.budget, row: overall };
+    return { end, rows, overall, scope: cr, reachable, unreachable, spare };
   }
 
   // Courses heading below the MSE line: "out" = can't reach 75% even attending everything,
@@ -234,7 +249,7 @@ const Plan = (() => {
     return !skipped.size ? undefined : skipped.size === periods.length ? null : skipped;
   }
 
-  return { MSE_MIN, classesOn, courseClasses, endMinutes, upcomingFrom, nextClasses, missedFor, setAttend, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
+  return { MSE_MIN, ESE_OVERALL, criteria, courseLine, classesOn, courseClasses, endMinutes, upcomingFrom, nextClasses, missedFor, setAttend, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
 })();
 
 if (typeof module !== "undefined") module.exports = Plan;
