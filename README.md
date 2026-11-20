@@ -15,10 +15,12 @@ A Chrome / Edge extension for the CUE student portal. It reads your attendance p
   - **Best days to bunk:** safe days first, then the ones that make a long break with a holiday, then days with few classes.
   - **Calendar picker:** holidays are greyed and you can skip single periods.
   - **Result:** each course's % before and after.
-  - **"Safe means" switch:** *right after the bunk* or *end of semester* (assumes you attend everything else).
+  - **"Safe means" switch:** *right after the bunk*, *before MSE* (you need 75% to write it; counted up to the last class day before the exam window) or *before ESE* (your own target %, counted to the end of the semester). The last two assume you attend everything else.
+  - **Bunk budget:** for MSE and ESE, how many classes each course can still miss and stay on the line, or its best possible % if that is already out of reach.
+- **MSE alert and countdown:** the popup shows days to MSE and ESE, and the daily alert also warns about courses that can't reach 75% by MSE or have no spare classes left.
 
 ### Academic calendar (contributors, please update yearly)
-Holidays, vacations, mid-sem exams, working Saturdays and semester dates live in `extension/calendar.js`, taken from the university's public academic calendar PDF. Third Saturdays are treated as off unless listed in `workingSaturdays`. When a new academic year starts, add a new entry to `YEARS`; until then the planner falls back to "Mon–Sat, minus third Saturdays" and says so.
+Holidays, vacations, mid-sem exams (`mse` on each semester, also listed under `noClass`), working Saturdays and semester dates live in `extension/calendar.js`, taken from the university's public academic calendar PDF. Third Saturdays are treated as off unless listed in `workingSaturdays`. When a new academic year starts, add a new entry to `YEARS`; until then the planner falls back to "Mon–Sat, minus third Saturdays" and says so.
 
 ## Privacy
 Everything stays in your browser (`chrome.storage.local`). The extension makes **no requests to any server** (it only loads its own bundled stylesheet) and sends nothing anywhere. It only runs on `https://cue.christuniversity.in/*`.
@@ -54,6 +56,7 @@ Issues and pull requests are welcome. The portal's markup can change, so selecto
 ## Known gaps
 - Only the table view of the course list is parsed (not the grid view).
 - The wording of a co-curricular status on Absent Details is a guess; only Medical Leave has been observed.
+- Before-MSE assumes attendance counts up to the last class day before the MSE window, and the ESE target is one number for all courses.
 - Chrome and Edge only.
 
 ## Licence

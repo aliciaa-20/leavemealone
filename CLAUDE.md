@@ -16,20 +16,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-**Script loading order matters.** No modules: files share globals. Both `manifest.json` content_scripts and `popup.html` load `calc.js` → `calendar.js` → `plan.js` → then `content.js` / `popup.js`. A new shared file must be added to both lists, in dependency order.
+**Script loading order matters.** No modules: files share globals. Both `manifest.json` content_scripts and `popup.html` load `calc.js` → `calendar.js` → `plan.js` → `ui.js` → then `content.js` / `popup.js`. A new shared file must be added to both lists, in dependency order.
 
-- `calc.js` (`Calc`): pure maths. `Calc.effective(snap, adj, exc)` is the core: it merges the portal snapshot with the user's adjustments and absent-hour marks into effective per-course and overall numbers. Every view (pill, drawer, popup, planner) should go through it rather than recomputing.
-- `calendar.js` (`Cal`): academic-calendar data (`YEARS`: semesters, holidays, working Saturdays) plus `dayInfo(date)`. Third Saturdays are off unless listed in `workingSaturdays`. Needs a new `YEARS` entry each academic year; otherwise the planner falls back to Mon–Sat minus third Saturdays.
-- `plan.js` (`Plan`): pure bunk-planning functions shared by the drawer and popup. The timetable is keyed by `Date.getDay()`; courses are matched to timetable entries by upper-cased name.
-- `content.js`: runs on every portal page. The portal is a SPA, so it routes on `location.pathname`: `/main/attendence` (sic) parses the course table and saves a snapshot; `/main/AbsentDetails` handles marking; `/main/timeTable` saves the timetable. All injected UI lives in one Shadow DOM host; `ui.css` is fetched via `web_accessible_resources` and injected into it.
-- `popup.js`: toolbar popup, reads the same storage. `background.js`: daily alarm + notification.
+- `calc.js` (`Calc`): pure maths. `Calc.effective(snap, adj, exc)` is the core: it merges the portal snapshot with the user's adjustments and absent-hour marks into effective per-course and overall numbers. Every view (pill, drawer, popup, planner) should go through it rather than recomputing. Main numbers pass `{}` for `exc` so they show the portal's own data (plus typed adjustments); only the popup's Reclassified card, the "needs review" notice and the marking panel preview pass the marks.
+- `calendar.js` (`Cal`): academic-calendar data (`YEARS`: semesters, holidays, working Saturdays) plus `dayInfo(date)`, `mseWindow(date)` and `cutoff("mse"|"ese", date)` (the last day attendance counts for an exam). `cutoffRef(kind, date)` is the same but keeps answering after the cutoff, until the MSE window ends (or the semester's optional `ese: { from, to }` ends), so the planner can show the numbers that counted; alerts use the strict `cutoff`. Third Saturdays are off unless listed in `workingSaturdays`. Needs a new `YEARS` entry each academic year; otherwise the planner falls back to Mon–Sat minus third Saturdays.
+- `plan.js` (`Plan`): pure bunk-planning functions shared by the drawer and popup. `basis` is `now | mse | end`; `thresholdFor(basis, t, esePct)` gives the line and `horizon(basis, from)` the cutoff, and `budgets` / `mseRisks` give the per-course bunk budget. The timetable is keyed by `Date.getDay()`; courses are matched to timetable entries by upper-cased name.
+- `content.js`: runs on every portal page. The portal is a SPA, so it routes on `location.pathname`: `/main/attendence` (sic) parses the course table and saves a snapshot; `/main/AbsentDetails` handles marking; `/main/absence` (the all-courses list) saves its rows to `absentList` for the popup and shows only a pill, except when the course filter is set to one course, which gets the same marking panel as `/main/AbsentDetails` (course from the filter text, not `lastCourse`); `/main/timeTable` saves the timetable. All injected UI lives in one Shadow DOM host; `ui.css` is fetched via `web_accessible_resources` and injected into it; the bundled Space Grotesk font is declared in the page `<head>` (a shadow root can't load fonts). The drawer shell (`buildShell`) is built once and only its contents are swapped.
+- `ui.js` (`UI`): DOM helper `h`, `plural`, icons, chips, bars, segmented pills (with a sliding thumb), stepper, switch, accordion, the number `tween` and the date/period/time formatters (`niceDate`, `nicePeriod`, `startTime`), shared by the drawer and popup. `ui.css` holds the design tokens and every component rule.
+  Planner ticks mean "you attend this class", but the planner state is still the set of periods *skipped* per day (`Plan.setAttend` converts). The dock keeps 16px from the portal's own scrollbar (`syncGutter`, the portal scrolls inside a container, not the window).
+- `popup.js`: toolbar popup, reads the same storage. `background.js`: daily alarm + notification; it loads `calc.js`, `calendar.js` and `plan.js` with `importScripts` at the top so it can warn about the MSE line (`Plan.mseRisks`).
 
 **State** is all in `chrome.storage.local`, keyed per semester label (the portal's semester combobox text):
 - `snapshots[sem]` (portal data), `latest` (highest semester by trailing Roman numeral)
 - `adjust[sem]` = `{ cocurricular, courses: { [key]: { att, sch, baseSch } } }`: hours typed in that aren't on the portal yet
 - `excused[sem][key]` = `{ rows: [{ k, h, s, p?, gone? }], baseAbsent }`: per-absent-hour marks, `s` ∈ `later | cc | med`
 - `lastCourse`: the Absent Details page doesn't say which course it shows, so the course whose "View Details" was last clicked is remembered
-- `threshold`, `alerts`, `timetable`, `panelOpen`, `sortBy`, `bunkBasis`
+- `threshold`, `alerts`, `timetable`, `sortBy`, `bunkBasis` (`now | mse | end`, where `end` is ESE), `eseTarget` (ESE target %, unset = the minimum), `absentList` (`{ sem, at, rows: [{ date, day, period, time, code, name, type, kind, h }] }`, saved from the all-courses absent page; the popup groups it by day)
 
 Course key = `code || name`.
 
@@ -42,5 +44,5 @@ Course key = `code || name`.
 ## Rules
 
 - **Never commit real portal pages or screenshots.** `Pages/` (gitignored) holds saved portal HTML with a real student's name and attendance; use it locally for selector work only. Anonymise or invent any fixture data.
-- The extension must make no network requests besides loading its own bundled `ui.css` (the README's privacy claim depends on it).
+- The extension must make no network requests besides loading its own bundled files (`ui.css`, `fonts/`) (the README's privacy claim depends on it).
 - Portal markup changes; selectors like `table[aria-label="coursewise attendance table"]` are the fragile part. Only the table view of the course list is parsed.

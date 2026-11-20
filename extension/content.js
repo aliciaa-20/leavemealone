@@ -3,16 +3,19 @@
 //   /main/attendence    -> parse the course table, save a snapshot, show a pill + drawer,
 //                          remember which course's "View Details" you click
 //   /main/AbsentDetails -> mark each absent hour as absent / co-curricular / medical / later
+//   /main/absence       -> the all-courses absent list: a summary pill; with one course picked in the filter, the same marking panel
 //   /main/timeTable     -> save the weekly timetable for the "Plan a bunk" tab
 // All UI lives in one Shadow DOM host so the portal's CSS and ours never touch.
 (() => {
+  // After the extension is reloaded or updated, tabs that were already open keep this script but lose the chrome.* APIs.
+  const alive = () => { try { return !!chrome.runtime?.id; } catch { return false; } };
   const store = {
-    get: (d) => chrome.storage.local.get(d),
-    set: (o) => chrome.storage.local.set(o),
+    get: (d) => (alive() ? chrome.storage.local.get(d) : Promise.resolve(d)),
+    set: (o) => (alive() ? chrome.storage.local.set(o) : Promise.resolve()),
   };
   const route = () => {
     const p = location.pathname.toLowerCase();
-    return p.includes("/main/attendence") ? "att" : p.includes("/main/absentdetails") ? "abs" : p.includes("/main/timetable") ? "tt" : null;
+    return p.includes("/main/attendence") ? "att" : p.includes("/main/absentdetails") ? "abs" : p.includes("/main/absence") ? "absall" : p.includes("/main/timetable") ? "tt" : null;
   };
   const pair = (txt) => {
     const m = /(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/.exec(txt || "");
@@ -20,19 +23,7 @@
   };
   const semester = () => document.querySelector('[role="combobox"]')?.textContent.trim() || "unknown";
   const COURSE_TABLE = 'table[aria-label="coursewise attendance table"]';
-  const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
-
-  // Tiny DOM builder: h("div", {class: "x", onclick: fn}, child, "text", ...)
-  const h = (tag, attrs = {}, ...kids) => {
-    const el = document.createElement(tag);
-    for (const [k, v] of Object.entries(attrs)) {
-      if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
-      else if (k === "class") el.className = v;
-      else if (v !== false && v != null) el.setAttribute(k, v === true ? "" : v);
-    }
-    el.append(...kids.flat().filter((x) => x != null && x !== false));
-    return el;
-  };
+  const { h, plural, fmt, tone, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, hrsOf, spotlight } = UI;
 
   // ---------------------------------------------------------------- parsing
   function parseRow(tr) {
@@ -86,8 +77,16 @@
   // ---------------------------------------------------------------- shadow host
   let host, dock, hostPromise, cssText = "";
   async function buildHost() {
+    if (!alive()) return; // the extension was reloaded under this tab: tick() shows the notice
     if (!cssText) {
       try { cssText = await (await fetch(chrome.runtime.getURL("ui.css"))).text(); } catch { cssText = ""; }
+    }
+    // A shadow root cannot load fonts, so declare the bundled Space Grotesk in the page itself (no network, own file).
+    if (!document.getElementById("cue-att-font")) {
+      const f = document.createElement("style");
+      f.id = "cue-att-font";
+      f.textContent = `@font-face{font-family:"LMA Space Grotesk";font-weight:300 700;font-style:normal;font-display:swap;src:url("${chrome.runtime.getURL("fonts/SpaceGrotesk.woff2")}") format("woff2")}`;
+      document.head.append(f);
     }
     host = document.createElement("div");
     host.id = "cue-att-host";
@@ -96,36 +95,50 @@
     const style = document.createElement("style");
     style.textContent = cssText;
     shadow.append(style, dock);
+    spotlight(dock);
     document.body.append(host);
+    syncGutter();
   }
+  // The portal scrolls inside its own container, so its scrollbar sits inside the viewport. Measure it and keep
+  // the dock the same 16px from it as from the bottom edge.
+  function syncGutter() {
+    if (!host?.isConnected) return;
+    let w = 0;
+    for (let el = document.elementFromPoint(innerWidth - 3, Math.round(innerHeight / 2)); el && !w; el = el.parentElement) w = el.offsetWidth - el.clientWidth;
+    host.style.setProperty("--sb", `${Math.max(0, Math.round(w || innerWidth - document.documentElement.clientWidth))}px`);
+  }
+  addEventListener("resize", syncGutter);
   function ensureHost() {
     if (host?.isConnected) return Promise.resolve();
     hostPromise ||= buildHost().finally(() => { hostPromise = null; });
     return hostPromise;
   }
-  const tone = (pct, thr) => (pct < thr ? "bad" : pct < thr + 10 ? "warn" : "good");
-  const bar = (pct, thr) =>
-    h("div", { class: "bar" }, h("i", { class: tone(pct, thr), style: `width:${Math.min(100, Math.max(0, pct))}%` }), h("b", { style: `left:${thr}%` }));
-
   // ---------------------------------------------------------------- attendance page
   // A = everything the drawer needs: { snap, threshold, adj, exc, open, sortBy, tt, basis }
   let attOpen = false;
   let attSig = "";
   let A = null;
+  let effMarks = null;           // same numbers WITH the hours you reclassified: only used for the review notice, everything else shows the portal's data
   let tab = "overview";          // "overview" | "plan"
-  let planSel = new Map();       // dayKey -> Set(periods) | null (whole day)
+  let planSel = new Map();       // dayKey -> Set(periods SKIPPED) | null (whole day skipped). The view shows ticked = attending.
   let planMonth = 0;             // months after the first plannable month
-  let planOpenDay = null;        // day whose periods are expanded
+  const accOpen = new Set();     // which accordions are open ("per", "budget")
+  let growBars = true;           // bars grow once when the drawer opens or the tab changes, not on every click
+  let calShown = null;           // month the calendar last drew, to slide when it changes
+  let lastPicked = null;         // day just picked, for the springy pop
 
+  // one-shot ring on the pill's status dot when it is clicked (re-triggerable)
+  const ping = (pill) => { pill.classList.remove("clicked"); void pill.offsetWidth; pill.classList.add("clicked"); };
   const rerender = () => { if (A) { attSig = ""; renderAtt(A); } };
   function setOpen(v) {
+    if (!v && shell && host?.shadowRoot?.activeElement && shell.drawer.contains(host.shadowRoot.activeElement)) shell.pill.focus(); // don't strand focus in a hidden drawer
     attOpen = v;
-    store.set({ panelOpen: v });
+    if (v) growBars = true;
     if (A) { A.open = v; rerender(); }
   }
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && attOpen) setOpen(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (attOpen) setOpen(false); else if (absOpen) setAbsOpen(false); } });
   document.addEventListener("click", (e) => {
-    if (attOpen && host && !e.composedPath().includes(host)) setOpen(false);
+    if (host && !e.composedPath().includes(host)) { if (attOpen) setOpen(false); else if (absOpen) setAbsOpen(false); }
   });
 
   // Sort options for the course list (default: same order as the portal's table).
@@ -144,203 +157,278 @@
     return out;
   }
 
-  const dayLabel = (d) => d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
   const today0 = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
+
+  // A course as "NAME / code" (students know the subject, not the code). `extra` goes after the code.
+  const nameCell = (c, ...extra) => h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
+    c.code || extra.length ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, extra) : null);
 
   // ---- Overview tab
   function overviewView(eff, threshold, t) {
     const o = eff.overall;
     const op = Calc.percent(o.attended, o.scheduled);
+    const tn = tone(op, threshold);
     const courses = eff.courses.filter((c) => c.scheduled > 0);
-    const notes = [];
-    if (o.medical) notes.push(h("div", { class: "note", style: "color:var(--primary)" }, `Medical ${fmt(o.medical)} h: ${Calc.medicalText(o)}`));
-    if (o.ccIncluded) notes.push(h("div", { class: "note muted" }, "Co-curricular is already included by the portal."));
-    else if (o.cocurricular) notes.push(h("div", { class: "note muted" }, `Includes ${fmt(o.cocurricular)} h co-curricular claimed.`));
 
-    const review = courses.filter((c) => c.stale || c.goneHrs);
+    const heroNum = h("span", { class: "v", style: `color:var(--${tn})` });
+    tween(heroNum, "hero", op, (x) => `${x.toFixed(1)}%`, { animate: A.open, countUp: true });
+    const hero = h("div", { class: `hero w-${tn}` },
+      h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
+      bar(op, threshold),
+      o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
+      o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.")
+        : o.cocurricular ? h("p", { class: "sub" }, `Includes ${fmt(o.cocurricular)}h co-curricular claimed.`) : null);
+
+    const review = effMarks.courses.filter((c) => c.stale || c.goneHrs);
     const reviewBox = review.length
-      ? h(
-          "div",
-          { class: "card", style: "border-color:var(--c-later)" },
-          h("div", { class: "sec", style: "margin-top:0" }, "Needs review"),
-          review.map((c) =>
-            h("div", { class: "note" }, h("b", {}, c.code || c.name),
-              c.goneHrs ? ` · ${fmt(c.goneHrs)} h updated on the portal: open View Details and press Confirm present` : " · the portal's numbers changed since you adjusted this; check it")
-          )
-        )
+      ? h("div", { class: "warnbox" }, h("b", {}, "Needs review"),
+          review.map((c) => h("div", { class: "sub" }, `${c.code || c.name}: `,
+            c.goneHrs ? `${fmt(c.goneHrs)}h updated on the portal. Open View Details and press Confirm present.` : "the portal's numbers changed since you adjusted this. Check it.")))
       : null;
 
-    const sortBar = h(
-      "div",
-      { class: "row", style: "margin-bottom:6px" },
-      h("span", { class: "sec", style: "margin:0" }, "Courses"),
-      h(
-        "label",
-        { class: "sub", style: "display:flex;align-items:center;gap:6px" },
-        "Sort by",
-        h("select", { class: "sort", "aria-label": "Sort courses", onchange: (e) => { A.sortBy = e.target.value; store.set({ sortBy: A.sortBy }); rerender(); } },
-          SORTS.map((s) => h("option", { value: s.v, selected: s.v === A.sortBy }, s.label)))
-      )
-    );
+    const sortBar = h("div", { class: "sec" },
+      h("span", {}, "Courses"),
+      h("label", { class: "sub sortl" }, "Sort by",
+        h("select", { "aria-label": "Sort courses", "data-key": "sort", onchange: (e) => { A.sortBy = e.target.value; store.set({ sortBy: A.sortBy }); rerender(); } },
+          SORTS.map((s) => h("option", { value: s.v, selected: s.v === A.sortBy }, s.label)))));
 
     const list = sortCourses(courses, A.sortBy).map((c) => {
       const pct = Calc.percent(c.attended, c.scheduled);
-      const low = pct < threshold;
       const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
       const skip = Calc.canSkip(c.attended, c.scheduled, t);
-      const chip = low
-        ? h("span", { class: "chip bad" }, `attend next ${Calc.mustAttend(c.attended, c.scheduled, t)}`)
-        : h("span", { class: `chip ${skip ? "good" : "warn"}` }, `can skip ${skip}`);
-      const tip = adjusted ? `Portal ${c.portalAttended}/${c.portalScheduled} → with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
-      return h(
-        "div",
-        { class: "course", title: tip },
+      const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
+      return h("div", { class: "it2" },
         h("div", { class: "row" },
-          h("div", { class: "name" }, h("span", { class: "code" }, c.code || c.name), adjusted ? h("span", { class: "badge" }, "adj") : null, c.code ? h("div", { class: "full" }, c.name) : null),
-          h("div", { style: "text-align:right" }, h("span", { class: `pct ${tone(pct, threshold)}` }, `${pct.toFixed(0)}%`), " ", chip)),
-        bar(pct, threshold)
-      );
+          h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
+            c.code || adjusted ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null) : null),
+          h("span", {}, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`), " ",
+            pct < threshold ? chip("bad", `attend next ${Calc.mustAttend(c.attended, c.scheduled, t)}`) : chip(skip ? "good" : "warn", skip ? `can skip ${skip}` : "no spare"))),
+        bar(pct, threshold));
     });
 
-    return [
-      h("div", { class: "card" },
-        h("div", { class: "row" }, h("span", { class: `big ${tone(op, threshold)}` }, `${op.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled} hrs`)),
-        bar(op, threshold),
-        notes),
-      reviewBox,
-      sortBar,
-      h("div", { class: "card" }, list),
-    ];
+    return [hero, reviewBox, sortBar, h("div", { class: "blk" }, list)];
   }
 
   // ---- Plan a bunk tab
   function planView(eff, threshold, t) {
     if (!A.tt) {
-      return [h("div", { class: "card" },
-        h("div", { class: "title" }, "Open your timetable once"),
-        h("p", { class: "sub" }, "I need your weekly timetable to know which classes you'd miss. Open it once and come back."),
-        h("button", { class: "btn solid", onclick: () => location.assign("/main/timeTable") }, "Open timetable"))];
+      return h("div", { class: "blk free" },
+        h("div", { class: "h3" }, "Open your timetable once"),
+        h("p", { class: "sub" }, "I need your weekly timetable to know which classes you'd skip. Open it once and come back."),
+        h("button", { class: "btn solid cta", "data-key": "open-tt", onclick: () => location.assign("/main/timeTable") }, "Open timetable", ico("right")));
     }
     const from = Cal.addDays(today0(), 1);
-    const end = Cal.semesterEnd(from);
+    // A saved "mse" basis only holds while MSE is still ahead; `line` is the fraction that counts as safe.
+    const basis = Plan.resolveBasis(A.basis, from);
+    const esePct = Math.min(100, Math.max(1, A.eseTarget ?? threshold));
+    const line = Plan.thresholdFor(basis, t, esePct);
+    const linePct = Math.round(line * 100);
+    const end = Plan.horizon(basis, from);
+    const examName = basis === "mse" ? "MSE" : "ESE";
+    const past = basis !== "now" && !!end && end < from; // the cutoff has gone by (exam window still on): a reference, nothing left to plan
+    const picked = planSel.size;
+    planSel = Plan.clipSelection(planSel, end);
+    const dropped = picked - planSel.size;
     const courses = eff.courses;
+
+    const bud = Plan.budgets({ eff, tt: A.tt, basis, t: line, from });
+    const best = basis === "now" ? Plan.bestDays({ eff, tt: A.tt, courses, basis, t: line, from }) : null; // before an exam any safe day is as good as another
+    const remaining = basis !== "now" ? Plan.remainingHours(A.tt, courses, from, end) : {};
+    const impactFor = (sel) => { const { missed, unknown } = Plan.missedFor(sel, A.tt, courses); return { ...Plan.impact(eff, missed, basis, remaining, line), unknown }; };
+    const res = impactFor(planSel);
+    // A day gets the coral outline when a currently-safe plan would tip below the line if you added it.
+    const riskOf = (k) => res.safe && !impactFor(new Map([...planSel, [k, null]])).safe;
+    const clear = () => { planSel = new Map(); rerender(); };
+
     const out = [];
+    const opts = [["now", "After the bunk"]];
+    if (Plan.resolveBasis("mse", from) === "mse") opts.push(["mse", "Before MSE"]);
+    if (Plan.resolveBasis("end", from) === "end") opts.push(["end", "Before ESE"]);
+    if (opts.length > 1) out.push(h("div", { class: "ctl" },
+      h("div", { class: "sub" }, "Safe means"),
+      pills(opts, basis, (v) => { A.basis = v; store.set({ bunkBasis: v }); rerender(); }, { label: "Safe means", keyPrefix: "basis" }),
+      basis === "end" ? h("div", { class: "row" }, h("span", { class: "sub" }, "My ESE target (%)"),
+        stepper(esePct, { min: 1, max: 100, label: "ESE target", key: "ese", onchange: (v) => { A.eseTarget = v; store.set({ eseTarget: v }); rerender(); } })) : null));
+    if (A.basis === "mse" && basis === "now") out.push(h("div", { class: "warnbox top" }, h("div", { class: "sub" }, "MSE isn't open for planning (no class days left before it, or it isn't in the calendar), so these are right-now numbers.")));
+    if (dropped) out.push(h("div", { class: "sub note" }, `${plural(dropped, "selected day")} after the ${examName} cutoff ${dropped > 1 ? "were" : "was"} removed.`));
+    if (!Cal.known(from)) out.push(h("div", { class: "warnbox top" }, h("div", { class: "sub" }, "This year's academic calendar isn't in the extension yet, so holidays aren't known.")));
 
-    out.push(h("div", { class: "row", style: "margin-bottom:8px" },
-      h("span", { class: "sub" }, "Safe means"),
-      h("select", { class: "sort", "aria-label": "Safe means", onchange: (e) => { A.basis = e.target.value; store.set({ bunkBasis: A.basis }); rerender(); } },
-        h("option", { value: "now", selected: A.basis !== "end" }, "Right after the bunk"),
-        h("option", { value: "end", selected: A.basis === "end" }, "End of semester (attend the rest)"))));
-    if (!Cal.known(from)) out.push(h("div", { class: "note warn" }, "This year's academic calendar isn't in the extension yet, so holidays aren't known."));
+    // ---- hero: the answer first, same height in every state so the calendar below never jumps
+    const K = res.overall.k;
+    const meta = h("div", { class: "meta" },
+      h("span", { class: "sub" }, plural(planSel.size, "day"), sep(), `${plural(K, "class")} skipped`),
+      h("button", { class: "btn sm", "data-key": "clear", disabled: !planSel.size, onclick: clear }, "Clear selection"));
+    let hero;
+    if (past && bud) {
+      const tn = tone(bud.overall.pct, linePct);
+      hero = h("div", { class: `hero plan w-${tn}` },
+        h("div", { class: "v", style: `color:var(--${tn})` }, `${bud.overall.pct.toFixed(1)}%`),
+        h("p", {}, `Your attendance counted for ${examName} up to `, h("b", {}, dayLabel(end)), ", against the ", h("b", {}, `${linePct}%`), " needed."));
+    } else if (planSel.size) {
+      const after = res.overall.after, gap = Math.abs(after - linePct).toFixed(1);
+      const failing = res.rows.filter((r) => !r.safe).length;
+      const names = [...planSel.keys()].sort().map((k) => dayLabel(Cal.parse(k)));
+      const list = names.length > 2 ? `${names.length} days` : names.join(" and ");
+      const lead = basis !== "now" ? `, you reach ${examName} at ` : ", overall drops to ";
+      const tail = !res.overall.safe ? [lead, h("b", {}, `${after.toFixed(1)}%`), `, ${gap} points below the ${linePct}% minimum.`]
+        : failing ? [", overall holds at ", h("b", {}, `${after.toFixed(1)}%`), `, but ${plural(failing, "course")} ${failing === 1 ? "falls" : "fall"} below ${linePct}%.`]
+        : [lead, h("b", {}, `${after.toFixed(1)}%`), `, ${gap} points above the ${linePct}% minimum.`];
+      hero = h("div", { class: `hero plan ${res.safe ? "ok" : "no"}` },
+        h("div", { class: "v", style: `color:var(--${res.safe ? "good" : "bad"})` }, res.safe ? "Safe to bunk" : "Not safe", h("s", {}, ".")),
+        h("p", {}, "Skipping ", h("b", {}, list), tail), meta);
+    } else if (bud && !bud.overall.reachable) {
+      hero = h("div", { class: "hero plan w-bad" },
+        h("div", { class: "v" }, "Out of reach", h("s", {}, ".")),
+        h("p", {}, `Even if you attend every class you'd reach `, h("b", {}, `${Math.floor(bud.overall.bestCase)}%`), ` at ${examName}, short of the ${linePct}% needed.`));
+    } else if (bud) {
+      const n = bud.overall.budget;
+      hero = h("div", { class: "hero plan w-good" },
+        h("div", { class: "v" }, n ? `${n} spare` : "No spare", h("s", {}, ".")),
+        n ? h("p", {}, "You can still skip ", h("b", {}, plural(n, "class")), ` overall before ${examName} on `, h("b", {}, dayLabel(bud.end)), ".")
+          : h("p", {}, `Every class counts until ${examName} on `, h("b", {}, dayLabel(bud.end)), "."),
+        null);
+    } else {
+      hero = h("div", { class: "hero plan" },
+        h("div", { class: "v" }, "Pick a day", h("s", {}, ".")),
+        h("p", {}, "Pick days below to see what skipping them costs."));
+    }
+    out.push(hero);
 
-    // Best days to bunk
-    const best = Plan.bestDays({ eff, tt: A.tt, courses, basis: A.basis, t, from });
-    out.push(h("div", { class: "sec" }, "Best days to bunk"));
-    out.push(h("div", { class: "card" },
-      best.days.length
-        ? best.days.map((b) => h("button", {
-            class: `bestday${planSel.has(b.key) ? " on" : ""}`,
-            onclick: () => { planSel = new Map([[b.key, null]]); planOpenDay = b.key; planMonth = monthOffset(from, b.date); rerender(); },
-          },
-          h("div", { class: "row" },
-            h("b", {}, dayLabel(b.date)),
-            h("span", { class: `chip ${b.safe ? "good" : "bad"}` }, b.safe ? "safe" : "risky")),
-          h("div", { class: "sub" }, `${b.classes} class${b.classes > 1 ? "es" : ""}${b.lowest != null ? ` · lowest after: ${b.lowest.toFixed(0)}%` : ""}`),
-          b.tags.length ? h("div", { class: "tags" }, b.tags.map((x) => h("span", { class: "tagchip" }, x))) : null))
-        : h("div", { class: "sub" }, "No class days left this semester.")));
-
-    // Calendar picker
-    out.push(h("div", { class: "sec" }, "Pick days"));
-    out.push(calendarView(from, end));
-
-    // Expanded day: choose single periods
-    if (planOpenDay && planSel.has(planOpenDay)) {
-      const d = Cal.parse(planOpenDay);
-      const cls = Plan.classesOn(d, A.tt);
-      const cur = planSel.get(planOpenDay);
-      out.push(h("div", { class: "card" },
-        h("div", { class: "row" }, h("b", {}, dayLabel(d)), h("span", { class: "sub" }, "untick the classes you'll attend")),
-        cls.map((c) => h("label", { class: "period" },
-          h("input", { type: "checkbox", checked: !cur || cur.has(c.period), onchange: (e) => {
-            const set = new Set(cur ? cur : cls.map((x) => x.period));
-            e.target.checked ? set.add(c.period) : set.delete(c.period);
-            if (!set.size) { planSel.delete(planOpenDay); planOpenDay = null; }
-            else planSel.set(planOpenDay, set.size === cls.length ? null : set);
-            rerender();
-          } }),
-          h("span", {}, `${c.period.replace("Period-", "P")} · ${c.time || ""}`), h("span", { class: "sub" }, c.name)))));
+    // ---- calendar
+    if (!past) {
+      out.push(h("div", { class: "sec" }, h("span", {}, "Pick days"), h("span", { class: "sub" }, "tap as many as you like")));
+      out.push(calendarView(from, Cal.semesterEnd(from), end, linePct, riskOf));
     }
 
-    // Result
     if (planSel.size) {
-      const remaining = A.basis === "end" ? best.remaining : {};
-      const { missed, unknown } = Plan.missedFor(planSel, A.tt, courses);
-      const imp = Plan.impact(eff, missed, A.basis, remaining, t);
-      const arrow = (r) => [`${r.before.toFixed(1)}% → `, h("b", { class: r.safe ? "good" : "bad" }, `${r.after.toFixed(1)}%`)];
+      // ---- ticks: ticked = you will attend. The state stays "periods skipped" (see Plan.setAttend).
+      const days = [...planSel.keys()].sort().map((k) => {
+        const d = Cal.parse(k), cls = Plan.classesOn(d, A.tt), sk = planSel.get(k);
+        return [
+          h("div", { class: "pday" }, h("b", {}, dayLabel(d)), h("span", { class: "sub" }, `${sk ? sk.size : cls.length} of ${cls.length} skipped`)),
+          cls.map((c) => {
+            const ticked = sk ? !sk.has(c.period) : false;
+            return h("button", { class: "per", role: "checkbox", "aria-checked": String(ticked), "data-key": `per-${k}-${c.period}`, onclick: () => {
+              const next = Plan.setAttend(cls.map((x) => x.period), sk, c.period, !ticked);
+              if (next === undefined) planSel.delete(k); else planSel.set(k, next);
+              rerender();
+            } },
+              h("span", { class: `bx${ticked ? " on" : ""}` }), h("span", {}, nicePeriod(c.period)), h("span", { class: "pt" }, startTime(c.time)), h("span", { class: "sub" }, c.name));
+          }),
+        ];
+      });
+      out.push(acc({ title: "Classes you will still attend", icon: "checks", tone: "pick", sub: [`${plural(K, "class")} skipped`, sep(), "tick to attend some"], open: accOpen.has("per"), key: "acc-per",
+        ontoggle: (v) => { v ? accOpen.add("per") : accOpen.delete("per"); rerender(); } }, days));
+
+      // ---- result
+      const arrow = (r, dp, key) => {
+        const after = h("b", { style: `color:var(--${r.safe ? "good" : "bad"})` });
+        tween(after, key || `bunk-${r.key}`, r.after, (x) => `${x.toFixed(dp)}%`, { animate: A.open });
+        return [`${r.before.toFixed(dp)}% → `, after];
+      };
       out.push(h("div", { class: "sec" }, "If you bunk"));
-      out.push(h("div", { class: "card", style: `border-color:${imp.safe ? "var(--good)" : "var(--bad)"}` },
-        h("div", { class: "row" },
-          h("b", { class: imp.safe ? "good" : "bad" }, imp.safe ? "Safe to bunk" : "Not safe"),
-          h("span", { class: "sub" }, `${planSel.size} day${planSel.size > 1 ? "s" : ""} · ${imp.overall.k} class${imp.overall.k === 1 ? "" : "es"} missed`)),
-        h("div", { class: "note" }, h("b", {}, "Overall "), arrow(imp.overall)),
-        imp.rows.map((r) => h("div", { class: "course" },
-          h("div", { class: "row" },
-            h("div", { class: "name" }, h("span", { class: "code" }, r.code || r.name), h("span", { class: "sub" }, `  −${r.k} h`)),
-            h("div", { style: "text-align:right" }, arrow(r), " ",
-              r.safe ? h("span", { class: "chip good" }, "safe")
-                : h("span", { class: "chip bad" }, A.basis === "end" ? `below ${threshold}%` : `attend next ${r.recover}`))))),
-        unknown.length ? h("div", { class: "note muted" }, `Not in your attendance table: ${unknown.join(", ")}`) : null,
-        A.basis === "end" ? h("div", { class: "note muted" }, `Assumes you attend every other class until ${end ? dayLabel(end) : "the semester ends"}.`) : null,
-        h("div", { class: "actions" }, h("button", { class: "btn small", onclick: () => { planSel = new Map(); planOpenDay = null; rerender(); } }, "Clear selection"))));
+      out.push(h("div", { class: "blk" },
+        h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, arrow(res.overall, 1)))),
+        res.rows.map((r) => h("div", { class: `it2 minor${r.safe ? "" : " fail"}` }, h("div", { class: "row" },
+          nameCell(r, h("span", { class: "sub" }, r.code ? [sep(), `−${r.k}h`] : `−${r.k}h`)),
+          h("span", { class: "rr" }, h("span", {}, arrow(r, 1)), r.safe ? chip("good", "safe") : chip("bad", basis !== "now" ? `below ${linePct}%` : `attend next ${r.recover}`))))),
+        res.unknown.length ? h("div", { class: "it2 sub" }, `Not in your attendance table: ${res.unknown.join(", ")}.`) : null,
+        basis !== "now" ? h("div", { class: "it2 sub" }, `Assumes you attend every other class until ${end ? dayLabel(end) : "the semester ends"} (${examName}).`) : null));
+    }
+
+    // ---- best days to bunk (only for "After the bunk")
+    if (best) out.push(h("div", { class: "sec" }, best.days.some((b) => b.safe) || !best.days.length ? "Best days to bunk" : "Least risky days"));
+    if (best) out.push(best.days.length
+      ? h("div", { class: "blk" }, best.days.map((b) => {
+          return h("button", { class: `it2 click${planSel.has(b.key) ? " on" : ""}`, "data-key": `best-${b.key}`,
+            onclick: () => { planSel = new Map([[b.key, null]]); planMonth = monthOffset(from, b.date); rerender(); } },
+            h("div", { class: "row" }, h("b", { class: "d" }, dayLabel(b.date)), chip(b.safe ? "good" : "bad", b.safe ? "safe" : "risky")),
+            b.lowest != null ? h("div", { class: "low" }, "Lowest after ", h("b", { style: `color:var(--${b.safe ? "good" : "bad"})` }, `${b.lowest.toFixed(0)}%`)) : null,
+            h("div", { class: "sub" }, plural(b.classes, "class")),
+            b.breakDays >= 3 ? h("div", { class: "brk" }, chip("mute", `${b.breakDays}-day break`, `${b.breakDays} days off in a row if you skip this day`), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
+        }))
+      : h("div", { class: "sub" }, "No class days left this semester."));
+
+    // ---- bunk budget: what each course can still skip before the cutoff
+    if (bud) {
+      const budChip = (r) => past ? (r.pct >= linePct ? chip("good", `meets ${linePct}%`) : chip("bad", `below ${linePct}%`)) : !r.matched ? chip("mute", "not in timetable") : !r.reachable ? chip("bad", "out of reach") : r.budget === 0 ? chip("warn", "no spare") : chip("good", `can skip ${r.budget}`);
+      const left = (r) => `${plural(r.R, "class")} left until then`;
+      const o = bud.overall;
+      const rows = [
+        h("div", { class: "it2 main" }, h("div", { class: "row" },
+          h("span", {}, h("b", {}, "Overall"), past ? null : h("div", { class: "sub" }, left(o))),
+          h("span", { class: "stk" }, h("span", { class: "big", style: `color:var(--${tone(o.pct, linePct)})` }, `${o.pct.toFixed(1)}%`), budChip(o)))),
+        ...bud.rows.map((r) => !past && !r.matched
+          ? h("div", { class: "it2 minor" }, h("div", { class: "row" }, nameCell(r), budChip(r)))
+          : h("div", { class: "it2 minor" }, h("div", { class: "row" },
+              h("span", {}, h("b", { class: "nm", title: r.name }, r.name || r.code),
+                h("div", { class: "sub" }, r.code && !past ? [r.code, sep(), left(r)] : r.code || (past ? null : left(r))),
+                past || r.reachable ? null : h("div", { class: "sub" }, `Best case ${Math.floor(r.bestCase)}%`)),
+              h("span", { class: "rr" }, h("span", { class: "p", style: `color:var(--${tone(r.pct, linePct)})` }, `${r.pct.toFixed(0)}%`), budChip(r))))),
+      ];
+      if (planSel.size) {
+        out.push(acc({ title: `Before ${examName} budget`, icon: "gauge", tone: "warn", sub: o.reachable ? [`Can still skip ${o.budget} overall`, sep(), left(o).replace(" until then", "")] : "Out of reach", open: accOpen.has("budget"), key: "acc-budget",
+          ontoggle: (v) => { v ? accOpen.add("budget") : accOpen.delete("budget"); rerender(); } }, rows));
+      } else {
+        out.push(h("div", { class: "sec" }, h("span", {}, past ? `At the ${examName} cutoff` : `Before ${examName}`), h("span", { class: "sub" }, dayLabel(bud.end))));
+        out.push(h("div", { class: "blk" }, rows));
+      }
     }
     return out;
   }
 
   const monthOffset = (a, b) => (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
 
-  function calendarView(from, end) {
-    const maxOff = end ? Math.max(0, monthOffset(from, end)) : 3;
+  // navEnd = last month you can browse to (semester end); last = last day that can be picked (the basis' cutoff).
+  function calendarView(from, navEnd, last, linePct, riskOf) {
+    const maxOff = navEnd ? Math.max(0, monthOffset(from, navEnd)) : 3;
     planMonth = Math.min(Math.max(0, planMonth), maxOff);
     const first = new Date(from.getFullYear(), from.getMonth() + planMonth, 1);
     const daysIn = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
     const lead = (first.getDay() + 6) % 7; // Monday-first grid
-    const cells = [];
-    for (let i = 0; i < lead; i++) cells.push(h("span", { class: "cday empty" }));
+    const dir = calShown == null || calShown === planMonth ? "" : planMonth > calShown ? "fwd" : "back";
+    calShown = planMonth;
+    const cells = []; // { el, past }: a week of only past days is dropped from the first month (nothing there can be picked)
+    for (let i = 0; i < lead; i++) cells.push({ el: h("span", { class: "cday empty" }), past: true });
     for (let n = 1; n <= daysIn; n++) {
       const d = new Date(first.getFullYear(), first.getMonth(), n);
       const k = Cal.key(d);
       const info = Cal.dayInfo(d);
       const cls = Plan.classesOn(d, A.tt).length;
-      const usable = d >= from && (!end || d <= end) && info.classDay && cls > 0;
+      const usable = d >= from && (!last || d <= last) && info.classDay && cls > 0;
       const sel = planSel.has(k);
+      const risk = usable && !sel && riskOf(k);
       const kind = !usable ? (info.holiday ? "hol" : "off") : sel ? "sel" : "open";
-      const title = usable ? `${cls} class${cls > 1 ? "es" : ""}` : info.reason || (d < from ? "Past" : "No classes");
-      cells.push(h(usable ? "button" : "span", {
-        class: `cday ${kind}`, title, "aria-label": `${dayLabel(d)}: ${title}`, "aria-pressed": usable ? String(sel) : null,
-        onclick: usable ? () => {
-          if (sel) { planSel.delete(k); if (planOpenDay === k) planOpenDay = null; }
-          else { planSel.set(k, null); planOpenDay = k; }
-          rerender();
-        } : null,
-      }, String(n), usable ? h("i", {}, "•".repeat(Math.min(cls, 6))) : null));
+      const title = usable ? `${plural(cls, "class")}${risk ? `. Picking this would drop you below ${linePct}%` : ""}` : info.reason || (d < from ? "Past" : last && d > last ? "After the cutoff" : "No classes");
+      cells.push({ past: d < from, el: h(usable ? "button" : "span", {
+        class: `cday ${kind}${risk ? " risk" : ""}${sel && k === lastPicked ? " pop" : ""}`, style: `--i:${lead + n}`, title, "aria-label": `${dayLabel(d)}: ${title}`, "aria-pressed": usable ? String(sel) : null, "data-key": usable ? `day-${k}` : null,
+        onclick: usable ? () => { if (sel) planSel.delete(k); else { planSel.set(k, null); lastPicked = k; } rerender(); } : null,
+      }, String(n), usable ? h("i", {}, "•".repeat(Math.min(cls, 6))) : null) });
     }
-    return h("div", { class: "card" },
-      h("div", { class: "row", style: "margin-bottom:6px" },
-        h("button", { class: "x", "aria-label": "Previous month", disabled: planMonth <= 0, onclick: () => { planMonth--; rerender(); } }, "‹"),
+    const weeks = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    const shown = (planMonth === 0 ? weeks.filter((w) => w.some((c) => !c.past)) : weeks).flat().map((c) => c.el);
+    return h("div", { class: "cardcal" },
+      h("div", { class: "calh" },
+        h("button", { class: "prev", "aria-label": "Previous month", "data-key": "cal-prev", disabled: planMonth <= 0, onclick: () => { planMonth--; rerender(); } }, ico("chev")),
         h("b", {}, first.toLocaleDateString("en-IN", { month: "long", year: "numeric" })),
-        h("button", { class: "x", "aria-label": "Next month", disabled: planMonth >= maxOff, onclick: () => { planMonth++; rerender(); } }, "›")),
-      h("div", { class: "cal" }, ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((x) => h("span", { class: "chead" }, x)), cells),
-      h("div", { class: "legend", style: "margin:8px 0 0" },
-        h("span", {}, h("b", { style: "background:var(--primary)" }, ""), "selected"),
-        h("span", {}, h("b", { style: "background:rgba(244,63,94,.35)" }, ""), "holiday / no classes")));
+        h("button", { class: "next", "aria-label": "Next month", "data-key": "cal-next", disabled: planMonth >= maxOff, onclick: () => { planMonth++; rerender(); } }, ico("chev"))),
+      h("div", { class: "dow" }, ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((x) => h("div", {}, x))),
+      h("div", { class: `cal${dir ? ` enter ${dir}` : ""}` }, shown),
+      h("div", { class: "leg" },
+        h("span", {}, h("u", { class: "pk" }), "Your pick"),
+        h("span", {}, h("u", { class: "hl" }), "Holiday or no classes"),
+        h("span", {}, h("u", { class: "rk" }), `Drops you below ${linePct}%`),
+        h("span", {}, "• classes that day")));
   }
 
   async function renderAtt(state) {
     A = state;
     attOpen = A.open;
     const { snap, threshold } = A;
-    const eff = Calc.effective(snap, A.adj, A.exc);
-    const sig = JSON.stringify([eff, threshold, A.open, snap.semester, A.sortBy, A.basis, A.tt, tab, [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, planOpenDay]);
+    const eff = Calc.effective(snap, A.adj, {});
+    effMarks = Calc.effective(snap, A.adj, A.exc);
+    const sig = JSON.stringify([eff, A.exc, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, [...accOpen]]);
     if (sig === attSig && host?.isConnected) return;
     await ensureHost();
     attSig = sig;
@@ -349,42 +437,78 @@
     const op = Calc.percent(o.attended, o.scheduled);
     const lowN = eff.courses.filter((c) => c.scheduled > 0 && Calc.percent(c.attended, c.scheduled) < threshold).length;
 
-    const pill = h(
-      "button",
-      { class: `pill ${tone(op, threshold)}`, "aria-expanded": String(A.open), "aria-label": "Attendance summary", onclick: () => setOpen(!attOpen) },
-      h("span", { class: "dot" }),
-      `${op.toFixed(1)}%`,
-      lowN ? h("span", { class: "sub" }, `${lowN} low`) : null
-    );
+    // Persistent shell: the dock, drawer, tabs and pill are built once and only their contents change,
+    // so the open/close transition can play and keyboard focus survives a click.
+    if (!shell || !dock.contains(shell.drawer)) shell = buildShell();
+    const { drawer, pill, sub, body, tabs } = shell;
+    const focused = host.shadowRoot.activeElement;
+    const focusKey = focused && drawer.contains(focused) ? focusKeyOf(focused) : null;
 
-    const tabBtn = (id, label) => h("button", { class: `tab${tab === id ? " on" : ""}`, role: "tab", "aria-selected": String(tab === id), onclick: () => { tab = id; rerender(); } }, label);
-    const scroll = A.open ? dock.querySelector(".drawer")?.scrollTop || 0 : 0;
-    const drawer = h(
-      "div",
-      { class: `drawer${A.open ? " open" : ""}`, role: "dialog", "aria-label": "Attendance details" },
-      h("div", { class: "dh" },
-        h("div", {}, h("div", { class: "title" }, "Attendance"), h("div", { class: "sub" }, `${snap.semester} · minimum ${threshold}%`)),
-        h("button", { class: "x", "aria-label": "Close", onclick: () => setOpen(false) }, "✕")),
-      h("div", { class: "tabs", role: "tablist" }, tabBtn("overview", "Overview"), tabBtn("plan", "Plan a bunk")),
-      tab === "plan" ? planView(eff, threshold, t) : overviewView(eff, threshold, t),
-      h("div", { class: "tag" }, "Vibecoded UI just like this website")
-    );
+    pill.className = `pill ${tone(op, threshold)}${pill.classList.contains("clicked") ? " clicked" : ""}`;
+    pill.setAttribute("aria-expanded", String(A.open));
+    pill.replaceChildren(h("i"), `${op.toFixed(1)}%`, lowN ? h("span", { class: "sub" }, `${lowN} low`) : null);
+    sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
+    for (const [id, btn] of tabs) {
+      btn.classList.toggle("on", tab === id);
+      btn.setAttribute("aria-selected", String(tab === id));
+    }
+    drawer.classList.toggle("open", A.open);
+    body.classList.toggle("grow", growBars && A.open);
+    if (A.open) growBars = false;
+    body.replaceChildren(...[tab === "plan" ? planView(eff, threshold, t) : overviewView(eff, threshold, t)].flat(Infinity).filter((x) => x != null && x !== false)); // views return arrays
+    lastPicked = null;
+    placeThumb(shell.tabsBox, "tabs");
+    if (focusKey) restoreFocus(focusKey);
+  }
+
+  // Drawer shell, built once per mount of the attendance page.
+  let shell = null;
+  function buildShell() {
+    const pill = h("button", { class: "pill", "aria-label": "Attendance summary", "data-key": "pill", onclick: () => { setOpen(!attOpen); ping(pill); } });
+    pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
+    const sub = h("div", { class: "sub" });
+    const tabs = new Map();
+    for (const [id, label] of [["overview", "Overview"], ["plan", "Plan a bunk"]]) {
+      tabs.set(id, h("button", { role: "tab", "data-key": `tab-${id}`, onclick: () => { tab = id; growBars = true; calShown = null; rerender(); } }, label));
+    }
+    const tabsBox = h("div", { class: "pills", role: "tablist" }, ...tabs.values());
+    const body = h("div", { class: "dbody" });
+    const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Attendance details" },
+      h("div", { class: "top" },
+        h("div", {}, h("b", {}, "Attendance"), sub),
+        h("button", { class: "xb", "aria-label": "Close", "data-key": "close", onclick: () => setOpen(false) }, ico("close"))),
+      tabsBox,
+      body,
+      h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better"));
     dock.replaceChildren(drawer, pill);
-    drawer.scrollTop = scroll; // keep position while clicking around the planner
+    return { drawer, pill, sub, body, tabs, tabsBox };
+  }
+  // Views are rebuilt on every change, so remember the focused control by data-key, else by its position among the controls.
+  const FOCUSABLE = "button,select,input,summary,[tabindex]";
+  function focusKeyOf(el) {
+    if (el.dataset.key) return { key: el.dataset.key };
+    return { index: [...shell.drawer.querySelectorAll(FOCUSABLE)].indexOf(el), tag: el.tagName };
+  }
+  function restoreFocus(k) {
+    const el = k.key ? shell.drawer.querySelector(`[data-key="${k.key}"]`) : [...shell.drawer.querySelectorAll(FOCUSABLE)][k.index];
+    if (el && (k.key || el.tagName === k.tag)) el.focus({ preventScroll: true });
   }
 
   async function tickAtt() {
     const snap = parseCourses();
     if (!snap) return;
-    const d = await store.get({ threshold: 75, snapshots: {}, adjust: {}, excused: {}, panelOpen: false, sortBy: "portal", timetable: null, bunkBasis: "now" });
+    const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, sortBy: "portal", timetable: null, bunkBasis: "now", eseTarget: undefined });
+    const prev = d.snapshots[snap.semester];
+    const same = prev && JSON.stringify([prev.overall, prev.courses, prev.hasCc]) === JSON.stringify([snap.overall, snap.courses, snap.hasCc]);
+    if (same && Date.now() - prev.syncedAt < 60000) snap.syncedAt = prev.syncedAt; // unchanged: don't rewrite storage on every tick
     d.snapshots[snap.semester] = snap;
     const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
     const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
     const latest = Object.keys(d.snapshots).sort((a, b) => rank(b) - rank(a))[0];
-    await store.set({ snapshots: d.snapshots, latest });
+    if (!same || snap.syncedAt !== prev.syncedAt || d.latest !== latest) await store.set({ snapshots: d.snapshots, latest });
     renderAtt({
       snap, threshold: d.threshold, adj: d.adjust[snap.semester], exc: d.excused[snap.semester],
-      open: d.panelOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis,
+      open: attOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis, eseTarget: d.eseTarget,
     });
   }
 
@@ -432,20 +556,20 @@
     await ensureHost();
     ttSig = sig;
     dock.replaceChildren(h("div", { class: "panel" },
-      h("div", { class: "title good" }, "✓ Timetable saved for planning"),
+      h("div", { class: "h3 good" }, "✓ Timetable saved for planning"),
       h("div", { class: "sub" }, `${count} classes a week. Open Attendance → Plan a bunk to use it.`),
-      unknown.length ? h("div", { class: "note warn" }, `Not in your attendance table: ${unknown.join(", ")}`) : null,
-      h("div", { class: "actions" }, h("button", { class: "btn solid small", onclick: () => location.assign("/main/attendence") }, "Plan a bunk"))));
+      unknown.length ? h("div", { class: "warnbox" }, h("div", { class: "sub" }, `Not in your attendance table: ${unknown.join(", ")}`)) : null,
+      h("button", { class: "btn solid cta", onclick: () => location.assign("/main/attendence") }, "Plan a bunk", ico("right"))));
   }
 
   // ---------------------------------------------------------------- absent details page
   // Each absent hour gets one of four marks. Only the last three change anything:
   //   later = counted as attended now (the portal will be updated), cc / med = overall claims only.
   const CHOICES = [
-    { s: "abs", letter: "A", cls: "a", color: "var(--c-abs)", label: "Absent", tip: "Stays absent" },
-    { s: "cc", letter: "C", cls: "c", color: "var(--c-cc)", label: "Co-curricular", tip: "Co-curricular claim (added to overall at semester end)" },
-    { s: "med", letter: "M", cls: "m", color: "var(--c-med)", label: "Medical", tip: "Medical leave (only considered when the aggregate is 74.5-84.49%)" },
-    { s: "later", letter: "L", cls: "l", color: "var(--c-later)", label: "Later", tip: "Was present: the portal will be updated, count as attended now" },
+    { s: "abs", letter: "A", cls: "a", color: "var(--bad)", label: "Absent", tip: "Stays absent" },
+    { s: "cc", letter: "C", cls: "c", color: "var(--gold)", label: "Co-curricular", tip: "Co-curricular claim (added to overall at semester end)" },
+    { s: "med", letter: "M", cls: "m", color: "var(--blue)", label: "Medical", tip: "Medical leave (only considered when the aggregate is 74.5-84.49%)" },
+    { s: "later", letter: "L", cls: "l", color: "var(--good)", label: "Later", tip: "Was present: the portal will be updated, count as attended now" },
   ];
   let absSig = "";
   let sel = new Map(); // row key -> "abs" | "cc" | "med" | "later"
@@ -462,7 +586,8 @@
         const hrs = parseFloat(/(\d+(?:\.\d+)?)/.exec(status)?.[1] ?? "1") || 1;
         // What the portal already says: "1 Hr Medical Leave", a co-curricular status, or plain "Absent".
         const portal = /medical/i.test(status) ? "med" : /co-?\s*curricular|on\s*duty/i.test(status) ? "cc" : "abs";
-        return { k: `${date}|${period}`, date, period, type: tds[2].textContent.trim(), h: hrs, portal };
+        const day = tds[0].querySelector("span")?.textContent.trim() || ""; // the weekday sits in its own element
+        return { k: `${date}|${period}`, date, day, period, type: tds[2].textContent.trim(), h: hrs, portal };
       })
       .filter(Boolean);
   }
@@ -470,11 +595,12 @@
   const sigOf = (key, rows, saved) =>
     [key, ...rows.map((r) => r.k + r.portal), "|", ...saved.map((r) => `${r.k}:${r.s}:${r.gone ? 1 : 0}`)].join(",");
 
-  async function tickAbs() {
+  // forced = the course picked in the filter on /main/absence; without it the course is the one whose View Details was clicked.
+  async function tickAbs(forced) {
     const rows = parseAbsentRows();
     if (!rows.length) return;
     const d = await store.get({ lastCourse: null, snapshots: {}, excused: {}, adjust: {} });
-    const ctx = d.lastCourse;
+    const ctx = forced || d.lastCourse;
     await ensureHost();
 
     if (!ctx) {
@@ -484,9 +610,10 @@
         h(
           "div",
           { class: "panel" },
-          h("div", { class: "title" }, "Which course is this?"),
+          h("div", { class: "h3" }, "Which course is this?"),
           h("p", { class: "sub" }, 'This page doesn\'t say. Go back, switch the course list to table view and open a course with its "View Details" button.'),
-          h("button", { class: "btn solid", onclick: () => history.back() }, "Back to attendance")
+          h("button", { class: "btn solid cta", onclick: () => history.back() }, "Back to attendance"),
+          h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")
         )
       );
       return;
@@ -545,7 +672,7 @@
 
     // ---- UI
     const segs = new Map(); // row key -> its 4 buttons
-    const preview = h("div", { class: "preview" });
+    const preview = h("div", { class: "blk preview" });
     const actions = h("div", { class: "actions" });
     const toastBox = h("div", {});
     let toastTimer;
@@ -565,10 +692,10 @@
       const base = Calc.effective(snap, {}, {});
       const now = Calc.effective(snap, d.adjust[ctx.semester], exc2);
       const cb = base.courses.find((c) => c.key === ctx.key), cn = now.courses.find((c) => c.key === ctx.key);
-      const p = (a, s) => Calc.percent(a, s).toFixed(0);
+      const p = (a, s) => Calc.percent(a, s).toFixed(1);
       preview.replaceChildren(
-        h("div", {}, h("b", {}, "This course "), `${p(cb.attended, cb.scheduled)}% → `, h("b", { class: "good" }, `${p(cn.attended, cn.scheduled)}%`)),
-        h("div", {}, h("b", {}, "Overall "), `${p(base.overall.attended, base.overall.scheduled)}% → `, h("b", { class: "good" }, `${p(now.overall.attended, now.overall.scheduled)}%`))
+        h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, `${p(base.overall.attended, base.overall.scheduled)}% → `, h("b", { class: "good" }, `${p(now.overall.attended, now.overall.scheduled)}%`)))),
+        h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "This course")), h("span", {}, `${p(cb.attended, cb.scheduled)}% → `, h("b", { class: "good" }, `${p(cn.attended, cn.scheduled)}%`))))
       );
     }
 
@@ -593,28 +720,30 @@
       if (confirming) {
         actions.replaceChildren(
           h("span", { class: "bad" }, "Reset every hour to absent?"),
-          h("button", { class: "btn danger small", onclick: () => { drawActions(false); change(free.map((r) => r.k), "abs", "All hours reset to absent."); } }, "Yes, reset"),
-          h("button", { class: "btn small", onclick: () => drawActions(false) }, "Cancel")
+          h("button", { class: "btn danger sm", onclick: () => { drawActions(false); change(free.map((r) => r.k), "abs", "All hours reset to absent."); } }, "Yes, reset"),
+          h("button", { class: "btn sm", onclick: () => drawActions(false) }, "Cancel")
         );
       } else {
         actions.replaceChildren(
-          h("button", { class: "btn small", onclick: () => change(free.map((r) => r.k), "later", "All hours marked Later.") }, "Mark all later"),
-          h("button", { class: "btn danger small", onclick: () => drawActions(true) }, "Reset all")
+          h("button", { class: "btn sm", onclick: () => change(free.map((r) => r.k), "later", "All hours marked Later.") }, "Mark all later"),
+          h("button", { class: "btn danger sm", onclick: () => drawActions(true) }, "Reset all")
         );
       }
     }
 
     const hourEls = rows.map((r) => {
-      const left = h("div", {}, h("div", { class: "when" }, `${r.date} · ${r.period}`), h("div", { class: "sub" }, `${r.type} · ${fmt(r.h)} h`));
-      if (r.portal !== "abs") {
-        const c = CHOICES.find((x) => x.s === r.portal);
-        return h("div", { class: "hour" }, h("div", { class: "row" }, left, h("div", { class: "locked", title: "The portal already shows this" }, "🔒", h("span", { class: "chip", style: `color:${c.color}` }, `${c.label} (portal)`))));
+      const when = `${niceDate(`${r.date} ${r.day}`)}, ${nicePeriod(r.period)}`;
+      const left = (locked) => h("span", {}, h("b", {}, when), h("div", { class: "sub wrap" }, r.type, sep(), `${fmt(r.h)}h`, locked ? [sep(), ico("lock", "ic lk"), " Set by portal"] : null));
+      if (r.portal !== "abs") { // the portal already labelled it: same control, its mark lit, the rest disabled
+        return h("div", { class: "it2" }, h("div", { class: "row" }, left(true),
+          h("span", { class: "seg lockd", role: "group", title: "The portal already shows this", "aria-label": `${when}: set by the portal` },
+            CHOICES.map((c) => h("button", { class: `${c.cls}${c.s === r.portal ? " on" : ""}`, disabled: true, title: c.tip, "aria-label": c.label }, c.letter)))));
       }
       const btns = CHOICES.map((c) =>
-        h("button", { class: `${c.cls}`, "data-s": c.s, title: c.tip, "aria-label": `${c.label}: ${r.date} ${r.period}`, onclick: () => { if (sel.get(r.k) !== c.s) change([r.k], c.s, `${r.date} ${r.period} → ${c.label}.`); } }, c.letter)
+        h("button", { class: `${c.cls}`, "data-s": c.s, title: c.tip, "aria-label": `${c.label}: ${when}`, onclick: () => { if (sel.get(r.k) !== c.s) change([r.k], c.s, `${when} → ${c.label}.`); } }, c.letter)
       );
       segs.set(r.k, btns);
-      return h("div", { class: "hour" }, h("div", { class: "row" }, left, h("div", { class: "seg", role: "group", "aria-label": `Mark ${r.date} ${r.period}` }, btns)));
+      return h("div", { class: "it2" }, h("div", { class: "row" }, left(false), h("span", { class: "seg", role: "group", "aria-label": `Mark ${when}` }, btns)));
     });
 
     // Hours you marked that the portal has since updated: confirm they are really present now.
@@ -623,15 +752,15 @@
       ? h(
           "div",
           { class: "updated" },
-          h("b", { style: "color:var(--c-later)" }, "Updated on the portal"),
+          h("b", { class: "good" }, "Updated on the portal"),
           h("div", { class: "sub" }, "No longer listed as absent. Confirm they are present now."),
           gone.map((r) => {
             const [date, period] = r.k.split("|");
             return h(
               "div",
-              { class: "row", style: "margin-top:6px" },
-              h("span", {}, `${date} · ${period} (${fmt(r.h)} h)`),
-              h("button", { class: "btn small", onclick: async () => {
+              { class: "row", style: "margin-top:12px" },
+              h("span", {}, `${niceDate(date)}, ${nicePeriod(period)} (${fmt(r.h)}h)`),
+              h("button", { class: "btn sm", onclick: async () => {
                 const cur = await store.get({ excused: {}, snapshots: {} });
                 const e = cur.excused[ctx.semester]?.[ctx.key];
                 if (!e) return;
@@ -653,24 +782,85 @@
       h(
         "div",
         { class: "panel" },
-        h("div", { class: "title" }, ctx.name || ctx.key),
+        h("div", { class: "h3" }, ctx.name || ctx.key),
         h("div", { class: "sub" }, `${rows.length} hour(s) listed as absent or leave. Changes save as you click.`),
-        h("div", { class: "legend", style: "margin-top:8px" }, CHOICES.map((c) => h("span", { title: c.tip }, h("b", { style: `background:${c.color}` }, c.letter), c.label))),
-        hourEls,
+        h("div", { class: "lg" }, CHOICES.map((c) => h("span", { title: c.tip }, h("b", { style: `background:${c.color}` }, c.letter), c.label))),
+        h("div", { class: "blk" }, hourEls),
         goneBox,
         preview,
         actions,
-        toastBox
+        toastBox,
+        h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")
       )
     );
     paint();
   }
 
+  // The all-courses list (/main/absence): save its rows for the toolbar popup's summary and show just a pill.
+  // Marking happens on the per-course page, because the marks are stored per course.
+  function parseAllAbsences() {
+    return [...document.querySelectorAll("main table tbody tr")].map((tr) => {
+      const tds = tr.querySelectorAll("td");
+      if (tds.length < 5) return null;
+      const txt = (td, sel) => td.querySelector(sel)?.textContent.trim() || "";
+      const status = tds[4].textContent;
+      const hrs = parseFloat(/(\d+(?:\.\d+)?)/.exec(status)?.[1] ?? "1") || 1;
+      const kind = /medical/i.test(status) ? "med" : /co-?\s*curricular|on\s*duty/i.test(status) ? "cc" : "abs";
+      return { date: txt(tds[0], "p"), day: txt(tds[0], "span"), period: txt(tds[1], "p"), time: txt(tds[1], "span"), code: txt(tds[2], "p"), name: txt(tds[2], "span"), type: tds[3].textContent.trim(), kind, h: hrs };
+    }).filter((r) => r && r.date && r.period);
+  }
+  let absOpen = false, absShell = null;
+  function setAbsOpen(v) {
+    absOpen = v;
+    if (absShell) { absShell.drawer.classList.toggle("open", v); absShell.pill.setAttribute("aria-expanded", String(v)); }
+  }
+  async function tickAbsAll() {
+    // A single course picked in the filter ("CSEAM633 (4)"): the table is then the same 4-column layout as Absent Details, so mark it there too.
+    const code = /^([^\s(]+)\s*\(\d+\)/.exec(document.querySelector('[role="combobox"]')?.textContent.trim() || "")?.[1];
+    if (code && code.toLowerCase() !== "all") {
+      const d = await store.get({ latest: null, snapshots: {} });
+      const c = d.snapshots[d.latest]?.courses.find((x) => (x.code || x.name) === code);
+      if (c) return tickAbs({ semester: d.latest, key: code, name: c.name });
+    }
+    const rows = parseAllAbsences();
+    if (!rows.length) return;
+    const sig = JSON.stringify(rows);
+    if (absSig === sig && host?.isConnected && absShell && dock.contains(absShell.drawer)) return;
+    absSig = sig;
+    const allCourses = /^all courses/i.test(document.querySelector('[role="combobox"]')?.textContent.trim() || "");
+    if (allCourses) { // a single-course filter would overwrite the full list with a part of it
+      const d = await store.get({ latest: null });
+      await store.set({ absentList: { sem: d.latest, at: Date.now(), rows } });
+    }
+    await ensureHost();
+    if (!absShell || !dock.contains(absShell.drawer)) {
+      const pill = h("button", { class: "pill", "aria-label": "Absent hours summary", "aria-expanded": "false", onclick: () => { setAbsOpen(!absOpen); ping(pill); } });
+      pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
+      const sub = h("div", { class: "sub" });
+      const body = h("div", { class: "blk" });
+      const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Absent hours" },
+        h("div", { class: "top" }, h("div", {}, h("b", {}, "Absent hours"), sub), h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close"))),
+        body, h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better"));
+      dock.replaceChildren(drawer, pill);
+      absShell = { pill, sub, body, drawer };
+    }
+    absShell.pill.replaceChildren(h("i", { class: "bad-dot" }), `${fmt(hrsOf(rows, "abs"))}h absent`,
+      hrsOf(rows, "cc") || hrsOf(rows, "med") ? h("span", { class: "sub" }, [hrsOf(rows, "cc") ? `${fmt(hrsOf(rows, "cc"))}h co-curricular` : null, hrsOf(rows, "med") ? `${fmt(hrsOf(rows, "med"))}h medical` : null].filter(Boolean).join(", ")) : null);
+    absShell.sub.replaceChildren(...absentSummary(rows).flat(Infinity).filter(Boolean));
+    absShell.body.replaceChildren(...absentDays(rows).flat(Infinity));
+    setAbsOpen(absOpen);
+  }
+
   // ---------------------------------------------------------------- driver
   let timer, lastRoute = null;
   function tick() {
+    if (!alive()) { expire(); return; }
     const r = route();
-    if (r !== lastRoute) { dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; lastRoute = r; } // page changed: clear the old UI
+    syncGutter();
+    if (r !== lastRoute) { // page changed: clear the old UI, and a drawer left open on the last page shrinks back to its pill
+      if (lastRoute !== null) { absOpen = false; attOpen = false; absShell = null; shell = null; }
+      dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; lastRoute = r;
+    }
     if (!r) {
       host?.remove();
       host = null;
@@ -678,12 +868,26 @@
     }
     if (r === "att") tickAtt();
     else if (r === "abs") tickAbs();
+    else if (r === "absall") tickAbsAll();
     else tickTt();
   }
-  new MutationObserver((muts) => {
+  // React quickly to the first change (the portal's table appearing), then at most once per 600ms while it keeps mutating.
+  let lastTick = 0;
+  const mo = new MutationObserver((muts) => {
     if (muts.every((mu) => mu.target === host || host?.contains(mu.target))) return; // ignore our own DOM changes
+    if (timer) return;
+    timer = setTimeout(() => { timer = 0; lastTick = Date.now(); tick(); }, Math.max(30, lastTick + 600 - Date.now()));
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+  // The extension was reloaded under this tab: say so once and stop, instead of throwing on every page change.
+  function expire() {
+    mo.disconnect();
     clearTimeout(timer);
-    timer = setTimeout(tick, 600);
-  }).observe(document.body, { childList: true, subtree: true });
+    if (!dock?.isConnected) { host?.remove(); return; }
+    dock.replaceChildren(h("div", { class: "panel" },
+      h("div", { class: "h3" }, "leavemealone was updated"),
+      h("p", { class: "sub" }, "Reload this page to keep using it."),
+      h("button", { class: "btn solid cta", onclick: () => location.reload() }, "Reload page")));
+  }
   tick();
 })();

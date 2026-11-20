@@ -1,16 +1,19 @@
 // Daily check against the last snapshot saved by the content script.
 // It cannot fetch from the portal itself (login required).
+// Scripts are imported up front: importScripts is only reliable while the worker starts.
+importScripts("calc.js", "calendar.js", "plan.js");
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create("daily-check", { periodInMinutes: 24 * 60, delayInMinutes: 1 });
 });
 
 chrome.alarms.onAlarm.addListener((a) => {
   if (a.name !== "daily-check") return;
-  importScripts("calc.js");
-  chrome.storage.local.get({ threshold: 75, snapshots: {}, latest: null, adjust: {}, excused: {}, alerts: true }, (d) => {
+  chrome.storage.local.get({ threshold: 75, snapshots: {}, latest: null, adjust: {}, excused: {}, alerts: true, timetable: null }, (d) => {
     if (d.alerts === false) return; // turned off in the popup settings
     const snap = d.snapshots[d.latest];
-    if (snap) snap.courses = Calc.effective(snap, d.adjust[d.latest], d.excused[d.latest]).courses; // include adjustments
+    const eff = snap ? Calc.effective(snap, d.adjust[d.latest], {}) : null; // the portal's numbers plus typed adjustments; reclassified hours are not counted
+    if (snap) snap.courses = eff.courses;
     let title = "Attendance check";
     let message;
     if (!snap) {
@@ -23,11 +26,21 @@ chrome.alarms.onAlarm.addListener((a) => {
         message = low.map((c) => `${c.code} ${((c.attended / c.scheduled) * 100).toFixed(0)}%`).join(", ");
       } else if (ageDays > 3) {
         message = `Data is ${Math.floor(ageDays)} days old. Open the CUE attendance page to refresh.`;
-      } else return;
+      }
+      // MSE needs 75%: warn about courses that can't get there or have no spare classes left.
+      const n = new Date();
+      const risks = d.timetable ? Plan.mseRisks({ eff, tt: d.timetable, from: Cal.addDays(new Date(n.getFullYear(), n.getMonth(), n.getDate()), 1) }) : [];
+      if (risks.length) {
+        const names = (st) => risks.filter((r) => r.state === st).map((r) => r.code || r.name).join(", ");
+        const parts = [names("out") && `out of reach: ${names("out")}`, names("zero") && `no spare classes: ${names("zero")}`].filter(Boolean);
+        if (message) message += ` · MSE: ${parts.join(" · ")}`;
+        else { title = "MSE attendance risk"; message = parts.join(" · "); }
+      }
+      if (!message) return;
     }
     chrome.notifications.create({
       type: "basic",
-      iconUrl: "icon.png",
+      iconUrl: "icons/icon-128.png",
       title,
       message,
     });
