@@ -233,8 +233,8 @@
       h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(mo.attended)} / ${mo.scheduled}h`)),
       abar,
       h("div", { class: "alegend" },
-        h("span", {}, h("i", { style: `--c:var(--${tn})` }), "Portal ", h("b", {}, `${pp.toFixed(1)}%`), ` (${fmt(po.attended)}h)`),
-        h("span", {}, h("i", { style: "--c:var(--gold)" }), "You added ", h("b", {}, `${added > 0 ? "+" : ""}${fmt(added)}h`), " ", deltaChip(mp - pp))));
+        h("span", {}, h("i", { style: `--c:var(--${tn})` }), `Portal ${pp.toFixed(1)}%`),
+        h("span", {}, h("i", { style: "--c:var(--gold)" }), `You added ${added > 0 ? "+" : ""}${fmt(added)}h `, deltaChip(mp - pp))));
 
     // 3. Where the extra hours come from: day by day like the absent list, one row per hour with what you did to it.
     const items = [];
@@ -284,17 +284,18 @@
     });
     const note = same > 0 ? h("p", { class: "sub" }, `${plural(same, rows.length ? "other course" : "course")} ${same === 1 ? "matches" : "match"} the portal.`) : null;
 
+    const notes = hasSrc ? h("div", { class: "notes" },
+      items.some((x) => x.kind === "later") ? h("p", { class: "sub" }, "Later: the portal hasn't updated that hour yet.") : null,
+      items.some((x) => x.kind === "later") ? h("p", { class: "sub" }, "It counts as present here.") : null,
+      items.some((x) => x.kind === "cc" || x.kind === "med" || x.kind === "tcc") ? h("p", { class: "sub" }, "Co-curricular and medical hours count in the overall only.") : null,
+      items.some((x) => x.kind === "cc" || x.kind === "med" || x.kind === "tcc") ? h("p", { class: "sub" }, "They never change a course's percentage.") : null) : null;
+    // Order = importance: the number, then the courses it changed, then the detail behind it.
     return [hero,
+      rows.length ? sc("Courses it changed") : null,
+      rows.length ? h("div", { class: "blk" }, list) : null,
       hasSrc ? acc({ title: "Where the extra hours come from", sub: [`+${fmt(extra)}h added`, sep(), (dayList.length ? plural(dayList.length, "day") : "typed in")], open: accOpen.has("extra"), key: "acc-extra",
         ontoggle: (v) => { v ? accOpen.add("extra") : accOpen.delete("extra"); rerender(); } },
-        srcList, h("div", { class: "pday tot" }, h("b", {}, "Added to attended"), h("b", {}, `+${fmt(extra)}h`))) : null,
-      hasSrc ? h("div", { class: "notes" },
-        items.some((x) => x.kind === "later") ? h("p", { class: "sub" }, "Later: the portal hasn't updated that hour yet.") : null,
-        items.some((x) => x.kind === "later") ? h("p", { class: "sub" }, "It counts as present here.") : null,
-        items.some((x) => x.kind === "cc" || x.kind === "med" || x.kind === "tcc") ? h("p", { class: "sub" }, "Co-curricular and medical hours count in the overall only.") : null,
-        items.some((x) => x.kind === "cc" || x.kind === "med" || x.kind === "tcc") ? h("p", { class: "sub" }, "They never change a course's percentage.") : null) : null,
-      rows.length ? sc("Course by course") : null,
-      rows.length ? h("div", { class: "blk" }, list) : null,
+        srcList, h("div", { class: "pday tot" }, h("b", {}, "Added to attended"), h("b", {}, `+${fmt(extra)}h`)), notes) : null,
       note];
   }
 
