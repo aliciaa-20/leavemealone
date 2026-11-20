@@ -451,3 +451,14 @@ body.cue .hero .v { font-size: 36px; }
 .btn.sm[aria-pressed="true"] { background: var(--card2); border-color: var(--pick); }
 .arow.mk { grid-template-columns: 24px 1fr auto; }
 .arow.mk .pt { display: none; }
+/* Skip card, tightened: one clear title, aligned chips, even row rhythm, a divided summary. */
+.thead { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s3); margin-bottom: var(--s2); }
+.today > .thead + p.sub { margin-top: 0; }
+.trow { padding: var(--s3) 0; }
+.trow + .trow { border-top: 1px solid var(--line); }
+.trow .chip { min-width: 88px; text-align: center; }
+.today > p.sub { margin: var(--s2) 0 0; padding-top: var(--s3); border-top: 1px solid var(--line); }
+.today .tres { margin-top: var(--s1); }
+.tact { margin-top: var(--s4); }
+.trow .ac small { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.trow .chip { min-width: 80px; }

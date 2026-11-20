@@ -169,7 +169,7 @@
 
   // "Skip today?": the next class day's classes, which of them you can skip, and what ticking some would cost.
   function todayCard(eff, threshold, t) {
-    if (!A.tt) return h("div", { class: "blk today" }, h("div", { class: "h3" }, "Skip today?"), h("p", { class: "sub" }, "Open your timetable once and this will tell you which classes you can skip."));
+    if (!A.tt) return h("div", { class: "blk today" }, h("div", { class: "thead" }, h("b", { class: "h3" }, "Skip today?")), h("p", { class: "sub" }, "Open your timetable once and this will tell you which classes you can skip."));
     const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes(), t0 = today0();
     let date = Plan.upcomingFrom(A.tt, now), cls = [];
     for (let i = 0; i < 30; i++, date = Cal.addDays(date, 1)) {
@@ -200,7 +200,7 @@
     }
     const canPlan = +date > +t0;
     return h("div", { class: "blk today" },
-      h("div", { class: "pday" }, h("b", {}, `${when}: ${plural(cls.length, "class")}`), h("span", { class: "sub" }, dayLabel(date))),
+      h("div", { class: "thead" }, h("b", { class: "h3" }, when), h("span", { class: "sub" }, `${plural(cls.length, "class")}, ${dayLabel(date)}`)),
       cls.map((x) => {
         const c = courseOf(x), ok = okAlone(x), on = todayPick.has(x.period);
         return h("button", { class: `trow${on ? " on" : ""}`, role: "checkbox", "aria-checked": String(on), "data-key": `today-${x.period}`, onclick: () => flip(x.period) },
