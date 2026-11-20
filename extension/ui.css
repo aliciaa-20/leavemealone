@@ -274,9 +274,9 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 
 /* ---- Absent Details: per-hour A/C/M/L control ---- */
 .lg { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--mute); font-size: var(--t12); margin: var(--s2) 0 var(--s3); }
-.lg b { display: inline-block; width: 16px; height: 16px; line-height: 16px; text-align: center; border-radius: var(--r-tick); margin-right: 6px; font-size: 10px; color: var(--on-light); }
+.lg b { display: inline-block; width: 16px; height: 16px; line-height: 16px; text-align: center; border-radius: var(--r-tick); margin-right: 6px; font-size: 11px; color: var(--on-light); }
 .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: var(--r-ctl); }
-.seg button { width: 32px; height: 26px; border: 0; border-radius: var(--r-chip); background: transparent; color: var(--mute); font: 600 var(--t12) var(--font-body); transition: background-color 120ms var(--ease), color 120ms var(--ease); }
+.seg button { width: 32px; height: 28px; border: 0; border-radius: var(--r-chip); background: transparent; color: var(--mute); font: 600 var(--t12) var(--font-body); transition: background-color 120ms var(--ease), color 120ms var(--ease); }
 .seg button:hover:not(:disabled):not(.on) { background: var(--card2); color: var(--ink); }
 .seg .a.on { background: var(--bad); color: var(--on-bad); }
 .seg .c.on { background: var(--gold); color: var(--ongold); }

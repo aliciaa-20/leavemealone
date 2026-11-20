@@ -961,7 +961,7 @@
         "div",
         { class: "panel" },
         h("div", { class: "h3" }, ctx.name || ctx.key),
-        h("div", { class: "sub" }, `${rows.length} hour(s) listed as absent or leave. Changes save as you click.`),
+        h("div", { class: "sub" }, `${plural(rows.length, "hour")} listed as absent or leave. Changes save as you click.`),
         h("div", { class: "lg" }, CHOICES.map((c) => h("span", { title: c.tip }, h("b", { style: `background:${c.color}` }, c.letter), c.label))),
         h("div", { class: "blk" }, hourEls),
         goneBox,
