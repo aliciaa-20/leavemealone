@@ -254,13 +254,14 @@
     // Bunk budget: classes each course can still miss before the cutoff
     const bud = Plan.budgets({ eff, tt: A.tt, basis, t: line, from });
     if (bud) {
-      const chip = (r) => !r.reachable ? h("span", { class: "chip bad" }, `best case ${Math.floor(r.bestCase)}%, out of reach`)
+      const chip = (r) => !r.matched ? h("span", { class: "chip muted" }, "not in your timetable")
+        : !r.reachable ? h("span", { class: "chip bad" }, `best case ${Math.floor(r.bestCase)}%, out of reach`)
         : r.budget === 0 ? h("span", { class: "chip warn" }, "no spare classes")
         : h("span", { class: "chip good" }, `can still miss ${r.budget}`);
       out.push(h("div", { class: "sec" }, `Before ${examName} · ${dayLabel(bud.end)}`));
       out.push(h("div", { class: "card" }, [bud.overall, ...bud.rows].map((r) => h("div", { class: "course" },
         h("div", { class: "row" },
-          h("div", { class: "name" }, h("span", { class: "code" }, r.code || r.name), h("div", { class: "sub" }, `${r.R} class${r.R === 1 ? "" : "es"} left until then`)),
+          h("div", { class: "name" }, h("span", { class: "code" }, r.code || r.name), r.matched ? h("div", { class: "sub" }, `${r.R} class${r.R === 1 ? "" : "es"} left until then`) : null),
           h("div", { style: "text-align:right" }, chip(r)))))));
     }
 

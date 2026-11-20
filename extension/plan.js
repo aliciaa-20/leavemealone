@@ -103,11 +103,15 @@ const Plan = (() => {
     const end = horizonDate(basis, from);
     if (!end) return null;
     const remaining = remainingHours(tt, eff.courses, from, end);
-    const row = (key, name, code, a, s, R) => {
+    // Courses are matched to the timetable by name; one that never matches has no known classes left,
+    // so its best case would just be today's % (a false "out of reach"). Flag it instead.
+    const km = keyMap(eff.courses), inTimetable = new Set();
+    for (const day of Object.values(tt)) for (const c of day) if (km[norm(c.name)]) inTimetable.add(km[norm(c.name)]);
+    const row = (key, name, code, a, s, R, matched = true) => {
       const bestCase = C.bestCase(a, s, R);
-      return { key, name, code, pct: C.percent(a, s), R, budget: C.budget(a, s, R, t), bestCase, reachable: bestCase >= t * 100 - 1e-9 };
+      return { key, name, code, pct: C.percent(a, s), R, budget: C.budget(a, s, R, t), bestCase, reachable: bestCase >= t * 100 - 1e-9, matched };
     };
-    const rows = eff.courses.filter((c) => c.scheduled > 0).map((c) => row(c.key, c.name, c.code, c.attended, c.scheduled, remaining[c.key] || 0));
+    const rows = eff.courses.filter((c) => c.scheduled > 0).map((c) => row(c.key, c.name, c.code, c.attended, c.scheduled, remaining[c.key] || 0, inTimetable.has(c.key)));
     const RAll = Object.values(remaining).reduce((n, x) => n + x, 0);
     const o = eff.overall;
     return { end, rows, overall: row("overall", "Overall", "", o.attended, o.scheduled, RAll) };
@@ -121,6 +125,7 @@ const Plan = (() => {
     const left = Math.round((b.end - from) / 86400000);
     const out = [];
     for (const r of b.rows) {
+      if (!r.matched) continue;
       const state = !r.reachable ? "out" : r.budget === 0 && left <= days ? "zero" : null;
       if (state) out.push({ key: r.key, code: r.code, name: r.name, state, bestCase: r.bestCase, budget: r.budget, R: r.R });
     }

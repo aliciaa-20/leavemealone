@@ -108,7 +108,8 @@ function draw() {
     if (eseEnd) lines.push(`ESE cutoff in ${inDays(eseEnd)} (${label(eseEnd)})`);
     const mb = D.timetable && mseCut ? Plan.budgets({ eff, tt: D.timetable, basis: "mse", t: Plan.MSE_MIN, from }) : null;
     if (mb) {
-      const none = mb.rows.filter((r) => r.reachable && r.budget === 0).length, out = mb.rows.filter((r) => !r.reachable).length;
+      const sure = mb.rows.filter((r) => r.matched); // courses missing from the timetable can't be judged
+      const none = sure.filter((r) => r.reachable && r.budget === 0).length, out = sure.filter((r) => !r.reachable).length;
       const parts = [none ? `${none} with no spare classes before MSE` : null, out ? `${out} out of reach for MSE` : null].filter(Boolean);
       if (parts.length) lines.push(parts.join(" · "));
     }
