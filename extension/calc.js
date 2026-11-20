@@ -21,6 +21,13 @@ const Calc = {
     if (a / s >= t || s === 0) return 0;
     return Math.ceil((t * s - a) / (1 - t) - 1e-9);
   },
+  // The attendance you actually have once your own hours and marks count (what the Overview shows): the portal's numbers plus typed hours,
+  // absent hours marked Later, and co-curricular hours, which count in their own course AND the overall. Medical counts in the overall only,
+  // and only while it is 74.5% to 84.49% (see effective). `exc` = your absent-hour marks.
+  actual(snap, adj, exc) {
+    const e = Calc.effective(snap, adj, exc);
+    return { ...e, courses: e.courses.map((c) => ({ ...c, attended: c.attended + c.ccHrs })) };
+  },
   // Percentage after skipping n more classes.
   afterSkipping(a, s, n) {
     return Calc.percent(a, s + n);

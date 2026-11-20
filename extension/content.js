@@ -118,9 +118,9 @@
   let attOpen = false;
   let attSig = "";
   let A = null;
-  let effPortal = null;          // the portal's own numbers, nothing of yours added: the "Actual" tab compares it with effMarks
-  let effMarks = null;           // same numbers WITH the hours you reclassified: only used for the review notice, everything else shows the portal's data
-  let tab = "overview";          // "overview" | "plan" | "actual"
+  let effPortal = null;          // what the portal itself shows (nothing of yours added), for the Overview's "Portal" line
+  let effMarks = null;           // your actual numbers (same object as `eff` in renderAtt), used by the review notice and the extras block
+  let tab = "overview";          // "overview" | "plan"
   let planSel = new Map();       // dayKey -> Set(periods SKIPPED) | null (whole day skipped). The view shows ticked = attending.
   let planMonth = 0;             // months after the first plannable month
   let todayPick = new Set();     // periods ticked on the "skip today?" card
@@ -224,6 +224,11 @@
     const head = low ? (Number.isFinite(need) ? `Attend the next ${plural(need, "class")} to get back to ${threshold}%.` : `${threshold}% is out of reach for this course now.`)
       : skip ? `You can skip ${plural(skip, "class")} and stay at ${threshold}% or more.` : "No spare classes: attend every one to stay at the minimum.";
     const lines = [h("p", {}, head)];
+    const pc = effPortal.courses.find((x) => x.key === c.key), pa = pc ? Calc.percent(pc.attended, pc.scheduled) : pct;
+    if (Math.abs(pct - pa) >= 0.05) {
+      const parts = [c.adj.att && `${fmt(c.adj.att)}h you typed in`, c.laterHrs && `${fmt(c.laterHrs)}h marked Later`, c.ccHrs && `${fmt(c.ccHrs)}h co-curricular`].filter(Boolean);
+      lines.unshift(h("p", { class: "sub" }, `Portal shows ${pa.toFixed(1)}%.${parts.length ? ` Counted here: ${parts.join(", ")}.` : ""}`));
+    }
     if (!A.tt) lines.push(h("p", { class: "sub" }, "Open your timetable once to see the dates."));
     else {
       const n = low ? (Number.isFinite(need) ? need : 0) : 1;
@@ -241,6 +246,8 @@
     const tn = tone(op, threshold);
     const courses = eff.courses.filter((c) => c.scheduled > 0);
 
+    const po = effPortal.overall, pp = Calc.percent(po.attended, po.scheduled);
+    const added = o.attended - po.attended;
     const heroNum = h("span", { class: "v", style: `color:var(--${tn})` });
     tween(heroNum, "hero", op, (x) => `${x.toFixed(1)}%`, { animate: A.open, countUp: true });
     const hero = h("div", { class: `hero w-${tn}` },
@@ -249,9 +256,9 @@
       h("p", { class: "sub" }, op >= threshold ? h("b", {}, `${(op - threshold).toFixed(1)} points above`) : h("b", {}, `${(threshold - op).toFixed(1)} points below`), ` your ${threshold}% minimum`),
       h("p", { class: "sub" }, op < threshold ? (Number.isFinite(Calc.mustAttend(o.attended, o.scheduled, t)) ? `Attend the next ${plural(Calc.mustAttend(o.attended, o.scheduled, t), "class")} to get back to ${threshold}%` : `${threshold}% is out of reach now: a missed class stays missed`)
         : Calc.canSkip(o.attended, o.scheduled, t) ? `You can skip ${plural(Calc.canSkip(o.attended, o.scheduled, t), "class")} and stay above it` : "No spare classes: skipping any would put you below it"),
+      Math.abs(added) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(added))}h you added. The portal shows ${pp.toFixed(1)}%.`) : null,
       o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
-      o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.")
-        : o.cocurricular ? h("p", { class: "sub" }, `Includes ${fmt(o.cocurricular)}h co-curricular claimed.`) : null);
+      o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.") : null);
 
     const review = effMarks.courses.filter((c) => c.stale || c.goneHrs);
     const reviewBox = review.length
@@ -285,100 +292,6 @@
     });
 
     return [hero, todayCard(eff, threshold, t), reviewBox, sortBar, h("div", { class: "blk" }, list)];
-  }
-
-  // ---- Actual tab: the portal as-is next to the numbers with your typed hours and marks. Only offered when they differ.
-  const SAME = (a, b) => Math.abs(a - b) < 1e-9;
-  const differs = (p, m) => !SAME(p.attended, m.attended) || !SAME(p.scheduled, m.scheduled);
-  const deltaTxt = (d) => h("span", { class: `dl ${d > 0.049 ? "good" : d < -0.049 ? "bad" : ""}` }, `${d > 0 ? "+" : ""}${d.toFixed(1)}%`);
-  const deltaChip = (d) => chip(d > 0.049 ? "good" : d < -0.049 ? "bad" : "mute", `${d > 0 ? "+" : ""}${d.toFixed(1)}%`);
-  function actualView(threshold) {
-    const po = effPortal.overall, mo = effMarks.overall;
-    const pp = Calc.percent(po.attended, po.scheduled), mp = Calc.percent(mo.attended, mo.scheduled);
-    const tn = tone(mp, threshold);
-    const sc = (txt) => h("div", { class: "sec" }, h("span", {}, txt));
-
-    // 1. The answer: your actual attendance. The bar shows the portal's part and, in gold, what you added on top.
-    const added = mo.attended - po.attended;
-    const clamp = (x) => Math.min(100, Math.max(0, x));
-    const abar = h("div", { class: "abar" },
-      h("i", { style: `width:${clamp(Math.min(pp, mp))}%;background:var(--${tn})` }),
-      mp > pp ? h("s", { style: `left:${clamp(pp)}%;width:${clamp(mp) - clamp(pp)}%` }) : null,
-      h("u", { style: `left:${threshold}%` }));
-    const heroNum = h("span", { class: "v", style: `color:var(--${tn})` });
-    tween(heroNum, "actual-hero", mp, (x) => `${x.toFixed(1)}%`, { animate: A.open, countUp: true });
-    const hero = h("div", { class: `hero w-${tn}` },
-      h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(mo.attended)} / ${mo.scheduled}h`)),
-      abar,
-      h("div", { class: "alegend" },
-        h("span", {}, h("i", { style: `--c:var(--${tn})` }), `Portal ${pp.toFixed(1)}%`),
-        h("span", {}, h("i", { style: "--c:var(--gold)" }), `You added ${added > 0 ? "+" : ""}${fmt(added)}h`, " ", deltaTxt(mp - pp))));
-
-    // 3. Where the extra hours come from: day by day like the absent list, one row per hour with what you did to it.
-    const items = [];
-    const typedCc = mo.ccIncluded ? 0 : (A.adj && A.adj.cocurricular) || 0;
-    if (typedCc) items.push({ typed: true, code: "Overall", name: "Co-curricular hours you typed in", hrs: typedCc, kind: "tcc" });
-    for (const c of effMarks.courses) {
-      const rows = (A.exc && A.exc[c.key] && A.exc[c.key].rows || []).filter((r) => !r.gone);
-      for (const kind of ["later", "cc", "med"]) {
-        const eff = kind === "later" ? c.laterHrs : kind === "cc" ? c.ccHrs : c.medHrs;
-        const mine = rows.filter((r) => (r.s === "cc" || r.s === "med" ? r.s : "later") === kind);
-        const raw = mine.reduce((n, r) => n + r.h, 0), f = raw ? eff / raw : 1; // scaled like Calc.effective: never above the portal's absent count
-        if (eff) for (const r of mine) { const [date, period] = String(r.k).split("|"); items.push({ date, period, code: c.code || c.name, name: c.code ? c.name : "", hrs: r.h * f, kind, off: kind === "med" && !mo.medicalApplies }); }
-      }
-      if (c.adj.att) items.push({ typed: true, code: c.code || c.name, name: c.code ? c.name : "", hrs: c.adj.att, kind: "tatt" });
-      if (c.adj.sch) items.push({ typed: true, code: c.code || c.name, name: c.code ? c.name : "", hrs: c.adj.sch, kind: "tsch" });
-    }
-    const MON = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
-    const dayKey = (d) => { const m = /^([A-Za-z]{3})[A-Za-z]*\s+(\d{1,2})/.exec(d || ""); return m ? ((MON[m[1].toLowerCase()] + 7) % 12) * 100 + +m[2] : -1; }; // the academic year starts in June, newest first
-    const days = new Map();
-    for (const it of items.filter((x) => !x.typed)) { if (!days.has(it.date)) days.set(it.date, []); days.get(it.date).push(it); }
-    const dayList = [...days.entries()].sort((a, b) => dayKey(b[0]) - dayKey(a[0]));
-    const CHIP = { later: ["mute", "later", "You marked it as present on the portal's way: it counts as present here"], cc: ["gold", "co-curricular"], med: ["blue", "medical"], tcc: ["gold", "co-curricular"], tatt: ["mute", "typed in"] };
-    const chipFor = (it) => it.kind === "tsch" ? chip("mute", `+${fmt(it.hrs)}h scheduled`) : it.off ? chip("mute", "not counted", "Medical hours only count between 74.5% and 85% overall") : chip(...CHIP[it.kind]);
-    const codeCell = (it) => h("span", { class: "ac", title: it.name }, h("b", {}, it.code), it.name ? h("small", {}, it.name) : null);
-    const total = (list) => fmt(list.filter((x) => x.kind !== "tsch" && !x.off).reduce((n, x) => n + x.hrs, 0));
-    const typedItems = items.filter((x) => x.typed);
-    const extra = items.filter((x) => x.kind !== "tsch" && !x.off).reduce((n, x) => n + x.hrs, 0);
-    const srcList = [
-      ...dayList.map(([d, list]) => [
-        h("div", { class: "pday" }, h("b", {}, niceDate(d)), h("span", { class: "sub" }, `${total(list)}h`)),
-        list.map((it) => h("div", { class: "arow nt" }, h("span", {}, nicePeriod(it.period)), codeCell(it), chipFor(it)))]),
-      typedItems.length ? [
-        h("div", { class: "pday" }, h("b", {}, "Typed in by you"), h("span", { class: "sub" }, `${total(typedItems)}h`)),
-        typedItems.map((it) => h("div", { class: "arow nt" }, h("span", {}), codeCell(it), chipFor(it)))] : null];
-    const hasSrc = items.length > 0;
-
-    // 4. Course by course, only the ones that differ. For reference, co-curricular hours you marked also count in their own course here.
-    const act = (m) => ({ ...m, attended: m.attended + m.ccHrs });
-    const shift = (p, m) => Math.abs(Calc.percent(m.attended, m.scheduled) - Calc.percent(p.attended, p.scheduled)) >= 0.05; // same % before and after is not a change worth a row
-    const rows = effMarks.courses.map((m, i) => [effPortal.courses[i], act(m)]).filter(([p, m]) => differs(p, m) && shift(p, m) && m.scheduled > 0);
-    const same = effMarks.courses.filter((c) => c.scheduled > 0).length - rows.length;
-    const list = rows.map(([p, m]) => {
-      const a = Calc.percent(p.attended, p.scheduled), b = Calc.percent(m.attended, m.scheduled);
-      return h("div", { class: "it2" },
-        h("div", { class: "row" },
-          h("span", {}, h("b", { class: "nm", title: m.name }, m.name || m.code), m.code ? h("div", { class: "cl" }, h("span", { class: "sub" }, m.code), m.stale ? chip("warn", "review") : null) : null),
-          h("span", { class: "ftc" },
-            h("span", { class: "ft" }, h("span", { class: "sub" }, `${a.toFixed(1)}%`), ico("right"), h("span", { class: "p", style: `color:var(--${tone(b, threshold)})` }, `${b.toFixed(1)}%`)),
-            deltaTxt(b - a))));
-    });
-    const note = same > 0 ? h("p", { class: "sub" }, `${plural(same, rows.length ? "other course" : "course")} ${same === 1 ? "matches" : "match"} the portal.`) : null;
-
-    const has = (...k) => items.some((x) => k.includes(x.kind));
-    const notes = hasSrc ? h("div", { class: "notes" },
-      has("later") ? h("p", { class: "sub" }, h("b", {}, "Later: "), "attendance will be updated later.") : null,
-      has("cc", "tcc") ? h("p", { class: "sub" }, h("b", {}, "Co-curricular: "), "counted in the overall and in each course here, for reference.") : null,
-      has("med") ? h("p", { class: "sub" }, h("b", {}, "Medical: "), "counts only if the overall is 74.5% to 84.49% at semester end.") : null) : null;
-    // Order: the number, where it comes from, then the from-to per course.
-    return [hero,
-      hasSrc ? acc({ title: "Where the extra hours come from", sub: [`+${fmt(extra)}h added`, sep(), (dayList.length ? plural(dayList.length, "day") : "typed in")], open: accOpen.has("extra"), key: "acc-extra",
-        ontoggle: (v) => { v ? accOpen.add("extra") : accOpen.delete("extra"); rerender(); } },
-        srcList, h("div", { class: "pday tot" }, h("b", {}, "Added to attended"), h("b", {}, `+${fmt(extra)}h`))) : null,
-      rows.length ? acc({ title: "Course by course", sub: [`${plural(rows.length, "course")} changed`, sep(), `${same} match the portal`], open: accOpen.has("courses"), key: "acc-courses",
-        ontoggle: (v) => { v ? accOpen.add("courses") : accOpen.delete("courses"); rerender(); } }, list) : null,
-      notes,
-      rows.length ? null : note];
   }
 
   // ---- Plan a bunk tab
@@ -598,12 +511,10 @@
     A = state;
     attOpen = A.open;
     const { snap, threshold } = A;
-    const eff = Calc.effective(snap, A.adj, {});
-    effMarks = Calc.effective(snap, A.adj, A.exc);
-    effPortal = Calc.effective(snap, {}, {});
-    const hasChanges = differs(effPortal.overall, effMarks.overall) || effMarks.courses.some((c, i) => differs(effPortal.courses[i], c));
-    if (tab === "actual" && !hasChanges) tab = "overview"; // nothing left to compare (e.g. you erased your data)
-    const sig = JSON.stringify([eff, A.exc, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, hasChanges, [...courseOpen], [...todayPick], [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, [...accOpen]]);
+    const eff = Calc.actual(snap, A.adj, A.exc); // your actual attendance: everything in the drawer uses it
+    effMarks = eff;
+    effPortal = Calc.effective(snap, {}, {}); // what the portal itself shows, for the "portal" line
+    const sig = JSON.stringify([eff, A.exc, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, [...courseOpen], [...todayPick], [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, [...accOpen]]);
     if (sig === attSig && host?.isConnected) return;
     await ensureHost();
     attSig = sig;
@@ -621,17 +532,16 @@
 
     pill.className = `pill ${tone(op, threshold)}${pill.classList.contains("clicked") ? " clicked" : ""}`;
     pill.setAttribute("aria-expanded", String(A.open));
-    pill.replaceChildren(h("i"), `${op.toFixed(1)}%`, lowN ? h("span", { class: "sub" }, `${lowN} low`) : null);
+    pill.replaceChildren(...[h("i"), `${op.toFixed(1)}%`, lowN ? h("span", { class: "sub" }, `${lowN} low`) : null].filter(Boolean)); // a null child would print "null"
     sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
     for (const [id, btn] of tabs) {
-      btn.style.display = id === "actual" && !hasChanges ? "none" : "";
       btn.classList.toggle("on", tab === id);
       btn.setAttribute("aria-selected", String(tab === id));
     }
     drawer.classList.toggle("open", A.open);
     body.classList.toggle("grow", growBars && A.open);
     if (A.open) growBars = false;
-    body.replaceChildren(...[tab === "plan" ? planView(eff, threshold, t) : tab === "actual" ? actualView(threshold) : overviewView(eff, threshold, t)].flat(Infinity).filter((x) => x != null && x !== false)); // views return arrays
+    body.replaceChildren(...[tab === "plan" ? planView(eff, threshold, t) : overviewView(eff, threshold, t)].flat(Infinity).filter((x) => x != null && x !== false)); // views return arrays
     lastPicked = null;
     placeThumb(shell.tabsBox, "tabs");
     if (focusKey) restoreFocus(focusKey);
@@ -644,7 +554,7 @@
     pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
     const sub = h("div", { class: "sub" });
     const tabs = new Map();
-    for (const [id, label] of [["overview", "Overview"], ["plan", "Plan a bunk"], ["actual", "Actual"]]) {
+    for (const [id, label] of [["overview", "Overview"], ["plan", "Plan a bunk"]]) {
       tabs.set(id, h("button", { role: "tab", "data-key": `tab-${id}`, onclick: () => { tab = id; growBars = true; calShown = null; rerender(); } }, label));
     }
     const tabsBox = h("div", { class: "pills", role: "tablist" }, ...tabs.values());
@@ -655,7 +565,7 @@
         h("button", { class: "xb", "aria-label": "Close", "data-key": "close", onclick: () => setOpen(false) }, ico("close"))),
       tabsBox,
       body,
-      h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better"));
+      h("div", { class: "tagline" }, UI.TAGLINE));
     dock.replaceChildren(drawer, pill);
     return { drawer, pill, sub, body, tabs, tabsBox };
   }
@@ -791,7 +701,7 @@
           h("div", { class: "h3" }, "Which course is this?"),
           h("p", { class: "sub" }, 'This page doesn\'t say. Go back, switch the course list to table view and open a course with its "View Details" button.'),
           h("button", { class: "btn solid cta", onclick: () => history.back() }, "Back to attendance"),
-          h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")
+          h("div", { class: "tagline" }, UI.TAGLINE)
         )
       );
       return;
@@ -962,13 +872,13 @@
         { class: "panel" },
         h("div", { class: "h3" }, ctx.name || ctx.key),
         h("div", { class: "sub" }, `${plural(rows.length, "hour")} listed as absent or leave. Changes save as you click.`),
-        h("div", { class: "lg" }, CHOICES.map((c) => h("span", { title: c.tip }, h("b", { style: `background:${c.color}` }, c.letter), c.label))),
+        legendEl(),
         h("div", { class: "blk" }, hourEls),
         goneBox,
         preview,
         actions,
         toastBox,
-        h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")
+        h("div", { class: "tagline" }, UI.TAGLINE)
       )
     );
     paint();
@@ -990,6 +900,7 @@
   let absOpen = false, absShell = null;
   let absMark = false;           // the "Mark hours" toggle of the all-courses drawer
   let absRows = [], absData = null;
+  const legendEl = () => h("div", { class: "lg" }, CHOICES.map((c) => h("span", { title: c.tip }, h("b", { style: `background:${c.color}` }, c.letter), c.label))); // A / C / M / L key, shared by both marking views
   const absKey = (r) => (r.code && r.code.toUpperCase() !== "N/A" ? r.code : r.name);
   async function refreshAbsData() {
     const d = await store.get({ latest: null, snapshots: {}, excused: {}, adjust: {} });
@@ -1022,7 +933,7 @@
       const base = Calc.effective(snap, {}, {}), now = Calc.effective(snap, absData.adjust, absData.excused);
       const bp = Calc.percent(base.overall.attended, base.overall.scheduled), np = Calc.percent(now.overall.attended, now.overall.scheduled);
       preview = h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "With your marks")), h("span", { class: "big" }, `${bp.toFixed(1)}% to `, h("b", { class: np > bp ? "good" : "" }, `${np.toFixed(1)}%`))),
-        h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one."));
+        h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one."), legendEl());
     }
     absShell.body.replaceChildren(...[preview, absentDays(absRows, opts)].flat(Infinity).filter(Boolean));
     if (fk) absShell.drawer.querySelector(`[data-key="${fk}"]`)?.focus({ preventScroll: true });
@@ -1058,7 +969,7 @@
       const markBtn = h("button", { class: "btn sm", "aria-pressed": "false", "data-key": "mark-toggle", onclick: () => { absMark = !absMark; drawAbsBody(); } }, "Mark hours");
       const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Absent hours" },
         h("div", { class: "top" }, h("div", {}, h("b", {}, "Absent hours"), sub), h("span", { class: "topa" }, markBtn, h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close")))),
-        body, h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better"));
+        body, h("div", { class: "tagline" }, UI.TAGLINE));
       dock.replaceChildren(drawer, pill);
       absShell = { pill, sub, body, drawer, markBtn };
     }
