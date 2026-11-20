@@ -446,3 +446,6 @@ body.cue .hero .v { font-size: 36px; }
 .tres p { margin: 4px 0 0; }
 .today > p.sub { margin: var(--s2) 0 0; text-wrap: pretty; }
 .tact { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
+/* All-courses absent drawer: the "Mark hours" toggle sits next to close. */
+.topa { display: flex; align-items: center; gap: var(--s2); }
+.btn.sm[aria-pressed="true"] { background: var(--card2); border-color: var(--pick); }

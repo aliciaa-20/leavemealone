@@ -149,7 +149,9 @@ const UI = (() => {
   const KIND = { abs: ["bad", "absent"], cc: ["gold", "co-curricular"], med: ["blue", "medical"] };
   const hrsOf = (rows, k) => rows.filter((r) => r.kind === k).reduce((n, r) => n + r.h, 0);
   const absentSummary = (rows) => [`${fmt(hrsOf(rows, "abs"))}h absent`, hrsOf(rows, "cc") ? [sep(), `${fmt(hrsOf(rows, "cc"))}h co-curricular`] : null, hrsOf(rows, "med") ? [sep(), `${fmt(hrsOf(rows, "med"))}h medical`] : null];
-  const absentDays = (rows) => {
+  // opts (optional) turns the plain-absent rows into A / C / M / L controls: { on, choices, selOf(r), canMark(r), pick(r, choice) }.
+  const MARKED = { later: ["mute", "later"], cc: ["gold", "co-curricular"], med: ["blue", "medical"] };
+  const absentDays = (rows, opts) => {
     const groups = [];
     for (const r of rows) { // the portal lists them newest first, so a day's rows are next to each other
       let g = groups[groups.length - 1];
@@ -158,7 +160,15 @@ const UI = (() => {
     }
     return groups.map((g) => [
       h("div", { class: "pday" }, h("b", {}, g.label), h("span", { class: "sub" }, `${fmt(g.rows.reduce((n, r) => n + r.h, 0))}h`)),
-      g.rows.map((r) => h("div", { class: "arow" }, h("span", {}, nicePeriod(r.period)), h("span", { class: "pt" }, startTime(r.time)), h("span", { class: "ac", title: r.name }, h("b", {}, r.code), r.name ? h("small", {}, r.name) : null), chip(KIND[r.kind][0], KIND[r.kind][1]))),
+      g.rows.map((r) => {
+        const sel = opts && r.kind === "abs" ? opts.selOf(r) : "abs";
+        const when = `${niceDate(`${r.date} ${r.day}`)}, ${nicePeriod(r.period)}`;
+        const cell = opts && opts.on && r.kind === "abs" && opts.canMark(r)
+          ? h("span", { class: "seg", role: "group", "aria-label": `Mark ${when}` },
+              opts.choices.map((c) => h("button", { class: `${c.cls}${sel === c.s ? " on" : ""}`, "data-key": `mk-${r.date}-${r.period}-${c.s}`, "aria-pressed": String(sel === c.s), title: c.tip, "aria-label": `${c.label}: ${when}`, onclick: () => { if (sel !== c.s) opts.pick(r, c.s); } }, c.letter)))
+          : sel !== "abs" ? chip(...MARKED[sel]) : chip(KIND[r.kind][0], KIND[r.kind][1]);
+        return h("div", { class: "arow" }, h("span", {}, nicePeriod(r.period)), h("span", { class: "pt" }, startTime(r.time)), h("span", { class: "ac", title: r.name }, h("b", {}, r.code), r.name ? h("small", {}, r.name) : null), cell);
+      }),
     ]);
   };
 

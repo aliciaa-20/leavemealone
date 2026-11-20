@@ -988,6 +988,45 @@
     }).filter((r) => r && r.date && r.period);
   }
   let absOpen = false, absShell = null;
+  let absMark = false;           // the "Mark hours" toggle of the all-courses drawer
+  let absRows = [], absData = null;
+  const absKey = (r) => (r.code && r.code.toUpperCase() !== "N/A" ? r.code : r.name);
+  async function refreshAbsData() {
+    const d = await store.get({ latest: null, snapshots: {}, excused: {}, adjust: {} });
+    absData = { sem: d.latest, snap: d.snapshots[d.latest], excused: d.excused[d.latest] || {}, adjust: d.adjust[d.latest] };
+  }
+  // Same record the per-course panel writes: excused[sem][courseKey].rows = [{ k: "date|period", h, s, gone }].
+  async function markAbs(r, choice) {
+    const d = await store.get({ latest: null, snapshots: {}, excused: {} });
+    const c = d.snapshots[d.latest]?.courses.find((x) => (x.code || x.name) === absKey(r));
+    if (!c) return;
+    const m = (d.excused[d.latest] = d.excused[d.latest] || {});
+    const k = `${r.date}|${r.period}`;
+    const rows = (m[c.code || c.name]?.rows || []).filter((x) => x.k !== k);
+    if (choice !== "abs") rows.push({ k, h: r.h, s: choice, gone: false });
+    if (rows.length) m[c.code || c.name] = { rows, baseAbsent: c.absent ?? undefined }; else delete m[c.code || c.name];
+    await store.set({ excused: d.excused });
+  }
+  function drawAbsBody() {
+    if (!absShell || !absData) return;
+    const focused = host.shadowRoot.activeElement;
+    const fk = focused && absShell.drawer.contains(focused) ? focused.dataset.key : null;
+    absShell.markBtn.setAttribute("aria-pressed", String(absMark));
+    absShell.markBtn.classList.toggle("on", absMark);
+    const snap = absData.snap;
+    const selOf = (r) => { const u = (absData.excused[absKey(r)]?.rows || []).find((x) => x.k === `${r.date}|${r.period}` && !x.gone); return u ? (u.s === "cc" || u.s === "med" ? u.s : "later") : "abs"; };
+    const opts = { on: absMark, choices: CHOICES, selOf, canMark: (r) => !!snap?.courses.find((x) => (x.code || x.name) === absKey(r)),
+      pick: async (r, choice) => { await markAbs(r, choice); await refreshAbsData(); drawAbsBody(); } };
+    let preview = null;
+    if (absMark && snap) {
+      const base = Calc.effective(snap, {}, {}), now = Calc.effective(snap, absData.adjust, absData.excused);
+      const bp = Calc.percent(base.overall.attended, base.overall.scheduled), np = Calc.percent(now.overall.attended, now.overall.scheduled);
+      preview = h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall with your marks")), h("span", { class: "big" }, `${bp.toFixed(1)}% to `, h("b", { class: np > bp ? "good" : "" }, `${np.toFixed(1)}%`))),
+        h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one."));
+    }
+    absShell.body.replaceChildren(...[preview, absentDays(absRows, opts)].flat(Infinity).filter(Boolean));
+    if (fk) absShell.drawer.querySelector(`[data-key="${fk}"]`)?.focus({ preventScroll: true });
+  }
   function setAbsOpen(v) {
     absOpen = v;
     if (absShell) { absShell.drawer.classList.toggle("open", v); absShell.pill.setAttribute("aria-expanded", String(v)); }
@@ -1016,16 +1055,19 @@
       pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
       const sub = h("div", { class: "sub" });
       const body = h("div", { class: "blk" });
+      const markBtn = h("button", { class: "btn sm", "aria-pressed": "false", "data-key": "mark-toggle", onclick: () => { absMark = !absMark; drawAbsBody(); } }, "Mark hours");
       const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Absent hours" },
-        h("div", { class: "top" }, h("div", {}, h("b", {}, "Absent hours"), sub), h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close"))),
+        h("div", { class: "top" }, h("div", {}, h("b", {}, "Absent hours"), sub), h("span", { class: "topa" }, markBtn, h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close")))),
         body, h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better"));
       dock.replaceChildren(drawer, pill);
-      absShell = { pill, sub, body, drawer };
+      absShell = { pill, sub, body, drawer, markBtn };
     }
     absShell.pill.replaceChildren(h("i", { class: "bad-dot" }), `${fmt(hrsOf(rows, "abs"))}h absent`,
       hrsOf(rows, "cc") || hrsOf(rows, "med") ? h("span", { class: "sub" }, [hrsOf(rows, "cc") ? `${fmt(hrsOf(rows, "cc"))}h co-curricular` : null, hrsOf(rows, "med") ? `${fmt(hrsOf(rows, "med"))}h medical` : null].filter(Boolean).join(", ")) : null);
     absShell.sub.replaceChildren(...absentSummary(rows).flat(Infinity).filter(Boolean));
-    absShell.body.replaceChildren(...absentDays(rows).flat(Infinity));
+    absRows = rows;
+    await refreshAbsData();
+    drawAbsBody();
     setAbsOpen(absOpen);
   }
 
