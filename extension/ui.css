@@ -442,3 +442,5 @@ body.cue .hero .v { font-size: 36px; }
 .today { padding-top: var(--s4); padding-bottom: var(--s4); }
 .cbar { display: flex; align-items: center; gap: var(--s3); }
 .cbar .bar { flex: 1; }
+.xb { flex: none; min-width: 28px; }
+.topa .btn { flex: none; white-space: nowrap; }
