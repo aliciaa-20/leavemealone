@@ -123,6 +123,8 @@
   let tab = "overview";          // "overview" | "plan" | "actual"
   let planSel = new Map();       // dayKey -> Set(periods SKIPPED) | null (whole day skipped). The view shows ticked = attending.
   let planMonth = 0;             // months after the first plannable month
+  let todayPick = new Set();     // periods ticked on the "skip today?" card
+  let todayFor = "";             // which day that selection belongs to
   const courseOpen = new Set();  // Overview rows opened to show what each course needs
   const accOpen = new Set();     // which accordions are open ("per", "budget")
   let growBars = true;           // bars grow once when the drawer opens or the tab changes, not on every click
@@ -164,6 +166,55 @@
   // A course as "NAME / code" (students know the subject, not the code). `extra` goes after the code.
   const nameCell = (c, ...extra) => h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
     c.code || extra.length ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, extra) : null);
+
+  // "Skip today?": the next class day's classes, which of them you can skip, and what ticking some would cost.
+  function todayCard(eff, threshold, t) {
+    if (!A.tt) return h("div", { class: "blk today" }, h("div", { class: "h3" }, "Skip today?"), h("p", { class: "sub" }, "Open your timetable once and this will tell you which classes you can skip."));
+    const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes(), t0 = today0();
+    let date = Plan.upcomingFrom(A.tt, now), cls = [];
+    for (let i = 0; i < 30; i++, date = Cal.addDays(date, 1)) {
+      cls = Plan.classesOn(date, A.tt).filter((x) => +date !== +t0 || !(Plan.endMinutes(x.time) <= nowMin));
+      if (cls.length) break;
+    }
+    if (!cls.length) return null;
+    const dkey = Cal.key(date);
+    if (todayFor !== dkey) { todayFor = dkey; todayPick = new Set(); }
+    const num = (x) => parseInt(/\d+/.exec(x || "")?.[0], 10) || 0;
+    cls = [...cls].sort((a, b) => num(a.period) - num(b.period));
+    const byName = new Map(eff.courses.map((c) => [c.name.trim().toUpperCase(), c]));
+    const courseOf = (x) => byName.get(x.name.trim().toUpperCase());
+    const impactOf = (list) => { const m = {}; for (const x of list) { const c = courseOf(x); if (c) m[c.key] = (m[c.key] || 0) + 1; } return Plan.impact(eff, m, "now", {}, t); };
+    const okAlone = (x) => { const c = courseOf(x); if (!c) return null; const r = impactOf([x]).rows[0]; return !r || r.safe; };
+    const picked = cls.filter((x) => todayPick.has(x.period));
+    const nOk = cls.filter((x) => okAlone(x)).length;
+    const when = +date === +t0 ? "Today" : +date === +Cal.addDays(t0, 1) ? "Tomorrow" : "Next class day";
+    const flip = (period) => { todayPick.has(period) ? todayPick.delete(period) : todayPick.add(period); rerender(); };
+
+    let result;
+    if (!picked.length) result = h("p", { class: "sub" }, nOk ? `You can skip ${nOk} of ${plural(cls.length, "class")} and stay at ${threshold}% or more. Tap classes to see what skipping them costs.` : `Skipping any of these would put a course below ${threshold}%.`);
+    else {
+      const im = impactOf(picked), bad = im.rows.filter((r) => !r.safe);
+      result = h("div", { class: "tres" },
+        h("div", { class: "row" }, h("span", {}, `Skip ${plural(picked.length, "class")}`), h("span", {}, h("span", { class: "sub" }, `${im.overall.before.toFixed(1)}% to `), h("b", { class: bad.length ? "bad" : "good" }, `${im.overall.after.toFixed(1)}%`))),
+        h("p", { class: "sub" }, bad.length ? `${bad.map((r) => `${r.code || r.name} drops to ${r.after.toFixed(0)}%`).join(", ")}: below ${threshold}%.` : `Every course stays at ${threshold}% or more.`));
+    }
+    const canPlan = +date > +t0;
+    return h("div", { class: "blk today" },
+      h("div", { class: "pday" }, h("b", {}, `${when}: ${plural(cls.length, "class")}`), h("span", { class: "sub" }, dayLabel(date))),
+      cls.map((x) => {
+        const c = courseOf(x), ok = okAlone(x), on = todayPick.has(x.period);
+        return h("button", { class: `trow${on ? " on" : ""}`, role: "checkbox", "aria-checked": String(on), "data-key": `today-${x.period}`, onclick: () => flip(x.period) },
+          h("span", {}, nicePeriod(x.period)),
+          h("span", { class: "ac", title: x.name }, h("b", {}, c ? (c.code || c.name) : x.name), c && c.code ? h("small", {}, c.name) : null),
+          ok === null ? chip("mute", "not in table") : chip(ok ? "good" : "bad", ok ? "can skip" : "attend"),
+          h("span", { class: "bx" }));
+      }),
+      result,
+      h("div", { class: "tact" },
+        nOk && picked.length < nOk ? h("button", { class: "btn sm", "data-key": "today-safe", onclick: () => { todayPick = new Set(cls.filter((x) => okAlone(x)).map((x) => x.period)); rerender(); } }, "Pick the ones I can skip") : null,
+        picked.length ? h("button", { class: "btn sm", "data-key": "today-clear", onclick: () => { todayPick = new Set(); rerender(); } }, "Clear") : null,
+        canPlan ? h("button", { class: "btn sm", "data-key": "today-plan", onclick: () => { planSel = new Map([[dkey, picked.length ? new Set(picked.map((x) => x.period)) : null]]); planMonth = monthOffset(Cal.addDays(today0(), 1), date); tab = "plan"; growBars = true; calShown = null; rerender(); } }, "Open in planner") : null));
+  }
 
   // What a course needs, in plain words, with the real dates of its next classes when the timetable is saved.
   function needView(c, pct, skip, t, threshold) {
@@ -233,7 +284,7 @@
         h("div", { class: "cdet", inert: open ? null : "" }, h("div", {}, needView(c, pct, skip, t, threshold))));
     });
 
-    return [hero, reviewBox, sortBar, h("div", { class: "blk" }, list)];
+    return [hero, todayCard(eff, threshold, t), reviewBox, sortBar, h("div", { class: "blk" }, list)];
   }
 
   // ---- Actual tab: the portal as-is next to the numbers with your typed hours and marks. Only offered when they differ.
@@ -552,7 +603,7 @@
     effPortal = Calc.effective(snap, {}, {});
     const hasChanges = differs(effPortal.overall, effMarks.overall) || effMarks.courses.some((c, i) => differs(effPortal.courses[i], c));
     if (tab === "actual" && !hasChanges) tab = "overview"; // nothing left to compare (e.g. you erased your data)
-    const sig = JSON.stringify([eff, A.exc, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, hasChanges, [...courseOpen], [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, [...accOpen]]);
+    const sig = JSON.stringify([eff, A.exc, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, hasChanges, [...courseOpen], [...todayPick], [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, [...accOpen]]);
     if (sig === attSig && host?.isConnected) return;
     await ensureHost();
     attSig = sig;
