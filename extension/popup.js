@@ -47,8 +47,9 @@ function draw() {
   }
   const thr = D.threshold, t = thr / 100;
   const adj = D.adjust[viewSem] || { cocurricular: 0, courses: {} };
-  const eff = Calc.effective(snap, adj, {}); // the portal's own numbers (plus typed adjustments) drive everything on screen
-  const effM = Calc.effective(snap, adj, D.excused[viewSem]); // the same with your reclassified hours: only the Reclassified card shows it
+  const eff = Calc.actual(snap, adj, D.excused[viewSem]); // your actual attendance (portal + typed hours + marks), the same numbers as the drawer's Overview
+  const effP = Calc.effective(snap, {}, {}); // what the portal itself shows, for the Reclassified card
+  const portalPct = Calc.percent(effP.overall.attended, effP.overall.scheduled);
   const o = eff.overall;
   const op = Calc.percent(o.attended, o.scheduled);
   const courses = eff.courses.filter((c) => c.scheduled > 0); // portal order, on purpose
@@ -77,7 +78,8 @@ function draw() {
     h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${op.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
     bar(op, thr),
     low.length ? h("p", {}, h("b", {}, plural(low.length, "course")), ` ${low.length > 1 ? "are" : "is"} below ${thr}%.`) : h("p", {}, `All courses are at or above ${thr}%.`),
-        o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
+    Math.abs(o.attended - effP.overall.attended) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(o.attended - effP.overall.attended))}h you added. The portal shows ${portalPct.toFixed(1)}%.`) : null,
+    o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
     o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.") : null,
     whatIf);
 
@@ -139,12 +141,12 @@ function draw() {
     acc({ title: "All courses", icon: "list", tone: "pick", sub: skip && wi ? "Arrows show the courses those classes belong to" : `${plural(courses.length, "course")}, including the ones above`, open: accOpen.has("all"), ontoggle: toggleAcc("all") }, courses.map((c) => courseRow(c, thr, t, true))));
 
   // ---- your marks (pending on the portal)
-  const marked = effM.courses.filter((c) => c.scheduled > 0 && (c.excusedHrs || c.goneHrs));
+  const marked = eff.courses.filter((c) => c.scheduled > 0 && (c.excusedHrs || c.goneHrs));
   const markedHrs = marked.reduce((n, c) => n + (c.excusedHrs || 0) + (c.goneHrs || 0), 0);
   const pending = marked.length
     ? acc({ title: "Reclassified absences", icon: "checks", tone: "blue", sub: [`${fmt(markedHrs)}h moved out of absent`, sep(), plural(marked.length, "course")], open: accOpen.has("marks"), ontoggle: toggleAcc("marks") },
-        h("div", { class: "sub", style: "padding: 12px 0 4px" }, "Absent hours you reclassified on the portal. Everything else here uses the portal's own numbers; this card shows what they would be with your marks.",
-          h("div", { style: "margin-top:6px" }, "Overall: ", h("b", { class: tone(Calc.percent(effM.overall.attended, effM.overall.scheduled), thr) }, `${Calc.percent(effM.overall.attended, effM.overall.scheduled).toFixed(1)}%`), ` with marks, ${op.toFixed(1)}% on the portal`)),
+        h("div", { class: "sub", style: "padding: 12px 0 4px" }, "Absent hours you reclassified on the portal. The numbers in this popup already count them.",
+          h("div", { style: "margin-top:6px" }, "Overall: ", h("b", { class: tone(op, thr) }, `${op.toFixed(1)}%`), ` with your marks, ${portalPct.toFixed(1)}% on the portal`)),
         marked.map((c) => {
           const parts = [[c.laterHrs, "later"], [c.ccHrs, "co-curricular"], [c.medHrs, "medical"]].filter(([x]) => x).map(([x, n]) => `${fmt(x)}h ${n}`);
           const key = `clear:${c.key}`;
@@ -154,11 +156,11 @@ function draw() {
                 ? h("span", {}, h("span", { class: "bad" }, "Clear marks? "), h("button", { class: "link", onclick: () => { confirming.delete(key); delete D.excused[viewSem][c.key]; save({ excused: D.excused }); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete(key); draw(); } }, "no"))
                 : h("button", { class: "link", onclick: () => { confirming.add(key); draw(); } }, "clear")
               : null),
-            parts.length ? h("div", { class: "sub" }, parts.join(", "), c.excusedHrs ? [sep(), `${pc(courses.find((x) => x.key === c.key) || c).toFixed(1)}% → `, h("b", { class: tone(pc(c), thr) }, `${pc(c).toFixed(1)}%`)] : null) : null,
+            parts.length ? h("div", { class: "sub" }, parts.join(", "), c.excusedHrs ? [sep(), `${pc(effP.courses.find((x) => x.key === c.key) || c).toFixed(1)}% → `, h("b", { class: tone(pc(c), thr) }, `${pc(c).toFixed(1)}%`)] : null) : null,
             c.goneHrs ? h("div", { class: "sub warn" }, `${fmt(c.goneHrs)}h updated on the portal: open its View Details and press Confirm present.`) : null,
             c.stale && !c.goneHrs ? h("div", { class: "sub warn" }, "The portal's numbers changed since you marked this. Check it.") : null);
         }),
-        effM.overall.goneHrs ? openBtn("Open CUE to confirm") : null)
+        eff.overall.goneHrs ? openBtn("Open CUE to confirm") : null)
     : null;
 
   // ---- absent hours day by day (saved when the all-courses absent list is opened on CUE)
