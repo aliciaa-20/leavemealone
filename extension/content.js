@@ -305,9 +305,10 @@
     const from = Cal.addDays(today0(), 1);
     // A saved "mse" basis only holds while MSE is still ahead; `line` is the fraction that counts as safe.
     const basis = Plan.resolveBasis(A.basis, from);
-    const esePct = Math.min(100, Math.max(1, A.eseTarget ?? threshold));
+    const esePct = Math.min(100, Math.max(1, A.eseTarget ?? Plan.ESE_OVERALL)); // ESE: the overall target, 85% unless you change it
     const line = Plan.thresholdFor(basis, t, esePct);
     const linePct = Math.round(line * 100);
+    const cr = Plan.criteria(basis), cLinePct = Math.round(Plan.courseLine(basis, line) * 100); // MSE: every course at the line, no overall; ESE: the overall at the line, courses at the plain minimum
     const end = Plan.horizon(basis, from);
     const examName = basis === "mse" ? "MSE" : "ESE";
     const past = basis !== "now" && !!end && end < from; // the cutoff has gone by (exam window still on): a reference, nothing left to plan
@@ -345,31 +346,35 @@
       h("button", { class: "btn sm", "data-key": "clear", disabled: !planSel.size, onclick: clear }, "Clear selection"));
     let hero;
     if (past && bud) {
-      const tn = tone(bud.overall.pct, linePct);
+      const judged = bud.rows.filter((r) => r.matched), lowest = !cr.overall && judged.length ? judged.reduce((m, r) => (r.pct < m.pct ? r : m)) : null;
+      const shown = lowest ? lowest.pct : bud.overall.pct, need = lowest ? cLinePct : linePct, tn = tone(shown, need);
       hero = h("div", { class: `hero plan w-${tn}` },
-        h("div", { class: "v", style: `color:var(--${tn})` }, `${bud.overall.pct.toFixed(1)}%`),
-        h("p", {}, `Your attendance counted for ${examName} up to `, h("b", {}, dayLabel(end)), ", against the ", h("b", {}, `${linePct}%`), " needed."));
+        h("div", { class: "v", style: `color:var(--${tn})` }, `${shown.toFixed(1)}%`),
+        h("p", {}, lowest ? `Your lowest course (${lowest.code || lowest.name}) counted for ${examName} up to ` : `Your attendance counted for ${examName} up to `, h("b", {}, dayLabel(end)), ", against the ", h("b", {}, `${need}%`), lowest ? " every course needs." : " needed."));
     } else if (planSel.size) {
       const after = res.overall.after, gap = Math.abs(after - linePct).toFixed(1);
       const failing = res.rows.filter((r) => !r.safe).length;
       const names = [...planSel.keys()].sort().map((k) => dayLabel(Cal.parse(k)));
       const list = names.length > 2 ? `${names.length} days` : names.join(" and ");
       const lead = basis !== "now" ? `, you reach ${examName} at ` : ", overall drops to ";
-      const tail = !res.overall.safe ? [lead, h("b", {}, `${after.toFixed(1)}%`), `, ${gap} points below the ${linePct}% minimum.`]
-        : failing ? [", overall holds at ", h("b", {}, `${after.toFixed(1)}%`), `, but ${plural(failing, "course")} ${failing === 1 ? "falls" : "fall"} below ${linePct}%.`]
-        : [lead, h("b", {}, `${after.toFixed(1)}%`), `, ${gap} points above the ${linePct}% minimum.`];
+      const tail = cr.overall && !res.overall.safe ? [lead, h("b", {}, `${after.toFixed(1)}%`), `, ${gap} points below the ${linePct}% ${basis === "end" ? "needed" : "minimum"}.`]
+        : cr.course && failing ? (cr.overall ? [", overall holds at ", h("b", {}, `${after.toFixed(1)}%`), `, but ${plural(failing, "course")} ${failing === 1 ? "falls" : "fall"} below ${cLinePct}%.`]
+            : [`, ${plural(failing, "course")} ${failing === 1 ? "falls" : "fall"} below ${cLinePct}% at ${examName}.`])
+        : cr.overall ? [lead, h("b", {}, `${after.toFixed(1)}%`), `, ${gap} points above the ${linePct}% ${basis === "end" ? "needed" : "minimum"}.`]
+        : [", every course stays at or above ", h("b", {}, `${cLinePct}%`), ` at ${examName}.`];
       hero = h("div", { class: `hero plan ${res.safe ? "ok" : "no"}` },
         h("div", { class: "v", style: `color:var(--${res.safe ? "good" : "bad"})` }, res.safe ? "Safe to bunk" : "Not safe", h("s", {}, ".")),
         h("p", {}, "Skipping ", h("b", {}, list), tail), meta);
-    } else if (bud && !bud.overall.reachable) {
+    } else if (bud && !bud.reachable) {
       hero = h("div", { class: "hero plan w-bad" },
         h("div", { class: "v" }, "Out of reach", h("s", {}, ".")),
-        h("p", {}, `Even if you attend every class you'd reach `, h("b", {}, `${Math.floor(bud.overall.bestCase)}%`), ` at ${examName}, short of the ${linePct}% needed.`));
+        cr.course ? h("p", {}, "Even attending every class, ", h("b", {}, bud.unreachable.map((r) => r.code || r.name).join(", ")), ` can't reach ${cLinePct}% by ${examName}.`)
+          : h("p", {}, `Even if you attend every class you'd reach `, h("b", {}, `${Math.floor(bud.overall.bestCase)}%`), ` at ${examName}, short of the ${linePct}% needed.`));
     } else if (bud) {
-      const n = bud.overall.budget;
+      const n = bud.spare.n;
       hero = h("div", { class: "hero plan w-good" },
         h("div", { class: "v" }, n ? `${n} spare` : "No spare", h("s", {}, ".")),
-        n ? h("p", {}, "You can still skip ", h("b", {}, plural(n, "class")), ` overall before ${examName} on `, h("b", {}, dayLabel(bud.end)), ".")
+        n ? h("p", {}, cr.course ? "Every course can still skip " : "You can still skip ", h("b", {}, plural(n, "class")), cr.course ? ` before ${examName} (the tightest is ${bud.spare.row ? (bud.spare.row.code || bud.spare.row.name) : "one"}) on ` : ` overall before ${examName} on `, h("b", {}, dayLabel(bud.end)), ".")
           : h("p", {}, `Every class counts until ${examName} on `, h("b", {}, dayLabel(bud.end)), "."),
         null);
     } else {
@@ -416,7 +421,7 @@
         h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, arrow(res.overall, 1)))),
         res.rows.map((r) => h("div", { class: `it2 minor${r.safe ? "" : " fail"}` }, h("div", { class: "row" },
           nameCell(r, h("span", { class: "sub" }, r.code ? [sep(), `−${r.k}h`] : `−${r.k}h`)),
-          h("span", { class: "rr" }, h("span", {}, arrow(r, 1)), r.safe ? chip("good", "safe") : chip("bad", basis !== "now" ? `below ${linePct}%` : mustText(r.recover)))))),
+          h("span", { class: "rr" }, h("span", {}, arrow(r, 1)), r.safe ? chip("good", "safe") : chip("bad", basis !== "now" ? `below ${cLinePct}%` : mustText(r.recover)))))),
         res.unknown.length ? h("div", { class: "it2 sub" }, `Not in your attendance table: ${res.unknown.join(", ")}.`) : null,
         basis !== "now" ? h("div", { class: "it2 sub" }, `Assumes you attend every other class until ${end ? dayLabel(end) : "the semester ends"} (${examName}).`) : null));
     }
@@ -436,23 +441,23 @@
 
     // ---- bunk budget: what each course can still skip before the cutoff
     if (bud) {
-      const budChip = (r) => past ? (r.pct >= linePct ? chip("good", `meets ${linePct}%`) : chip("bad", `below ${linePct}%`)) : !r.matched ? chip("mute", "not in timetable") : !r.reachable ? chip("bad", "out of reach") : r.budget === 0 ? chip("warn", "no spare") : chip("good", `can skip ${r.budget}`);
+      const budChip = (r, lp = linePct) => past ? (r.pct >= lp ? chip("good", `meets ${lp}%`) : chip("bad", `below ${lp}%`)) : !r.matched ? chip("mute", "not in timetable") : !r.reachable ? chip("bad", "out of reach") : r.budget === 0 ? chip("warn", "no spare") : chip("good", `can skip ${r.budget}`);
       const left = (r) => `${plural(r.R, "class")} left until then`;
       const o = bud.overall;
       const rows = [
-        h("div", { class: "it2 main" }, h("div", { class: "row" },
+        !cr.overall ? null : h("div", { class: "it2 main" }, h("div", { class: "row" },
           h("span", {}, h("b", {}, "Overall"), past ? null : h("div", { class: "sub" }, left(o))),
           h("span", { class: "stk" }, h("span", { class: "big", style: `color:var(--${tone(o.pct, linePct)})` }, `${o.pct.toFixed(1)}%`), budChip(o)))),
-        ...bud.rows.map((r) => !past && !r.matched
-          ? h("div", { class: "it2 minor" }, h("div", { class: "row" }, nameCell(r), budChip(r)))
+        ...(cr.course ? bud.rows : []).map((r) => !past && !r.matched
+          ? h("div", { class: "it2 minor" }, h("div", { class: "row" }, nameCell(r), budChip(r, cLinePct)))
           : h("div", { class: "it2 minor" }, h("div", { class: "row" },
               h("span", {}, h("b", { class: "nm", title: r.name }, r.name || r.code),
                 h("div", { class: "sub" }, r.code && !past ? [r.code, sep(), left(r)] : r.code || (past ? null : left(r))),
                 past || r.reachable ? null : h("div", { class: "sub" }, `Best case ${Math.floor(r.bestCase)}%`)),
-              h("span", { class: "rr" }, h("span", { class: "p", style: `color:var(--${tone(r.pct, linePct)})` }, `${r.pct.toFixed(0)}%`), budChip(r))))),
-      ];
+              h("span", { class: "rr" }, h("span", { class: "p", style: `color:var(--${tone(r.pct, cLinePct)})` }, `${r.pct.toFixed(0)}%`), budChip(r, cLinePct))))),
+      ].filter(Boolean);
       if (planSel.size) {
-        out.push(acc({ title: `Before ${examName} budget`, icon: "gauge", tone: "warn", sub: o.reachable ? [`Can still skip ${o.budget} overall`, sep(), left(o).replace(" until then", "")] : "Out of reach", open: accOpen.has("budget"), key: "acc-budget",
+        out.push(acc({ title: `Before ${examName} budget`, icon: "gauge", tone: "warn", sub: !bud.reachable ? "Out of reach" : cr.course ? [`Tightest course can skip ${bud.spare.n}`, sep(), bud.spare.row ? (bud.spare.row.code || bud.spare.row.name) : "none matched"] : [`Can still skip ${o.budget} overall`, sep(), left(o).replace(" until then", "")], open: accOpen.has("budget"), key: "acc-budget",
           ontoggle: (v) => { v ? accOpen.add("budget") : accOpen.delete("budget"); rerender(); } }, rows));
       } else {
         out.push(h("div", { class: "sec" }, h("span", {}, past ? `At the ${examName} cutoff` : `Before ${examName}`), h("span", { class: "sub" }, dayLabel(bud.end))));

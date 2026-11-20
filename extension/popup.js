@@ -90,7 +90,7 @@ function draw() {
     const today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
     const from = Cal.addDays(today, 1);
     const basis = Plan.resolveBasis(D.bunkBasis, from);
-    const esePct = Math.min(100, Math.max(1, D.eseTarget ?? thr));
+    const esePct = Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL));
     const line = Plan.thresholdFor(basis, t, esePct);
 
     const days = (d) => plural(Math.round((d - today) / 86400000), "day");
@@ -222,7 +222,7 @@ function draw() {
 
   const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Your minimum and the daily alert", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
     h("div", { class: "row", style: "padding-top:12px" }, h("span", {}, "Minimum attendance %"), stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", onchange: (v) => save({ threshold: v }) })),
-    h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "ESE target %"), stepper(Math.min(100, Math.max(1, D.eseTarget ?? D.threshold)), { min: 1, max: 100, label: "ESE target", onchange: (v) => save({ eseTarget: v }) })),
+    h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "ESE target %"), stepper(Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL)), { min: 1, max: 100, label: "ESE target", onchange: (v) => save({ eseTarget: v }) })),
     h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "Daily alert if a course is low"), toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert")),
     h("div", { class: "it2", style: "margin-top:12px" },
       h("div", { class: "row" }, h("span", {}, "Saved attendance data"),
