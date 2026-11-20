@@ -123,5 +123,22 @@ const UI = (() => {
         h("span", {}, h("b", {}, title), sub ? h("small", {}, sub) : null), ico("chev")),
       h("div", { class: "ab-wrap", inert: open ? null : "" }, h("div", { class: "ab" }, h("div", { class: "abp" }, body))));
 
-  return { h, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, placeThumb, tween, pills, stepper, toggle, acc };
+  // Absent hours from the all-courses list (rows saved by content.js), shown day by day with the kind of absence.
+  const KIND = { abs: ["bad", "absent"], cc: ["gold", "co-curricular"], med: ["blue", "medical"] };
+  const hrsOf = (rows, k) => rows.filter((r) => r.kind === k).reduce((n, r) => n + r.h, 0);
+  const absentSummary = (rows) => [`${fmt(hrsOf(rows, "abs"))}h absent`, hrsOf(rows, "cc") ? [sep(), `${fmt(hrsOf(rows, "cc"))}h co-curricular`] : null, hrsOf(rows, "med") ? [sep(), `${fmt(hrsOf(rows, "med"))}h medical`] : null];
+  const absentDays = (rows) => {
+    const groups = [];
+    for (const r of rows) { // the portal lists them newest first, so a day's rows are next to each other
+      let g = groups[groups.length - 1];
+      if (!g || g.date !== r.date) groups.push((g = { date: r.date, label: niceDate(`${r.date} ${r.day}`), rows: [] }));
+      g.rows.push(r);
+    }
+    return groups.map((g) => [
+      h("div", { class: "pday" }, h("b", {}, g.label), h("span", { class: "sub" }, `${fmt(g.rows.reduce((n, r) => n + r.h, 0))}h`)),
+      g.rows.map((r) => h("div", { class: "arow" }, h("span", {}, nicePeriod(r.period)), h("span", { class: "pt" }, startTime(r.time)), h("span", { class: "ac", title: r.name }, r.code), chip(KIND[r.kind][0], KIND[r.kind][1]))),
+    ]);
+  };
+
+  return { h, absentSummary, absentDays, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, placeThumb, tween, pills, stepper, toggle, acc };
 })();

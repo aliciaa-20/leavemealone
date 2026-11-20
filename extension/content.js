@@ -21,7 +21,7 @@
   };
   const semester = () => document.querySelector('[role="combobox"]')?.textContent.trim() || "unknown";
   const COURSE_TABLE = 'table[aria-label="coursewise attendance table"]';
-  const { h, plural, fmt, tone, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb } = UI;
+  const { h, plural, fmt, tone, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, hrsOf } = UI;
 
   // ---------------------------------------------------------------- parsing
   function parseRow(tr) {
@@ -130,9 +130,9 @@
     store.set({ panelOpen: v });
     if (A) { A.open = v; rerender(); }
   }
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && attOpen) setOpen(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (attOpen) setOpen(false); else if (absOpen) setAbsOpen(false); } });
   document.addEventListener("click", (e) => {
-    if (attOpen && host && !e.composedPath().includes(host)) setOpen(false);
+    if (host && !e.composedPath().includes(host)) { if (attOpen) setOpen(false); else if (absOpen) setAbsOpen(false); }
   });
 
   // Sort options for the course list (default: same order as the portal's table).
@@ -778,11 +778,16 @@
       return { date: txt(tds[0], "p"), day: txt(tds[0], "span"), period: txt(tds[1], "p"), time: txt(tds[1], "span"), code: txt(tds[2], "p"), name: txt(tds[2], "span"), type: tds[3].textContent.trim(), kind, h: hrs };
     }).filter((r) => r && r.date && r.period);
   }
+  let absOpen = false, absShell = null;
+  function setAbsOpen(v) {
+    absOpen = v;
+    if (absShell) { absShell.drawer.classList.toggle("open", v); absShell.pill.setAttribute("aria-expanded", String(v)); }
+  }
   async function tickAbsAll() {
     const rows = parseAllAbsences();
     if (!rows.length) return;
     const sig = JSON.stringify(rows);
-    if (absSig === sig && host?.isConnected) return;
+    if (absSig === sig && host?.isConnected && absShell && dock.contains(absShell.drawer)) return;
     absSig = sig;
     const allCourses = /^all courses/i.test(document.querySelector('[role="combobox"]')?.textContent.trim() || "");
     if (allCourses) { // a single-course filter would overwrite the full list with a part of it
@@ -790,10 +795,21 @@
       await store.set({ absentList: { sem: d.latest, at: Date.now(), rows } });
     }
     await ensureHost();
-    const sum = (k) => rows.filter((r) => r.kind === k).reduce((n, r) => n + r.h, 0);
-    dock.replaceChildren(h("div", { class: "pill static", title: "Marking happens per course: open one with View Details. A day-by-day summary is in the toolbar popup." },
-      h("i", { class: "bad-dot" }), `${fmt(sum("abs"))}h absent`,
-      sum("cc") || sum("med") ? h("span", { class: "sub" }, [sum("cc") ? `${fmt(sum("cc"))}h co-curricular` : null, sum("med") ? `${fmt(sum("med"))}h medical` : null].filter(Boolean).join(", ")) : null));
+    if (!absShell || !dock.contains(absShell.drawer)) {
+      const pill = h("button", { class: "pill", "aria-label": "Absent hours summary", "aria-expanded": "false", onclick: () => setAbsOpen(!absOpen) });
+      const sub = h("div", { class: "sub" });
+      const body = h("div", { class: "blk" });
+      const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Absent hours" },
+        h("div", { class: "top" }, h("div", {}, h("b", {}, "Absent hours"), sub), h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close"))),
+        body, h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better"));
+      dock.replaceChildren(drawer, pill);
+      absShell = { pill, sub, body, drawer };
+    }
+    absShell.pill.replaceChildren(h("i", { class: "bad-dot" }), `${fmt(hrsOf(rows, "abs"))}h absent`,
+      hrsOf(rows, "cc") || hrsOf(rows, "med") ? h("span", { class: "sub" }, [hrsOf(rows, "cc") ? `${fmt(hrsOf(rows, "cc"))}h co-curricular` : null, hrsOf(rows, "med") ? `${fmt(hrsOf(rows, "med"))}h medical` : null].filter(Boolean).join(", ")) : null);
+    absShell.sub.replaceChildren(...absentSummary(rows).flat(Infinity).filter(Boolean));
+    absShell.body.replaceChildren(...absentDays(rows).flat(Infinity));
+    setAbsOpen(absOpen);
   }
 
   // ---------------------------------------------------------------- driver

@@ -2,7 +2,7 @@
 const CUE_URL = "https://cue.christuniversity.in/main/attendence";
 const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
 const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
-const { h, plural, fmt, tone, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, stepper, toggle, acc } = UI;
+const { h, plural, fmt, tone, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays } = UI;
 const ago = (t) => {
   const m = Math.round((Date.now() - t) / 60000);
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
@@ -156,29 +156,17 @@ function draw() {
 
   // ---- absent hours day by day (saved when the all-courses absent list is opened on CUE)
   const al = D.absentList && D.absentList.sem === viewSem && D.absentList.rows.length ? D.absentList : null;
-  const hrsOf = (rows, k) => rows.filter((r) => r.kind === k).reduce((n, r) => n + r.h, 0);
-  const KIND = { abs: ["bad", "absent"], cc: ["gold", "co-curricular"], med: ["blue", "medical"] };
-  const groups = [];
-  for (const r of al ? al.rows : []) {
-    let g = groups[groups.length - 1];
-    if (!g || g.date !== r.date) groups.push((g = { date: r.date, label: niceDate(`${r.date} ${r.day}`), rows: [] }));
-    g.rows.push(r);
-  }
   const absBox = acc({
-    title: "Absent hours",
-    sub: al ? [`${fmt(hrsOf(al.rows, "abs"))}h absent`, hrsOf(al.rows, "cc") ? [sep(), `${fmt(hrsOf(al.rows, "cc"))}h co-curricular`] : null, hrsOf(al.rows, "med") ? [sep(), `${fmt(hrsOf(al.rows, "med"))}h medical`] : null] : "Open the absent list on CUE once to see it here",
+    title: "Absent hours", sub: al ? absentSummary(al.rows) : "Open the absent list on CUE once to see it here",
     open: accOpen.has("abs"), ontoggle: toggleAcc("abs") },
-    al ? groups.map((g) => [
-      h("div", { class: "pday" }, h("b", {}, g.label), h("span", { class: "sub" }, `${fmt(g.rows.reduce((n, r) => n + r.h, 0))}h`)),
-      g.rows.map((r) => h("div", { class: "arow" }, h("span", {}, nicePeriod(r.period)), h("span", { class: "pt" }, startTime(r.time)), h("span", { class: "ac", title: r.name }, r.code), chip(KIND[r.kind][0], KIND[r.kind][1]))),
-    ]) : h("div", { class: "sub", style: "padding-top:12px" }, "The list is saved the first time you open the Absent card on the CUE attendance page."));
+    al ? absentDays(al.rows) : h("div", { class: "sub", style: "padding-top:12px" }, "The list is saved the first time you open the Absent card on the CUE attendance page."));
 
   // ---- adjustments (rare path) and settings
   const num = (v, label, onchange) => stepper(v || 0, { min: 0, max: 999, label, onchange });
   const adjBox = acc({ title: "Add hours the portal is missing", sub: "For a class the portal has not counted", open: accOpen.has("adj"), ontoggle: toggleAcc("adj") },
     D.snapshots[viewSem].hasCc
       ? h("div", { class: "sub", style: "padding-top:12px" }, "Co-curricular claims aren't needed: the portal already includes them.")
-      : h("div", { class: "row", style: "padding-top:12px" }, h("span", {}, "Co-curricular hours claimed"), num(adj.cocurricular, "co-curricular hours", (v) => {
+      : h("div", { class: "row", style: "padding-top:12px" }, h("span", {}, "Co-curricular hours yet to be updated"), num(adj.cocurricular, "co-curricular hours", (v) => {
           const adjust = D.adjust; (adjust[viewSem] = adjust[viewSem] || { cocurricular: 0, courses: {} }).cocurricular = v;
           save({ adjust });
         })),

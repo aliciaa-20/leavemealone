@@ -218,8 +218,6 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--good); }
 .pill.warn i { background: var(--warn); } .pill.bad i { background: var(--bad); }
 .pill .sub { font-weight: 500; }
-.pill.static { cursor: default; }
-.pill.static:active { transform: none; }
 .pill i.bad-dot { background: var(--bad); }
 .drawer, .panel {
   width: 390px; max-width: calc(100vw - 32px); max-height: min(78vh, 720px); overflow: auto;
@@ -307,6 +305,7 @@ body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); m
 .exam + .note { margin-top: var(--s3); }
 .arow { display: grid; grid-template-columns: 24px 40px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; }
 .arow .pt { text-align: right; }
+.blk .arow:last-child { padding-bottom: var(--s3); }
 .arow .ac { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rr { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 
