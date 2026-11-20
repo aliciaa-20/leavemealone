@@ -88,6 +88,8 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .it2.click:first-child { border-top: 0; }
 .it2.click:hover { background: rgba(255,255,255,.035); }
 .it2.click.on { background: rgba(124,200,255,.1); }
+.cl { display: flex; align-items: center; gap: 6px; }
+.cl .chip { flex: none; }
 .d { font: 600 var(--t15) var(--font-head); }
 .low { font-size: var(--t13); margin-top: 2px; }
 .low b { font-weight: 700; }
@@ -120,7 +122,10 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 
 /* ---- progress bar with a mark at the minimum ---- */
 .bar { position: relative; height: 6px; border-radius: var(--r-bar); background: var(--card2); margin-top: 10px; }
-.bar i { position: absolute; inset: 0 auto 0 0; border-radius: var(--r-bar); transform-origin: left; animation: grow var(--d-grow) var(--ease) both; }
+.bar i { position: absolute; inset: 0 auto 0 0; border-radius: var(--r-bar); transform-origin: left; }
+.grow .bar i { animation: grow var(--d-grow) var(--ease) both; }
+.grow .it2:nth-child(2) .bar i { animation-delay: 60ms; } .grow .it2:nth-child(3) .bar i { animation-delay: 120ms; }
+.grow .it2:nth-child(4) .bar i { animation-delay: 180ms; } .grow .it2:nth-child(n+5) .bar i { animation-delay: 240ms; }
 .bar u { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--ink); opacity: .95; box-shadow: 0 0 0 2px var(--card); text-decoration: none; }
 .hero .bar u { box-shadow: none; opacity: .5; }
 @keyframes grow { from { transform: scaleX(0); } }
@@ -158,7 +163,10 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 /* segmented pills (tabs and "Safe means") */
 .pills { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: var(--r-ctl); margin-bottom: var(--s4); }
 .ctl .pills { margin-bottom: 0; }
-.pills button { flex: 1; height: 30px; padding: 0 8px; border: 0; border-radius: 5px; background: transparent; color: var(--mute); font-weight: 500; white-space: nowrap; transition: background-color var(--d-hover) var(--ease), color var(--d-hover) var(--ease); }
+.pills { position: relative; }
+.pills .thumb { position: absolute; top: 3px; left: 0; height: 30px; width: 0; border-radius: 5px; background: var(--card2); z-index: 0; transition: transform var(--d-tab) var(--ease), width var(--d-tab) var(--ease); }
+.pills.has-thumb button.on { background: transparent; }
+.pills button { position: relative; z-index: 1; flex: 1; height: 30px; padding: 0 8px; border: 0; border-radius: 5px; background: transparent; color: var(--mute); font-weight: 500; white-space: nowrap; transition: background-color var(--d-hover) var(--ease), color var(--d-hover) var(--ease); }
 .pills button:hover:not(.on) { color: var(--ink); }
 .pills button.on { background: var(--card2); color: var(--ink); }
 /* stepper and switch */
@@ -202,7 +210,7 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .toast { display: flex; justify-content: space-between; align-items: center; background: var(--card); }
 
 /* ---- on-page dock: pill + drawer ---- */
-.dock { position: fixed; right: 16px; bottom: 16px; z-index: 2147483000; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.dock { position: fixed; right: calc(16px + var(--sb, 0px)); bottom: 16px; z-index: 2147483000; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .pill { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: var(--r-card); background: var(--bg); color: var(--ink); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 8px 24px rgba(0,0,0,.4); font-weight: 600; transition: transform var(--d-hover) var(--ease); }
 .pill:active { transform: scale(.97); transition-duration: var(--d-press); }
 .pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--good); }
@@ -259,6 +267,14 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .cday.off { color: var(--mute); opacity: .4; }
 .cday.hol { background: var(--holbg); color: var(--hol); }
 .cday.empty { visibility: hidden; }
+@keyframes cellIn { from { opacity: 0; transform: translateY(4px); } }
+@keyframes slideF { from { opacity: 0; transform: translateX(14px); } }
+@keyframes slideB { from { opacity: 0; transform: translateX(-14px); } }
+@keyframes pop { 0% { transform: scale(.9); } 55% { transform: scale(1.06); } 100% { transform: scale(1); } }
+.cal.enter.fwd { animation: slideF 240ms var(--ease); }
+.cal.enter.back { animation: slideB 240ms var(--ease); }
+.cal.enter .cday { animation: cellIn 260ms var(--ease) both; animation-delay: calc(var(--i, 0) * 6ms); }
+.cday.sel.pop { animation: pop 240ms var(--ease); }
 .leg { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: var(--s3); color: var(--mute); font-size: var(--t12); }
 .leg u { text-decoration: none; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 .leg u.pk { background: var(--pick); }
@@ -284,3 +300,11 @@ body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); m
 .exam b { display: block; font: 500 var(--t28)/1.1 var(--font-head); letter-spacing: -.03em; }
 .exam span { color: var(--mute); font-size: var(--t12); }
 .rr { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+/* narrow windows: the drawer shrinks with the viewport, so loosen the fixed widths */
+@media (max-width: 420px) {
+  .it2 .p + .chip, .it2.minor .p + .chip { min-width: 0; }
+  .pills button { padding: 0 4px; font-size: var(--t12); }
+  .hero .v { font-size: 36px; }
+  .per { grid-template-columns: 18px 24px 40px 1fr; gap: 8px; }
+}

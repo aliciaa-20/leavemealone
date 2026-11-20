@@ -3,6 +3,7 @@
 //   /main/attendence    -> parse the course table, save a snapshot, show a pill + drawer,
 //                          remember which course's "View Details" you click
 //   /main/AbsentDetails -> mark each absent hour as absent / co-curricular / medical / later
+//   /main/absence       -> the all-courses absent list: only a pointer to the per-course page
 //   /main/timeTable     -> save the weekly timetable for the "Plan a bunk" tab
 // All UI lives in one Shadow DOM host so the portal's CSS and ours never touch.
 (() => {
@@ -12,7 +13,7 @@
   };
   const route = () => {
     const p = location.pathname.toLowerCase();
-    return p.includes("/main/attendence") ? "att" : p.includes("/main/absentdetails") ? "abs" : p.includes("/main/timetable") ? "tt" : null;
+    return p.includes("/main/attendence") ? "att" : p.includes("/main/absentdetails") ? "abs" : p.includes("/main/absence") ? "absall" : p.includes("/main/timetable") ? "tt" : null;
   };
   const pair = (txt) => {
     const m = /(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/.exec(txt || "");
@@ -20,7 +21,7 @@
   };
   const semester = () => document.querySelector('[role="combobox"]')?.textContent.trim() || "unknown";
   const COURSE_TABLE = 'table[aria-label="coursewise attendance table"]';
-  const { h, plural, fmt, tone, bar, dayLabel, ico, sep, chip, pills, stepper, acc } = UI;
+  const { h, plural, fmt, tone, bar, dayLabel, ico, sep, chip, pills, stepper, acc, tween, placeThumb } = UI;
 
   // ---------------------------------------------------------------- parsing
   function parseRow(tr) {
@@ -92,7 +93,17 @@
     style.textContent = cssText;
     shadow.append(style, dock);
     document.body.append(host);
+    syncGutter();
   }
+  // The portal scrolls inside its own container, so its scrollbar sits inside the viewport. Measure it and keep
+  // the dock the same 16px from it as from the bottom edge.
+  function syncGutter() {
+    if (!host?.isConnected) return;
+    let w = 0;
+    for (let el = document.elementFromPoint(innerWidth - 3, Math.round(innerHeight / 2)); el && !w; el = el.parentElement) w = el.offsetWidth - el.clientWidth;
+    host.style.setProperty("--sb", `${Math.max(0, Math.round(w || innerWidth - document.documentElement.clientWidth))}px`);
+  }
+  addEventListener("resize", syncGutter);
   function ensureHost() {
     if (host?.isConnected) return Promise.resolve();
     hostPromise ||= buildHost().finally(() => { hostPromise = null; });
@@ -107,11 +118,15 @@
   let planSel = new Map();       // dayKey -> Set(periods SKIPPED) | null (whole day skipped). The view shows ticked = attending.
   let planMonth = 0;             // months after the first plannable month
   const accOpen = new Set();     // which accordions are open ("per", "budget")
+  let growBars = true;           // bars grow once when the drawer opens or the tab changes, not on every click
+  let calShown = null;           // month the calendar last drew, to slide when it changes
+  let lastPicked = null;         // day just picked, for the springy pop
 
   const rerender = () => { if (A) { attSig = ""; renderAtt(A); } };
   function setOpen(v) {
     if (!v && shell && host?.shadowRoot?.activeElement && shell.drawer.contains(host.shadowRoot.activeElement)) shell.pill.focus(); // don't strand focus in a hidden drawer
     attOpen = v;
+    if (v) growBars = true;
     store.set({ panelOpen: v });
     if (A) { A.open = v; rerender(); }
   }
@@ -165,8 +180,10 @@
     const tn = tone(op, threshold);
     const courses = eff.courses.filter((c) => c.scheduled > 0);
 
+    const heroNum = h("span", { class: "v", style: `color:var(--${tn})` });
+    tween(heroNum, "hero", op, (x) => `${x.toFixed(1)}%`, { animate: A.open, countUp: true });
     const hero = h("div", { class: `hero w-${tn}` },
-      h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${op.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
+      h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
       bar(op, threshold),
       o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
       o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.")
@@ -192,7 +209,7 @@
       const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
       return h("div", { class: "it2" },
         h("div", { class: "row" },
-          h("span", {}, h("b", {}, c.code || c.name), adjusted ? [" ", chip("mute", "adjusted", tip)] : null, c.code ? h("div", { class: "sub" }, c.name) : null),
+          h("span", {}, h("div", { class: "cl" }, h("b", { class: "code" }, c.code || c.name), adjusted ? chip("mute", "adj", tip) : null), c.code ? h("div", { class: "sub" }, c.name) : null),
           h("span", {}, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`), " ",
             pct < threshold ? chip("bad", `attend next ${Calc.mustAttend(c.attended, c.scheduled, t)}`) : chip(skip ? "good" : "warn", skip ? `can skip ${skip}` : "no spare"))),
         bar(pct, threshold));
@@ -305,7 +322,11 @@
         ontoggle: (v) => { v ? accOpen.add("per") : accOpen.delete("per"); rerender(); } }, days));
 
       // ---- result
-      const arrow = (r, dp) => [`${r.before.toFixed(dp)}% → `, h("b", { style: `color:var(--${r.safe ? "good" : "bad"})` }, `${r.after.toFixed(dp)}%`)];
+      const arrow = (r, dp, key) => {
+        const after = h("b", { style: `color:var(--${r.safe ? "good" : "bad"})` });
+        tween(after, key || `bunk-${r.key}`, r.after, (x) => `${x.toFixed(dp)}%`, { animate: A.open });
+        return [`${r.before.toFixed(dp)}% → `, after];
+      };
       out.push(h("div", { class: "sec" }, "If you bunk"));
       out.push(h("div", { class: "blk" },
         h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, arrow(res.overall, 1)))),
@@ -364,6 +385,8 @@
     const first = new Date(from.getFullYear(), from.getMonth() + planMonth, 1);
     const daysIn = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
     const lead = (first.getDay() + 6) % 7; // Monday-first grid
+    const dir = calShown == null || calShown === planMonth ? "" : planMonth > calShown ? "fwd" : "back";
+    calShown = planMonth;
     const cells = [];
     for (let i = 0; i < lead; i++) cells.push(h("span", { class: "cday empty" }));
     for (let n = 1; n <= daysIn; n++) {
@@ -377,8 +400,8 @@
       const kind = !usable ? (info.holiday ? "hol" : "off") : sel ? "sel" : "open";
       const title = usable ? `${plural(cls, "class")}${risk ? `. Picking this would drop you below ${linePct}%` : ""}` : info.reason || (d < from ? "Past" : last && d > last ? "After the cutoff" : "No classes");
       cells.push(h(usable ? "button" : "span", {
-        class: `cday ${kind}${risk ? " risk" : ""}`, title, "aria-label": `${dayLabel(d)}: ${title}`, "aria-pressed": usable ? String(sel) : null, "data-key": usable ? `day-${k}` : null,
-        onclick: usable ? () => { if (sel) planSel.delete(k); else planSel.set(k, null); rerender(); } : null,
+        class: `cday ${kind}${risk ? " risk" : ""}${sel && k === lastPicked ? " pop" : ""}`, style: `--i:${lead + n}`, title, "aria-label": `${dayLabel(d)}: ${title}`, "aria-pressed": usable ? String(sel) : null, "data-key": usable ? `day-${k}` : null,
+        onclick: usable ? () => { if (sel) planSel.delete(k); else { planSel.set(k, null); lastPicked = k; } rerender(); } : null,
       }, String(n), usable ? h("i", {}, "•".repeat(Math.min(cls, 6))) : null));
     }
     return h("div", { class: "cardcal" },
@@ -387,7 +410,7 @@
         h("b", {}, first.toLocaleDateString("en-IN", { month: "long", year: "numeric" })),
         h("button", { class: "next", "aria-label": "Next month", "data-key": "cal-next", disabled: planMonth >= maxOff, onclick: () => { planMonth++; rerender(); } }, ico("chev"))),
       h("div", { class: "dow" }, ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((x) => h("div", {}, x))),
-      h("div", { class: "cal" }, cells),
+      h("div", { class: `cal${dir ? ` enter ${dir}` : ""}` }, cells),
       h("div", { class: "leg" },
         h("span", {}, h("u", { class: "pk" }), "Your pick"),
         h("span", {}, h("u", { class: "hl" }), "Holiday or no classes"),
@@ -425,7 +448,11 @@
       btn.setAttribute("aria-selected", String(tab === id));
     }
     drawer.classList.toggle("open", A.open);
+    body.classList.toggle("grow", growBars && A.open);
+    if (A.open) growBars = false;
     body.replaceChildren(...[tab === "plan" ? planView(eff, threshold, t) : overviewView(eff, threshold, t)].flat(Infinity).filter((x) => x != null && x !== false)); // views return arrays
+    lastPicked = null;
+    placeThumb(shell.tabsBox, "tabs");
     if (focusKey) restoreFocus(focusKey);
   }
 
@@ -436,18 +463,19 @@
     const sub = h("div", { class: "sub" });
     const tabs = new Map();
     for (const [id, label] of [["overview", "Overview"], ["plan", "Plan a bunk"]]) {
-      tabs.set(id, h("button", { role: "tab", "data-key": `tab-${id}`, onclick: () => { tab = id; rerender(); } }, label));
+      tabs.set(id, h("button", { role: "tab", "data-key": `tab-${id}`, onclick: () => { tab = id; growBars = true; calShown = null; rerender(); } }, label));
     }
+    const tabsBox = h("div", { class: "pills", role: "tablist" }, ...tabs.values());
     const body = h("div", { class: "dbody" });
     const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Attendance details" },
       h("div", { class: "top" },
         h("div", {}, h("b", {}, "Attendance"), sub),
         h("button", { class: "xb", "aria-label": "Close", "data-key": "close", onclick: () => setOpen(false) }, ico("close"))),
-      h("div", { class: "pills", role: "tablist" }, ...tabs.values()),
+      tabsBox,
       body,
       h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better"));
     dock.replaceChildren(drawer, pill);
-    return { drawer, pill, sub, body, tabs };
+    return { drawer, pill, sub, body, tabs, tabsBox };
   }
   // Views are rebuilt on every change, so remember the focused control by data-key, else by its position among the controls.
   const FOCUSABLE = "button,select,input,summary,[tabindex]";
@@ -756,10 +784,22 @@
     paint();
   }
 
+  // The all-courses list (/main/absence) is not tied to one course, so marking happens on the per-course page.
+  async function tickAbsAll() {
+    if (absSig === "all" && host?.isConnected) return;
+    await ensureHost();
+    absSig = "all";
+    dock.replaceChildren(h("div", { class: "panel" },
+      h("div", { class: "h3" }, "Absent hours"),
+      h("p", { class: "sub" }, 'Marking works one course at a time. Go back, open a course with its "View Details" button, and mark its absent hours there.'),
+      h("button", { class: "btn solid cta", onclick: () => location.assign("/main/attendence") }, "Back to attendance", ico("right"))));
+  }
+
   // ---------------------------------------------------------------- driver
   let timer, lastRoute = null;
   function tick() {
     const r = route();
+    syncGutter();
     if (r !== lastRoute) { dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; lastRoute = r; } // page changed: clear the old UI
     if (!r) {
       host?.remove();
@@ -768,6 +808,7 @@
     }
     if (r === "att") tickAtt();
     else if (r === "abs") tickAbs();
+    else if (r === "absall") tickAbsAll();
     else tickTt();
   }
   new MutationObserver((muts) => {

@@ -41,11 +41,50 @@ const UI = (() => {
       h("i", { style: `width:${Math.min(100, Math.max(0, pct))}%;background:var(--${tone(pct, thr)})` }),
       h("u", { style: `left:${thr}%` }));
 
+  // Sliding thumb under a segmented control. Positions are remembered per key, so a control that is rebuilt
+  // on every render still slides from where the thumb was instead of jumping.
+  const thumbs = new Map();
+  const placeThumb = (box, key) => {
+    const on = box.querySelector("button.on");
+    if (!on || !on.offsetWidth) return;
+    let th = box.querySelector(".thumb");
+    const fresh = !th;
+    if (fresh) { th = h("i", { class: "thumb" }); box.prepend(th); box.classList.add("has-thumb"); }
+    const to = { x: on.offsetLeft, w: on.offsetWidth };
+    const from = fresh ? thumbs.get(key) || to : null;
+    const set = (p) => { th.style.width = `${p.w}px`; th.style.transform = `translateX(${p.x}px)`; };
+    thumbs.set(key, to);
+    if (fresh) { th.style.transition = "none"; set(from); th.getBoundingClientRect(); th.style.transition = ""; }
+    set(to);
+  };
+
+  // Count a number towards a new value (320ms), or up from 0 the first time it is shown (700ms).
+  // `animate` false (drawer closed) just sets the text and remembers nothing, so the count-up plays on open.
+  const lastNum = new Map();
+  const tween = (el, key, to, format, { animate = true, countUp = false } = {}) => {
+    el.textContent = format(to);
+    if (!animate) return;
+    const prev = lastNum.get(key);
+    lastNum.set(key, to);
+    const from = prev ?? (countUp ? 0 : to);
+    if (from === to || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const ms = prev == null ? 700 : 320, t0 = performance.now();
+    const step = (t) => {
+      const k = Math.min(1, (t - t0) / ms);
+      el.textContent = format(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+      if (k < 1 && el.isConnected) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
   // Segmented control: opts = [[value, label], ...]. Used for tabs ("tab") and "Safe means".
-  const pills = (opts, value, onpick, { label, role, keyPrefix } = {}) =>
-    h("div", { class: "pills", role: role === "tab" ? "tablist" : "group", "aria-label": label },
+  const pills = (opts, value, onpick, { label, role, keyPrefix } = {}) => {
+    const box = h("div", { class: "pills", role: role === "tab" ? "tablist" : "group", "aria-label": label },
       opts.map(([v, text]) =>
         h("button", { class: v === value ? "on" : "", role: role === "tab" ? "tab" : null, "aria-selected": role === "tab" ? String(v === value) : null, "aria-pressed": role === "tab" ? null : String(v === value), "data-key": keyPrefix ? `${keyPrefix}-${v}` : null, onclick: () => v !== value && onpick(v) }, text)));
+    requestAnimationFrame(() => placeThumb(box, keyPrefix || label)); // after it is in the page
+    return box;
+  };
 
   // Number stepper: - n +
   const stepper = (value, { min = 0, max = 999, onchange, label, key }) =>
@@ -64,5 +103,5 @@ const UI = (() => {
         h("span", {}, h("b", {}, title), sub ? h("small", {}, sub) : null), ico("chev")),
       h("div", { class: "ab-wrap", inert: open ? null : "" }, h("div", { class: "ab" }, h("div", { class: "abp" }, body))));
 
-  return { h, plural, fmt, tone, dayLabel, ico, sep, chip, bar, pills, stepper, toggle, acc };
+  return { h, plural, fmt, tone, dayLabel, ico, sep, chip, bar, placeThumb, tween, pills, stepper, toggle, acc };
 })();

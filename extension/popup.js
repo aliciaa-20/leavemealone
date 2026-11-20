@@ -184,7 +184,7 @@ function courseRow(c, thr, t, showAfter) {
   const afterN = skip && showAfter ? h("span", { class: "to" }, `→ ${Calc.afterSkipping(c.attended, c.scheduled, skip).toFixed(0)}%`) : null;
   return h("div", { class: "it2" },
     h("div", { class: "row" },
-      h("span", {}, h("b", {}, c.code || c.name), adjusted ? [" ", chip("mute", "adjusted", tip)] : null, c.code ? h("div", { class: "sub" }, c.name) : null),
+      h("span", {}, h("div", { class: "cl" }, h("b", { class: "code" }, c.code || c.name), adjusted ? chip("mute", "adj", tip) : null), c.code ? h("div", { class: "sub" }, c.name) : null),
       afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status) : h("span", {}, num, " ", status)),
     bar(pct, thr));
 }
