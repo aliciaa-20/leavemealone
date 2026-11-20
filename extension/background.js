@@ -40,7 +40,7 @@ chrome.alarms.onAlarm.addListener((a) => {
     }
     chrome.notifications.create({
       type: "basic",
-      iconUrl: "icon.png",
+      iconUrl: "icons/icon-128.png",
       title,
       message,
     });

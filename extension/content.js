@@ -7,9 +7,11 @@
 //   /main/timeTable     -> save the weekly timetable for the "Plan a bunk" tab
 // All UI lives in one Shadow DOM host so the portal's CSS and ours never touch.
 (() => {
+  // After the extension is reloaded or updated, tabs that were already open keep this script but lose the chrome.* APIs.
+  const alive = () => { try { return !!chrome.runtime?.id; } catch { return false; } };
   const store = {
-    get: (d) => chrome.storage.local.get(d),
-    set: (o) => chrome.storage.local.set(o),
+    get: (d) => (alive() ? chrome.storage.local.get(d) : Promise.resolve(d)),
+    set: (o) => (alive() ? chrome.storage.local.set(o) : Promise.resolve()),
   };
   const route = () => {
     const p = location.pathname.toLowerCase();
@@ -215,6 +217,7 @@
     const linePct = Math.round(line * 100);
     const end = Plan.horizon(basis, from);
     const examName = basis === "mse" ? "MSE" : "ESE";
+    const past = basis !== "now" && !!end && end < from; // the cutoff has gone by (exam window still on): a reference, nothing left to plan
     const picked = planSel.size;
     planSel = Plan.clipSelection(planSel, end);
     const dropped = picked - planSel.size;
@@ -232,8 +235,8 @@
     const out = [];
     const opts = [["now", "After the bunk"]];
     if (Plan.resolveBasis("mse", from) === "mse") opts.push(["mse", "Before MSE"]);
-    opts.push(["end", "Before ESE"]);
-    out.push(h("div", { class: "ctl" },
+    if (Plan.resolveBasis("end", from) === "end") opts.push(["end", "Before ESE"]);
+    if (opts.length > 1) out.push(h("div", { class: "ctl" },
       h("div", { class: "sub" }, "Safe means"),
       pills(opts, basis, (v) => { A.basis = v; store.set({ bunkBasis: v }); rerender(); }, { label: "Safe means", keyPrefix: "basis" }),
       basis === "end" ? h("div", { class: "row" }, h("span", { class: "sub" }, "My ESE target (%)"),
@@ -248,7 +251,12 @@
       h("span", { class: "sub" }, plural(planSel.size, "day"), sep(), `${plural(K, "class")} skipped`),
       h("button", { class: "btn sm", "data-key": "clear", disabled: !planSel.size, onclick: clear }, "Clear selection"));
     let hero;
-    if (planSel.size) {
+    if (past && bud) {
+      const ok = bud.overall.pct >= linePct;
+      hero = h("div", { class: `hero plan ${ok ? "w-good" : "w-bad"}` },
+        h("div", { class: "v", style: `color:var(--${ok ? "good" : "bad"})` }, `${bud.overall.pct.toFixed(1)}%`),
+        h("p", {}, `Your attendance counted for ${examName} up to `, h("b", {}, dayLabel(end)), ", against the ", h("b", {}, `${linePct}%`), " needed."));
+    } else if (planSel.size) {
       const after = res.overall.after, gap = Math.abs(after - linePct).toFixed(1);
       const failing = res.rows.filter((r) => !r.safe).length;
       const names = [...planSel.keys()].sort().map((k) => dayLabel(Cal.parse(k)));
@@ -279,8 +287,10 @@
     out.push(hero);
 
     // ---- calendar
-    out.push(h("div", { class: "sec" }, h("span", {}, "Pick days"), h("span", { class: "sub" }, "tap as many as you like")));
-    out.push(calendarView(from, Cal.semesterEnd(from), end, linePct, riskOf));
+    if (!past) {
+      out.push(h("div", { class: "sec" }, h("span", {}, "Pick days"), h("span", { class: "sub" }, "tap as many as you like")));
+      out.push(calendarView(from, Cal.semesterEnd(from), end, linePct, riskOf));
+    }
 
     if (planSel.size) {
       // ---- ticks: ticked = you will attend. The state stays "periods skipped" (see Plan.setAttend).
@@ -333,24 +343,24 @@
 
     // ---- bunk budget: what each course can still skip before the cutoff
     if (bud) {
-      const budChip = (r) => !r.matched ? chip("mute", "not in timetable") : !r.reachable ? chip("bad", "out of reach") : r.budget === 0 ? chip("warn", "no spare") : chip("good", `can skip ${r.budget}`);
+      const budChip = (r) => past ? (r.pct >= linePct ? chip("good", `meets ${linePct}%`) : chip("bad", `below ${linePct}%`)) : !r.matched ? chip("mute", "not in timetable") : !r.reachable ? chip("bad", "out of reach") : r.budget === 0 ? chip("warn", "no spare") : chip("good", `can skip ${r.budget}`);
       const left = (r) => `${plural(r.R, "class")} left until then`;
       const o = bud.overall;
       const rows = [
         h("div", { class: "it2 main" }, h("div", { class: "row" },
-          h("span", {}, h("b", {}, "Overall"), h("div", { class: "sub" }, left(o))),
+          h("span", {}, h("b", {}, "Overall"), past ? null : h("div", { class: "sub" }, left(o))),
           h("span", { class: "stk" }, h("span", { class: "big", style: `color:var(--${tone(o.pct, linePct)})` }, `${o.pct.toFixed(1)}%`), budChip(o)))),
-        ...bud.rows.map((r) => !r.matched
+        ...bud.rows.map((r) => !past && !r.matched
           ? h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, r.code || r.name)), budChip(r)))
           : h("div", { class: "it2 minor" }, h("div", { class: "row" },
-              h("span", {}, h("b", {}, r.code || r.name), h("div", { class: "sub" }, left(r)), r.reachable ? null : h("div", { class: "sub" }, `Best case ${Math.floor(r.bestCase)}%`)),
+              h("span", {}, h("b", {}, r.code || r.name), past ? null : h("div", { class: "sub" }, left(r)), past || r.reachable ? null : h("div", { class: "sub" }, `Best case ${Math.floor(r.bestCase)}%`)),
               h("span", {}, h("span", { class: "p", style: `color:var(--${tone(r.pct, linePct)})` }, `${r.pct.toFixed(0)}%`), " ", budChip(r))))),
       ];
       if (planSel.size) {
         out.push(acc({ title: `Before ${examName} budget`, sub: o.reachable ? [`Can still skip ${o.budget} overall`, sep(), left(o).replace(" until then", "")] : "Out of reach", open: accOpen.has("budget"), key: "acc-budget",
           ontoggle: (v) => { v ? accOpen.add("budget") : accOpen.delete("budget"); rerender(); } }, rows));
       } else {
-        out.push(h("div", { class: "sec" }, h("span", {}, `Before ${examName}`), h("span", { class: "sub" }, dayLabel(bud.end))));
+        out.push(h("div", { class: "sec" }, h("span", {}, past ? `At the ${examName} cutoff` : `Before ${examName}`), h("span", { class: "sub" }, dayLabel(bud.end))));
         out.push(h("div", { class: "blk" }, rows));
       }
     }
@@ -815,6 +825,7 @@
   // ---------------------------------------------------------------- driver
   let timer, lastRoute = null;
   function tick() {
+    if (!alive()) { expire(); return; }
     const r = route();
     syncGutter();
     if (r !== lastRoute) { dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; lastRoute = r; } // page changed: clear the old UI
@@ -828,10 +839,21 @@
     else if (r === "absall") tickAbsAll();
     else tickTt();
   }
-  new MutationObserver((muts) => {
+  const mo = new MutationObserver((muts) => {
     if (muts.every((mu) => mu.target === host || host?.contains(mu.target))) return; // ignore our own DOM changes
     clearTimeout(timer);
     timer = setTimeout(tick, 600);
-  }).observe(document.body, { childList: true, subtree: true });
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+  // The extension was reloaded under this tab: say so once and stop, instead of throwing on every page change.
+  function expire() {
+    mo.disconnect();
+    clearTimeout(timer);
+    if (!dock?.isConnected) { host?.remove(); return; }
+    dock.replaceChildren(h("div", { class: "panel" },
+      h("div", { class: "h3" }, "leavemealone was updated"),
+      h("p", { class: "sub" }, "Reload this page to keep using it."),
+      h("button", { class: "btn solid cta", onclick: () => location.reload() }, "Reload page")));
+  }
   tick();
 })();

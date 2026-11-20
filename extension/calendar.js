@@ -109,7 +109,22 @@ const Cal = (() => {
     return null;
   }
 
-  return { key, parse, addDays, dayInfo, semesterEnd, mseWindow, cutoff, known: (d) => !!yearOf(key(d)) };
+  // Like cutoff(), but it still answers after the cutoff has passed, until the exam window is over, so the planner can
+  // keep showing the numbers that counted. mse: the last class day before the MSE window, through the window's last day.
+  // ese: the last instruction day, through the semester's optional `ese.to` (else it ends with the instruction days).
+  function cutoffRef(kind, d) {
+    const k = key(d);
+    if (kind === "ese") {
+      for (const y of YEARS) for (const s of y.semesters) if (k <= (s.ese ? s.ese.to : s.end)) return parse(s.end);
+      return null;
+    }
+    const s = semesterOf(d);
+    if (!s || !s.mse || k > s.mse.to) return null;
+    for (let x = addDays(parse(s.mse.from), -1), i = 0; i < 30; x = addDays(x, -1), i++) if (dayInfo(x).classDay) return x;
+    return null;
+  }
+
+  return { key, parse, addDays, dayInfo, semesterEnd, mseWindow, cutoff, cutoffRef, known: (d) => !!yearOf(key(d)) };
 })();
 
 if (typeof module !== "undefined") module.exports = Cal;

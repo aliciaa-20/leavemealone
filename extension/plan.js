@@ -80,13 +80,13 @@ const Plan = (() => {
 
   // Last day that counts for a basis (null if unknown). "now" looks as far as semester end.
   function horizonDate(basis, from) {
-    return K.cutoff(basis === "mse" ? "mse" : "ese", from);
+    return K.cutoffRef(basis === "mse" ? "mse" : "ese", from); // may be in the past: then the planner is a reference, nothing is left to plan
   }
 
   // A saved "mse" basis only holds while MSE is still ahead and has class days left.
   function resolveBasis(basis, from) {
-    if (basis === "end") return "end";
-    return basis === "mse" && K.cutoff("mse", from) ? "mse" : "now";
+    if (basis === "end") return K.cutoffRef("ese", from) ? "end" : "now";
+    return basis === "mse" && K.cutoffRef("mse", from) ? "mse" : "now";
   }
 
   // Drop selected days that fall after the cutoff.
@@ -120,6 +120,7 @@ const Plan = (() => {
   // Courses heading below the MSE line: "out" = can't reach 75% even attending everything,
   // "zero" = exactly on it with MSE within `days` days.
   function mseRisks({ eff, tt, from, days = 7 }) {
+    if (!K.cutoff("mse", from)) return []; // once the cutoff has passed there is nothing left to warn about
     const b = budgets({ eff, tt, basis: "mse", t: MSE_MIN, from });
     if (!b) return [];
     const left = Math.round((b.end - from) / 86400000);
