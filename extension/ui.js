@@ -15,6 +15,9 @@ const UI = (() => {
 
   const plural = (n, word) => `${n} ${n === 1 ? word : word + (word.endsWith("s") ? "es" : "s")}`; // 1 class, 2 classes
   const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+  // Semester labels end in a Roman numeral ("... VI"): its value, for picking the latest one (0 if none).
+  const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
+  const semRank = (label) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(label.toUpperCase())?.[1]] || 0;
   const tone = (pct, thr) => (pct < thr ? "bad" : pct < thr + 10 ? "warn" : "good");
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -119,22 +122,39 @@ const UI = (() => {
   };
 
   // Number stepper: - n +
-  const stepper = (value, { min = 0, max = 999, onchange, label, key }) =>
-    h("span", { class: "stp", role: "group", "aria-label": label },
-      h("button", { "aria-label": `Decrease ${label || ""}`.trim(), "data-key": key ? `${key}-dec` : null, disabled: value <= min, onclick: () => onchange(Math.max(min, value - 1)) }, "−"),
-      // The number can be typed too: digits only, clamped to min..max on Enter or blur, Escape puts the old value back.
-      h("input", { class: "stv", type: "text", inputmode: "numeric", autocomplete: "off", "aria-label": label || "value", "data-key": key ? `${key}-val` : null, value: String(value),
-        onfocus: (e) => e.target.select(),
-        oninput: (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 3); },
-        onkeydown: (e) => { if (e.key === "Enter") e.target.blur(); else if (e.key === "Escape") { e.target.value = String(value); e.target.blur(); } e.stopPropagation(); },
-        onchange: (e) => {
-          const n = parseInt(e.target.value, 10);
-          if (Number.isNaN(n)) { e.target.value = String(value); return; }
-          const v = Math.min(max, Math.max(min, n));
-          e.target.value = String(v);
-          if (v !== value) onchange(v);
-        } }),
-      h("button", { "aria-label": `Increase ${label || ""}`.trim(), "data-key": key ? `${key}-inc` : null, disabled: value >= max, onclick: () => onchange(Math.min(max, value + 1)) }, "+"));
+  // It keeps its own current value, so quick repeated clicks count every click even before the caller redraws.
+  // The number can be typed too: digits only, clamped to min..max. It commits on Enter or blur and, with `live`,
+  // also 400ms after typing stops (the popup uses that, so a typed value survives the popup closing).
+  // Escape puts the last committed value back.
+  const stepper = (value, { min = 0, max = 999, onchange, label, key, live = false }) => {
+    let cur = value, timer = 0;
+    const dec = h("button", { "aria-label": `Decrease ${label || ""}`.trim(), "data-key": key ? `${key}-dec` : null, onclick: () => set(cur - 1) }, "−");
+    const inc = h("button", { "aria-label": `Increase ${label || ""}`.trim(), "data-key": key ? `${key}-inc` : null, onclick: () => set(cur + 1) }, "+");
+    const sync = () => { input.value = String(cur); dec.disabled = cur <= min; inc.disabled = cur >= max; };
+    function set(n) {
+      const v = Math.min(max, Math.max(min, n));
+      if (v === cur) { sync(); return; }
+      cur = v; sync(); onchange(v);
+    }
+    const commitTyped = (fromBlur) => {
+      clearTimeout(timer);
+      const n = parseInt(input.value, 10);
+      if (Number.isNaN(n)) { if (fromBlur) sync(); return; }
+      const v = Math.min(max, Math.max(min, n));
+      if (fromBlur) input.value = String(v); // while typing, leave the text alone: "8" on the way to "85" must not jump
+      if (v !== cur) { cur = v; dec.disabled = cur <= min; inc.disabled = cur >= max; onchange(v); }
+    };
+    const input = h("input", { class: "stv", type: "text", inputmode: "numeric", autocomplete: "off", "aria-label": label || "value", "data-key": key ? `${key}-val` : null, value: String(value),
+      onfocus: (e) => e.target.select(),
+      oninput: (e) => {
+        e.target.value = e.target.value.replace(/\D/g, "").slice(0, 3);
+        if (live) { clearTimeout(timer); timer = setTimeout(() => commitTyped(false), 400); }
+      },
+      onkeydown: (e) => { if (e.key === "Enter") e.target.blur(); else if (e.key === "Escape") { clearTimeout(timer); sync(); e.target.blur(); } e.stopPropagation(); },
+      onblur: () => commitTyped(true) });
+    sync();
+    return h("span", { class: "stp", role: "group", "aria-label": label }, dec, input, inc);
+  };
 
   const toggle = (on, onchange, label, key) =>
     h("button", { class: `sw${on ? " on" : ""}`, role: "switch", "aria-checked": String(on), "aria-label": label, "data-key": key, onclick: () => onchange(!on) });
@@ -184,5 +204,104 @@ const UI = (() => {
     card.style.setProperty("--my", `${e.clientY - r.top}px`);
   });
 
-  return { h, tile, spotlight, absentSummary, absentDays, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
+  // Guided tour: dims everything but one element per step, with a card saying what it is (Back / Next / Skip, Done at the end).
+  // steps: [{ target?: () => Element|null, title, text, before?: () => void|Promise }]. No `target` = a centred card.
+  // A step whose target function returns null is skipped. `mount` is where the overlay lives: document.body in the popup,
+  // the shadow root on CUE (outside #app / .dock, so the caller's redraws don't remove it). Call refresh() after a redraw.
+  // A step with `next: { label, run }` shows that label instead of Next/Done; clicking it ends the tour (completed) and runs it.
+  // onEnd(completed) runs once, on Done (true) or Skip / Escape (false).
+  const tour = ({ mount, steps, onEnd }) => {
+    let i = -1, target = null, live = true, busy = false;
+    const hole = h("div", { class: "tour-hole" });
+    const count = h("span", { class: "tour-n", "aria-live": "polite" });
+    const title = h("div", { class: "h3" });
+    const text = h("p", { class: "sub" });
+    const back = h("button", { class: "btn sm", onclick: () => go(-1) }, "Back");
+    const advance = () => { const a = steps[i]?.next; if (a) { end(true); a.run(); } else go(1); };
+    const next = h("button", { class: "btn solid sm", onclick: advance }, "Next");
+    const card = h("div", { class: "tour-card", role: "dialog", "aria-modal": "true", "aria-label": "Quick tour" },
+      count, title, text,
+      h("div", { class: "tour-act" }, h("button", { class: "link", onclick: () => end(false) }, "Skip tour"), h("span", { class: "tour-btns" }, back, next)));
+    const root = h("div", { class: "tour cue" }, h("div", { class: "tour-block" }), hole, card);
+    const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    function place() {
+      if (!live) return;
+      const vw = window.innerWidth, vh = window.innerHeight, pad = 6, gap = 12, edge = 16;
+      const r = target && target.isConnected ? target.getBoundingClientRect() : null;
+      const box = r ? { x: r.left - pad, y: r.top - pad, w: r.width + pad * 2, h: r.height + pad * 2 } : { x: vw / 2, y: vh / 2, w: 0, h: 0 };
+      Object.assign(hole.style, { left: `${box.x}px`, top: `${box.y}px`, width: `${box.w}px`, height: `${box.h}px` });
+      hole.classList.toggle("none", !r);
+      const cw = card.offsetWidth, ch = card.offsetHeight;
+      let top;
+      if (!r) top = (vh - ch) / 2;
+      else if (box.y + box.h + gap + ch <= vh - edge) top = box.y + box.h + gap; // below
+      else if (box.y - gap - ch >= edge) top = box.y - gap - ch; // above
+      else top = vh - edge - ch; // no room either side: keep it on screen
+      const left = r ? box.x + box.w / 2 - cw / 2 : (vw - cw) / 2;
+      card.style.left = `${Math.round(Math.min(vw - edge - cw, Math.max(edge, left)))}px`;
+      card.style.top = `${Math.round(Math.max(edge, top))}px`;
+    }
+
+    async function go(d) {
+      if (busy || !live) return;
+      busy = true;
+      let j = i + d;
+      for (; j >= 0 && j < steps.length; j += d || 1) {
+        const s = steps[j];
+        await s.before?.();
+        if (!live) return;
+        await frame();
+        const t = s.target ? s.target() : null;
+        if (s.target && !t) continue; // not on screen right now: skip it
+        target = t;
+        break;
+      }
+      busy = false;
+      if (j >= steps.length) return end(true);
+      if (j < 0) return; // nothing earlier to go back to
+      i = j;
+      const s = steps[i];
+      count.textContent = `${i + 1} of ${steps.length}`;
+      title.textContent = s.title;
+      text.textContent = s.text;
+      back.disabled = i === 0;
+      next.textContent = s.next?.label || (i === steps.length - 1 ? "Done" : "Next");
+      target?.scrollIntoView({ block: "nearest" });
+      place();
+      setTimeout(place, 360); // again once an accordion or drawer has finished opening
+      next.focus({ preventScroll: true });
+    }
+
+    const onKey = (e) => {
+      if (!live) return;
+      const inCard = e.composedPath().includes(card);
+      if (e.key === "Escape") end(false);
+      else if (e.key === "ArrowRight" || (e.key === "Enter" && !inCard)) advance();
+      else if (e.key === "ArrowLeft") go(-1);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    function end(completed) {
+      if (!live) return;
+      live = false;
+      document.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("resize", place);
+      document.removeEventListener("scroll", place, true);
+      mount.removeEventListener("scroll", place, true);
+      root.remove();
+      onEnd?.(completed);
+    }
+
+    document.addEventListener("keydown", onKey, true);
+    window.addEventListener("resize", place);
+    document.addEventListener("scroll", place, true);
+    mount.addEventListener("scroll", place, true); // the drawer scrolls inside the shadow root, and scroll doesn't cross it
+    mount.append(root);
+    go(1);
+    return { refresh: place, end: () => end(false), get active() { return live; } };
+  };
+
+  return { h, semRank, spotlight, tour, absentSummary, absentDays, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
 })();

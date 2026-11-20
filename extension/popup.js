@@ -1,7 +1,5 @@
 // Toolbar popup: overall status first, then what needs attention, what-if, pending items, settings.
 const CUE_URL = "https://cue.christuniversity.in/main/attendence";
-const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
-const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
 const { h, plural, fmt, tone, mustText, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays, spotlight } = UI;
 const ago = (t) => {
   const m = Math.round((Date.now() - t) / 60000);
@@ -14,18 +12,112 @@ let skip = 0;        // what-if: classes skipped
 let wi = null;       // what-if result from the timetable (null without one)
 const confirming = new Set(); // keys of inline "are you sure?" prompts
 const accOpen = new Set();    // open accordions ("all", "adj", "settings")
+let tourRun = null;          // the guided tour while it is showing
+let tourTried = false;       // offered once per popup open
+let pendingDraw = false;     // a redraw waiting for the user to leave a number box
+let dataMsg = null;          // [tone, text] after an export / import
+let importing = null;        // a parsed backup waiting for "yes"
 
 const save = (patch) => chrome.storage.local.set(patch).then(load);
 
 function load() {
   return chrome.storage.local
-    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: undefined, absentList: null })
+    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: undefined, absentList: null, tour: {} })
     .then((d) => {
       D = d;
-      if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || Object.keys(d.snapshots).sort((a, b) => rank(b) - rank(a))[0];
+      if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
       draw();
+      // First popup open with data: a short guided tour (once; Settings can replay it).
+      if (viewSem && !d.tour.popup && !tourRun && !tourTried) { tourTried = true; startTour(); }
     });
 }
+
+// ---- guided tour
+const q = (k) => document.querySelector(`[data-tour="${k}"]`);
+function startTour() {
+  tourRun?.end();
+  accOpen.delete("settings");
+  draw();
+  tourRun = UI.tour({
+    mount: document.body,
+    steps: [
+      { target: () => q("hero"), title: "Your attendance", text: "Your actual overall %: the portal's numbers plus the hours you've marked. The tick on the bar is your minimum." },
+      { target: () => q("whatif"), title: "What if I skip?", text: "Pick how many of your next classes to skip and see where your overall would land." },
+      { target: () => q("exam"), title: "Exam countdown", text: `Days to MSE and ESE. MSE needs ${Math.round(Plan.MSE_MIN * 100)}% in every course; ESE needs your overall target.` },
+      { target: () => q("best"), title: "Best days to bunk", text: "Your safest days to skip, worked out from your timetable. Open the CUE timetable once to unlock this." },
+      { before: () => { accOpen.add("settings"); draw(); }, target: () => q("settings"), title: "Settings and backup", text: "Your minimum, the ESE target and the daily alert. Export a backup of your data here, or import one on a new browser." },
+      D.timetable
+        ? { title: "You're all set", text: "On CUE, the pill at the bottom right shows the same numbers, plus Plan a bunk. Mark absent hours from a course's View Details." }
+        : { title: "Last step: your timetable", text: "Open your CUE timetable once. The extension saves your weekly classes, so it can show your best days to bunk. On CUE, the pill at the bottom right has everything else.",
+            next: { label: "Open timetable", run: () => chrome.tabs.create({ url: "https://cue.christuniversity.in/main/timeTable" }) } },
+    ],
+    onEnd: () => { tourRun = null; save({ tour: { ...D.tour, popup: true } }); },
+  });
+}
+
+// ---- backup: export / import everything the extension keeps
+const KEYS = ["snapshots", "latest", "adjust", "excused", "lastCourse", "timetable", "timetableSem", "absentList", "threshold", "alerts", "sortBy", "bunkBasis", "eseTarget", "tour"];
+async function exportData() {
+  const data = await chrome.storage.local.get(KEYS);
+  const n = new Date(), ymd = Cal.key(n);
+  const file = { app: "leavemealone", schema: 1, version: chrome.runtime.getManifest().version, exportedAt: n.toISOString(), data };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: "application/json" }));
+  const a = h("a", { href: url, download: `leavemealone-backup-${ymd}.json` });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  dataMsg = ["good", "Backup saved to your downloads."];
+  draw();
+}
+// Pure check of a parsed file: the known keys it carries, or null if it isn't a leavemealone backup.
+function readBackup(file) {
+  if (!file || file.app !== "leavemealone" || !file.data || typeof file.data !== "object" || Array.isArray(file.data)) return null;
+  const data = Object.fromEntries(KEYS.filter((k) => k in file.data).map((k) => [k, file.data[k]]));
+  if (data.snapshots && (typeof data.snapshots !== "object" || Array.isArray(data.snapshots))) return null;
+  const at = new Date(file.exportedAt);
+  return { data, sems: Object.keys(data.snapshots || {}).length, at: Number.isNaN(at.getTime()) ? null : at };
+}
+function pickBackup() {
+  const input = h("input", { type: "file", accept: ".json,application/json", style: "display:none", onchange: async () => {
+    const f = input.files[0];
+    input.remove();
+    if (!f) return;
+    let b = null;
+    try { b = readBackup(JSON.parse(await f.text())); } catch { b = null; }
+    if (b) { importing = b; dataMsg = null; } else { importing = null; dataMsg = ["bad", "That file isn't a leavemealone backup."]; }
+    draw();
+  } });
+  document.body.append(input);
+  input.click();
+}
+async function applyBackup() {
+  const { data } = importing;
+  importing = null;
+  await chrome.storage.local.remove(KEYS.filter((k) => !(k in data))); // replace, not merge: keys the backup lacks go too
+  await chrome.storage.local.set(data);
+  viewSem = null;
+  tourTried = true; // don't start the tour over an import (an imported tour flag decides next time)
+  dataMsg = ["good", "Backup imported."];
+  load();
+}
+
+function dataRows() {
+  return h("div", { class: "it2 set" },
+    h("div", { class: "row" }, h("span", {}, "Backup"),
+      h("span", { class: "tour-btns" }, h("button", { class: "btn sm", "data-key": "export", onclick: exportData }, "Export"), h("button", { class: "btn sm", "data-key": "import", onclick: pickBackup }, "Import"))),
+    importing
+      ? h("div", { class: "sub", style: "margin-top:6px" },
+          h("span", { class: "warn" }, `Replace your data with this backup (${plural(importing.sems, "semester")}${importing.at ? `, saved ${dayLabel(importing.at)}` : ""})? `),
+          h("button", { class: "link", onclick: applyBackup }, "yes"), sep(), h("button", { class: "link", onclick: () => { importing = null; draw(); } }, "no"))
+      : h("div", { class: "sub", style: "margin-top:4px" }, "Export saves everything to a file. Import replaces what's here with a file you exported."),
+    dataMsg ? h("div", { class: `sub ${dataMsg[0]}`, style: "margin-top:4px" }, dataMsg[1]) : null);
+}
+
+// Redraws rebuild the whole popup. Don't rebuild under someone typing in a number box; do it once they leave it.
+document.addEventListener("focusout", (e) => {
+  if (pendingDraw && e.target.classList?.contains("stv")) { pendingDraw = false; setTimeout(draw); }
+});
 
 function setCourseAdj(sem, c, field, val) {
   const adjust = D.adjust;
@@ -36,12 +128,21 @@ function setCourseAdj(sem, c, field, val) {
   save({ adjust });
 }
 function draw() {
+  const active = document.activeElement;
+  if (active?.classList?.contains("stv")) { pendingDraw = true; return; }
+  const focusKey = active?.dataset?.key; // keep keyboard focus on the same control across the rebuild
+  drawAll();
+  if (focusKey) document.querySelector(`[data-key="${focusKey}"]`)?.focus({ preventScroll: true });
+  tourRun?.refresh();
+}
+function drawAll() {
   const app = document.getElementById("app");
   const y = document.documentElement.scrollTop; // a redraw rebuilds everything: keep the scroll position
   const snap = D.snapshots[viewSem];
   if (!snap) {
     app.replaceChildren(
-      h("div", { class: "blk free" }, h("div", { class: "h3" }, "No attendance data yet"), h("p", { class: "sub" }, "Open the CUE attendance page once (table view) and it will appear here."), openBtn())
+      h("div", { class: "blk free" }, h("div", { class: "h3" }, "No attendance data yet"), h("p", { class: "sub" }, "Open the CUE attendance page once (table view) and it will appear here."), openBtn()),
+      h("div", { class: "blk", style: "margin-top:12px" }, dataRows()) // a new browser can bring its data in before syncing
     );
     return;
   }
@@ -55,7 +156,7 @@ function draw() {
   const courses = eff.courses.filter((c) => c.scheduled > 0); // portal order, on purpose
   const pc = (c) => Calc.percent(c.attended, c.scheduled);
   const low = courses.filter((c) => pc(c) < thr);
-  const sems = Object.keys(D.snapshots).sort((a, b) => rank(b) - rank(a));
+  const sems = Object.keys(D.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a));
   const tn = tone(op, thr);
   const toggleAcc = (id) => (v) => { v ? accOpen.add(id) : accOpen.delete(id); draw(); };
 
@@ -66,13 +167,13 @@ function draw() {
       : h("span", { class: "t" }, viewSem),
     h("span", { class: "sub" }, `synced ${ago(snap.syncedAt)}`));
   // what-if: with a timetable the next `skip` classes are charged to their own courses; without one only the overall is known
-  const wiFrom = Cal.addDays(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()), 1);
+  const wiFrom = Cal.addDays(Cal.day0(), 1);
   wi = skip && D.timetable ? Plan.nextClasses(D.timetable, eff.courses, wiFrom, skip) : null;
   const after = wi ? Calc.percent(o.attended, o.scheduled + wi.known) : Calc.afterSkipping(o.attended, o.scheduled, skip);
   // what-if lives in the big card, right above the number it changes
   const whatIf = h("div", { class: "whatif" },
     h("div", { class: "row" }, h("span", {}, "If I skip the next"),
-      h("span", { class: "row" }, stepper(skip, { min: 0, max: 999, label: "classes to skip", onchange: (v) => { skip = v; draw(); } }), h("span", {}, "classes"))),
+      h("span", { class: "row" }, stepper(skip, { min: 0, max: 999, label: "classes to skip", key: "skip", onchange: (v) => { skip = v; draw(); } }), h("span", {}, "classes"))),
     skip ? h("p", { class: "sub" }, wi && wi.taken ? `Skipping the next ${plural(wi.taken, "class")}${wi.taken < skip ? " (all that are left)" : ""}, until ${dayLabel(wi.last)}: ` : "Overall would be ", h("b", { class: tone(after, thr) }, `${after.toFixed(1)}%`), wi && wi.taken ? " overall." : ".") : null);
   const overall = h("div", { class: `hero w-${tn}` },
     h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${op.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
@@ -86,8 +187,7 @@ function draw() {
   // ---- exam countdown, best days to bunk (top 3; the full planner lives in the drawer on CUE)
   let examCard = null, bestCard = null;
   if (viewSem === D.latest) {
-    const n = new Date();
-    const today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    const today = Cal.day0();
     const from = Cal.addDays(today, 1);
     const basis = Plan.resolveBasis(D.bunkBasis, from);
     const esePct = Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL));
@@ -173,7 +273,7 @@ function draw() {
   // ---- holidays and the MSE week, month by month, from today to the end of the semester
   let holBox = null;
   {
-    const n = new Date(), today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    const today = Cal.day0();
     const to = Cal.semesterEnd(today) || Cal.addDays(today, 150);
     const events = Cal.holidays(today, to).map((x) => ({ date: x.date, name: x.name }));
     const mse = Cal.mseWindow(today);
@@ -207,7 +307,7 @@ function draw() {
   }
 
   // ---- adjustments (rare path) and settings
-  const num = (v, label, onchange) => stepper(v || 0, { min: 0, max: 999, label, onchange });
+  const num = (v, label, onchange) => stepper(v || 0, { min: 0, max: 999, label, key: `adj-${label}`, live: true, onchange });
   const adjBox = acc({ title: "Add hours the portal is missing", icon: "clock", tone: "good", sub: "For a class the portal has not counted", open: accOpen.has("adj"), ontoggle: toggleAcc("adj") },
     D.snapshots[viewSem].hasCc
       ? h("div", { class: "sub", style: "padding-top:12px" }, "Co-curricular claims aren't needed: the portal already includes them.")
@@ -220,16 +320,31 @@ function draw() {
       h("span", { class: "row" }, num(c.adj.att, `${c.code || c.name} attended`, (v) => setCourseAdj(viewSem, c, "att", v)), num(c.adj.sch, `${c.code || c.name} held`, (v) => setCourseAdj(viewSem, c, "sch", v))))),
     h("div", { class: "sub", style: "margin-top:8px" }, "Went to an extra class the portal hasn't counted? Add 1 under Attended and 1 under Held."));
 
-  const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Your minimum and the daily alert", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
-    h("div", { class: "row", style: "padding-top:12px" }, h("span", {}, "Minimum attendance %"), stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", onchange: (v) => save({ threshold: v }) })),
-    h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "ESE target %"), stepper(Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL)), { min: 1, max: 100, label: "ESE target", onchange: (v) => save({ eseTarget: v }) })),
-    h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "Daily alert if a course is low"), toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert")),
-    h("div", { class: "it2", style: "margin-top:12px" },
-      h("div", { class: "row" }, h("span", {}, "Saved attendance data"),
+  // Each setting says what it changes: the minimum and the ESE target are easy to mix up.
+  const setRow = (label, help, control, first) => h("div", { class: "it2 set", style: first ? "border-top:0" : null },
+    h("div", { class: "row" }, h("span", {}, label), control), help ? h("div", { class: "sub", style: "margin-top:4px" }, help) : null);
+  const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Minimum, ESE target, alert, backup", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
+    h("div", { "data-tour": "settings" },
+      setRow("Minimum %", "For each course and the overall. Sets 'can skip', 'attend next', the colours and the daily alert.",
+        stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", key: "set-min", live: true, onchange: (v) => save({ threshold: v }) }), true),
+      setRow("ESE target (overall) %", `The overall % you need to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Used by the ESE countdown and 'Before ESE' planning.`,
+        stepper(Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL)), { min: 1, max: 100, label: "ESE target", key: "set-ese", live: true, onchange: (v) => save({ eseTarget: v }) })),
+      h("div", { class: "sub", style: "padding-bottom:12px" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course; that one isn't a setting.`),
+      setRow("Daily alert if a course is low", null, toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert", "set-alert")),
+      dataRows(),
+      setRow("Erase saved data",
+        "Removes synced attendance, your marks, adjustments and timetable from this browser. Settings stay, and the portal is untouched.",
         confirming.has("wipe")
-          ? h("span", {}, h("span", { class: "bad" }, "Erase? "), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); viewSem = null; chrome.storage.local.remove(["snapshots", "latest", "adjust", "excused", "lastCourse", "timetable", "absentList"]).then(load); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); draw(); } }, "no"))
+          ? h("span", {}, h("span", { class: "bad" }, "Erase? "), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); viewSem = null; chrome.storage.local.remove(["snapshots", "latest", "adjust", "excused", "lastCourse", "timetable", "timetableSem", "timetableSavedAt", "absentList"]).then(load); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); draw(); } }, "no"))
           : h("button", { class: "btn danger sm", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase")),
-      h("div", { class: "sub", style: "margin-top:4px" }, "Removes synced attendance, your marks, adjustments and timetable from this browser. Settings stay, and the portal is untouched.")));
+      setRow("Quick tour", "Shows the popup tour now, and the pill tour next time you open CUE attendance.", h("button", { class: "link", onclick: () => chrome.storage.local.set({ tour: {} }).then(() => { D.tour = {}; startTour(); }) }, "Replay"))));
+
+  // anchors for the guided tour
+  overall.dataset.tour = "hero";
+  whatIf.dataset.tour = "whatif";
+  const examTiles = examCard?.querySelector(".exam");
+  if (examTiles) examTiles.dataset.tour = "exam";
+  if (bestCard) bestCard.dataset.tour = "best";
 
   app.replaceChildren(...[header, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, UI.TAGLINE)].filter(Boolean));
   document.documentElement.scrollTop = y;

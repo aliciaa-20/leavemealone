@@ -161,7 +161,8 @@
     return out;
   }
 
-  const today0 = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
+  const today0 = () => Cal.day0();
+  const courseIn = (snap, key) => snap?.courses.find((x) => (x.code || x.name) === key); // course key = code || name
 
   // A course as "NAME / code" (students know the subject, not the code). `extra` goes after the code.
   const nameCell = (c, ...extra) => h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
@@ -179,10 +180,8 @@
     if (!cls.length) return null;
     const dkey = Cal.key(date);
     if (todayFor !== dkey) { todayFor = dkey; todayPick = new Set(); }
-    const num = (x) => parseInt(/\d+/.exec(x || "")?.[0], 10) || 0;
-    cls = [...cls].sort((a, b) => num(a.period) - num(b.period));
-    const byName = new Map(eff.courses.map((c) => [c.name.trim().toUpperCase(), c]));
-    const courseOf = (x) => byName.get(x.name.trim().toUpperCase());
+    cls = [...cls].sort((a, b) => Plan.periodNum(a.period) - Plan.periodNum(b.period));
+    const ofName = Plan.courseOf(eff.courses), courseOf = (x) => ofName(x.name);
     const impactOf = (list) => { const m = {}; for (const x of list) { const c = courseOf(x); if (c) m[c.key] = (m[c.key] || 0) + 1; } return Plan.impact(eff, m, "now", {}, t); };
     const okAlone = (x) => { const c = courseOf(x); if (!c) return null; const r = impactOf([x]).rows[0]; return !r || r.safe; };
     const picked = cls.filter((x) => todayPick.has(x.period));
@@ -291,7 +290,11 @@
         h("div", { class: "cdet", inert: open ? null : "" }, h("div", {}, needView(c, pct, skip, t, threshold))));
     });
 
-    return [hero, todayCard(eff, threshold, t), reviewBox, sortBar, h("div", { class: "blk" }, list)];
+    hero.dataset.tour = "hero";
+    const today = todayCard(eff, threshold, t);
+    if (today) today.dataset.tour = "today";
+    list[0]?.setAttribute("data-tour", "course");
+    return [hero, today, reviewBox, sortBar, h("div", { class: "blk" }, list)];
   }
 
   // ---- Plan a bunk tab
@@ -333,8 +336,9 @@
     if (opts.length > 1) out.push(h("div", { class: "ctl" },
       h("div", { class: "sub" }, "Safe means"),
       pills(opts, basis, (v) => { A.basis = v; store.set({ bunkBasis: v }); rerender(); }, { label: "Safe means", keyPrefix: "basis" }),
-      basis === "end" ? h("div", { class: "row" }, h("span", { class: "sub" }, "My ESE target (%)"),
-        stepper(esePct, { min: 1, max: 100, label: "ESE target", key: "ese", onchange: (v) => { A.eseTarget = v; store.set({ eseTarget: v }); rerender(); } })) : null));
+      basis === "end" ? [h("div", { class: "row" }, h("span", { class: "sub" }, "My ESE target, overall (%)"),
+        stepper(esePct, { min: 1, max: 100, label: "ESE target", key: "ese", onchange: (v) => { A.eseTarget = v; store.set({ eseTarget: v }); rerender(); } })),
+        h("div", { class: "sub" }, `The overall % you need to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Courses only need your ${threshold}% minimum.`)] : null));
     if (A.basis === "mse" && basis === "now") out.push(h("div", { class: "warnbox top" }, h("div", { class: "sub" }, "MSE isn't open for planning (no class days left before it, or it isn't in the calendar), so these are right-now numbers.")));
     if (dropped) out.push(h("div", { class: "sub note" }, `${plural(dropped, "selected day")} after the ${examName} cutoff ${dropped > 1 ? "were" : "was"} removed.`));
     if (!Cal.known(from)) out.push(h("div", { class: "warnbox top" }, h("div", { class: "sub" }, "This year's academic calendar isn't in the extension yet, so holidays aren't known.")));
@@ -550,6 +554,35 @@
     lastPicked = null;
     placeThumb(shell.tabsBox, "tabs");
     if (focusKey) restoreFocus(focusKey);
+    if (drawerTour?.active) drawerTour.refresh();
+    else if (!tourChecked) maybeTour();
+  }
+
+  // ---- guided tour of the pill and drawer: the first time the attendance page shows data (once; the popup can replay it)
+  let drawerTour = null, tourChecked = false;
+  async function maybeTour() {
+    tourChecked = true;
+    const { tour } = await store.get({ tour: {} });
+    if (tour.drawer || !shell || drawerTour) return;
+    const q = (k) => host?.shadowRoot?.querySelector(`[data-tour="${k}"]`);
+    const show = (id) => () => { tab = id; if (!attOpen) setOpen(true); else rerender(); };
+    drawerTour = UI.tour({
+      mount: host.shadowRoot,
+      steps: [
+        { before: () => { if (attOpen) setOpen(false); }, target: () => shell?.pill, title: "Your attendance, on every visit", text: "This pill shows your overall %. Click it any time to open the details." },
+        { before: show("overview"), target: () => q("hero"), title: "Where you stand", text: "Your actual overall: the portal plus the hours you've marked, how far you are from your minimum, and how many classes you can skip or must attend." },
+        { before: show("overview"), target: () => q("course"), title: "Every course", text: "Tap a course to see what it needs and when its next classes are." },
+        { before: show("plan"), target: () => shell?.tabs.get("plan"), title: "Plan a bunk", text: "Pick days on a calendar and see every course before and after. 'Safe means' switches between right after the bunk, before MSE and before ESE." },
+        { before: show("overview"), title: "Marking absent hours", text: "Got an absent hour that was really co-curricular or medical? Open that course's View Details and mark it; your numbers update straight away." },
+        A?.tt ? null : { title: "Last step: your timetable", text: "Open your CUE timetable once. The extension saves your weekly classes, so Skip today and Plan a bunk can pick your best days. Then come back to Attendance.",
+          next: { label: "Open timetable", run: () => location.assign("/main/timeTable") } },
+      ].filter(Boolean),
+      onEnd: async () => {
+        drawerTour = null;
+        const cur = await store.get({ tour: {} });
+        await store.set({ tour: { ...cur.tour, drawer: true } });
+      },
+    });
   }
 
   // Drawer shell, built once per mount of the attendance page.
@@ -593,9 +626,7 @@
     const same = prev && JSON.stringify([prev.overall, prev.courses, prev.hasCc]) === JSON.stringify([snap.overall, snap.courses, snap.hasCc]);
     if (same && Date.now() - prev.syncedAt < 60000) snap.syncedAt = prev.syncedAt; // unchanged: don't rewrite storage on every tick
     d.snapshots[snap.semester] = snap;
-    const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
-    const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
-    const latest = Object.keys(d.snapshots).sort((a, b) => rank(b) - rank(a))[0];
+    const latest = Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
     if (!same || snap.syncedAt !== prev.syncedAt || d.latest !== latest) await store.set({ snapshots: d.snapshots, latest });
     renderAtt({
       snap, threshold: d.threshold, adj: d.adjust[snap.semester], exc: d.excused[snap.semester],
@@ -637,13 +668,15 @@
   async function tickTt() {
     const seen = parseTimetable();
     if (!seen) return;
-    const d = await store.get({ timetable: null, snapshots: {}, latest: null });
-    // The page shows one week. A holiday week has empty days, so a weekday with no classes in view keeps what was saved before.
-    const days = { ...(d.timetable || {}), ...seen };
-    if (JSON.stringify(days) !== JSON.stringify(d.timetable)) await store.set({ timetable: days, timetableSavedAt: Date.now() });
+    const d = await store.get({ timetable: null, timetableSem: null, snapshots: {}, latest: null });
+    // The page shows one week. A holiday week has empty days, so a weekday with no classes in view keeps what was saved
+    // before, but only from this semester's timetable: a weekday kept from an older one shows courses you no longer take.
+    const same = d.timetable && d.timetableSem && d.timetableSem === d.latest;
+    const days = { ...(same ? d.timetable : {}), ...seen };
+    if (JSON.stringify(days) !== JSON.stringify(d.timetable) || d.timetableSem !== d.latest) await store.set({ timetable: days, timetableSem: d.latest });
     const count = Object.values(days).reduce((n, x) => n + x.length, 0);
-    const known = new Set((d.snapshots[d.latest]?.courses || []).map((c) => c.name.trim().toUpperCase()));
-    const unknown = known.size ? [...new Set(Object.values(days).flat().map((c) => c.name))].filter((n) => !known.has(n.toUpperCase())) : [];
+    const courses = d.snapshots[d.latest]?.courses || [], ofName = Plan.courseOf(courses);
+    const unknown = courses.length ? [...new Set(Object.values(days).flat().map((c) => c.name))].filter((n) => !ofName(n)) : [];
     const sig = JSON.stringify([count, unknown]);
     if (sig === ttSig && host?.isConnected) return;
     await ensureHost();
@@ -657,10 +690,10 @@
 
   // ---------------------------------------------------------------- absent details page
   // Each absent hour gets one of four marks. Only the last three change anything:
-  //   later = counted as attended now (the portal will be updated), cc / med = overall claims only.
+  //   later = counted as attended now (the portal will be updated), cc = attended in its course and the overall, med = the overall only (74.5% to 84.49%).
   const CHOICES = [
     { s: "abs", letter: "A", cls: "a", color: "var(--bad)", label: "Absent", tip: "Stays absent" },
-    { s: "cc", letter: "C", cls: "c", color: "var(--gold)", label: "Co-curricular", tip: "Co-curricular claim (added to overall at semester end)" },
+    { s: "cc", letter: "C", cls: "c", color: "var(--gold)", label: "Co-curricular", tip: "Co-curricular: counts as attended in this course and the overall now" },
     { s: "med", letter: "M", cls: "m", color: "var(--blue)", label: "Medical", tip: "Medical leave (only considered when the aggregate is 74.5-84.49%)" },
     { s: "later", letter: "L", cls: "l", color: "var(--good)", label: "Later", tip: "Was present: the portal will be updated, count as attended now" },
   ];
@@ -716,7 +749,7 @@
     const m = (d.excused[ctx.semester] = d.excused[ctx.semester] || {});
     const e0 = m[ctx.key];
     const snap = d.snapshots[ctx.semester];
-    const courseNow = snap?.courses.find((x) => (x.code || x.name) === ctx.key);
+    const courseNow = courseIn(snap, ctx.key);
 
     // Reconcile what we saved with what the portal shows now.
     const saved = (e0?.rows || [])
@@ -745,17 +778,20 @@
       })
     );
 
+    // This course's saved rows as they'd be now: the portal's own labels and "updated on the portal" rows stay,
+    // plus your current picks for the plain-absent hours.
+    const marksNow = (entry) => [
+      ...(entry?.rows || []).filter((r) => r.p || r.gone),
+      ...rows.filter((r) => r.portal === "abs" && sel.get(r.k) !== "abs").map((r) => ({ k: r.k, h: r.h, s: sel.get(r.k), gone: false })),
+    ];
+
     // ---- persistence: every change is saved straight away
     async function persist() {
       const cur = await store.get({ excused: {}, snapshots: {} });
       const mm = (cur.excused[ctx.semester] = cur.excused[ctx.semester] || {});
-      const keep = (mm[ctx.key]?.rows || []).filter((r) => r.p || r.gone);
-      const mine = rows
-        .filter((r) => r.portal === "abs" && sel.get(r.k) !== "abs")
-        .map((r) => ({ k: r.k, h: r.h, s: sel.get(r.k), gone: false }));
-      const all = [...keep, ...mine];
+      const all = marksNow(mm[ctx.key]);
       if (all.length) {
-        const c = cur.snapshots[ctx.semester]?.courses.find((x) => (x.code || x.name) === ctx.key);
+        const c = courseIn(cur.snapshots[ctx.semester], ctx.key);
         mm[ctx.key] = { rows: all, baseAbsent: c?.absent ?? undefined };
       } else delete mm[ctx.key];
       await store.set({ excused: cur.excused });
@@ -779,16 +815,14 @@
         });
       }
       if (!snap || !courseNow) { preview.textContent = ""; return; }
-      const mine = rows.filter((r) => r.portal === "abs" && sel.get(r.k) !== "abs").map((r) => ({ k: r.k, h: r.h, s: sel.get(r.k) }));
-      const keep = (d.excused[ctx.semester]?.[ctx.key]?.rows || []).filter((r) => r.p || r.gone);
-      const exc2 = { ...(d.excused[ctx.semester] || {}), [ctx.key]: { rows: [...keep, ...mine], baseAbsent: courseNow.absent } };
+      const exc2 = { ...(d.excused[ctx.semester] || {}), [ctx.key]: { rows: marksNow(d.excused[ctx.semester]?.[ctx.key]), baseAbsent: courseNow.absent } };
       const base = Calc.effective(snap, {}, {});
-      const now = Calc.effective(snap, d.adjust[ctx.semester], exc2);
+      const now = Calc.actual(snap, d.adjust[ctx.semester], exc2); // the same numbers as the drawer
       const cb = base.courses.find((c) => c.key === ctx.key), cn = now.courses.find((c) => c.key === ctx.key);
       const p = (a, s) => Calc.percent(a, s).toFixed(1);
       preview.replaceChildren(
         h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, `${p(base.overall.attended, base.overall.scheduled)}% → `, h("b", { class: "good" }, `${p(now.overall.attended, now.overall.scheduled)}%`)))),
-        h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "This course")), h("span", {}, `${p(cb.attended, cb.scheduled)}% → `, h("b", { class: "good" }, `${p(cn.attended + cn.ccHrs, cn.scheduled)}%`))))
+        h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "This course")), h("span", {}, `${p(cb.attended, cb.scheduled)}% → `, h("b", { class: "good" }, `${p(cn.attended, cn.scheduled)}%`))))
       );
     }
 
@@ -858,7 +892,7 @@
                 const e = cur.excused[ctx.semester]?.[ctx.key];
                 if (!e) return;
                 e.rows = e.rows.filter((x) => x.k !== r.k);
-                const c = cur.snapshots[ctx.semester]?.courses.find((x) => (x.code || x.name) === ctx.key);
+                const c = courseIn(cur.snapshots[ctx.semester], ctx.key);
                 if (e.rows.length) e.baseAbsent = c?.absent ?? e.baseAbsent;
                 else delete cur.excused[ctx.semester][ctx.key];
                 await store.set({ excused: cur.excused });
@@ -914,7 +948,7 @@
   // Same record the per-course panel writes: excused[sem][courseKey].rows = [{ k: "date|period", h, s, gone }].
   async function markAbs(r, choice) {
     const d = await store.get({ latest: null, snapshots: {}, excused: {} });
-    const c = d.snapshots[d.latest]?.courses.find((x) => (x.code || x.name) === absKey(r));
+    const c = courseIn(d.snapshots[d.latest], absKey(r));
     if (!c) return;
     const m = (d.excused[d.latest] = d.excused[d.latest] || {});
     const k = `${r.date}|${r.period}`;
@@ -931,7 +965,7 @@
     absShell.markBtn.classList.toggle("on", absMark);
     const snap = absData.snap;
     const selOf = (r) => { const u = (absData.excused[absKey(r)]?.rows || []).find((x) => x.k === `${r.date}|${r.period}` && !x.gone); return u ? (u.s === "cc" || u.s === "med" ? u.s : "later") : "abs"; };
-    const opts = { on: absMark, choices: CHOICES, selOf, canMark: (r) => !!snap?.courses.find((x) => (x.code || x.name) === absKey(r)),
+    const opts = { on: absMark, choices: CHOICES, selOf, canMark: (r) => !!courseIn(snap, absKey(r)),
       pick: async (r, choice) => { await markAbs(r, choice); await refreshAbsData(); drawAbsBody(); } };
     let preview = null;
     if (absMark && snap) {
@@ -952,7 +986,7 @@
     const code = /^([^\s(]+)\s*\(\d+\)/.exec(document.querySelector('[role="combobox"]')?.textContent.trim() || "")?.[1];
     if (code && code.toLowerCase() !== "all") {
       const d = await store.get({ latest: null, snapshots: {} });
-      const c = d.snapshots[d.latest]?.courses.find((x) => (x.code || x.name) === code);
+      const c = courseIn(d.snapshots[d.latest], code);
       if (c) return tickAbs({ semester: d.latest, key: code, name: c.name });
     }
     const rows = parseAllAbsences();
@@ -995,7 +1029,7 @@
     const r = route();
     syncGutter();
     if (r !== lastRoute) { // page changed: clear the old UI, and a drawer left open on the last page shrinks back to its pill
-      if (lastRoute !== null) { absOpen = false; attOpen = false; absShell = null; shell = null; }
+      if (lastRoute !== null) { absOpen = false; attOpen = false; absShell = null; shell = null; drawerTour?.end(); tourChecked = false; }
       dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; lastRoute = r;
     }
     if (!r) {
@@ -1016,6 +1050,15 @@
     timer = setTimeout(() => { timer = 0; lastTick = Date.now(); tick(); }, Math.max(30, lastTick + 600 - Date.now()));
   });
   mo.observe(document.body, { childList: true, subtree: true });
+  // Settings changed in the popup (or another tab) show up here straight away. Only keys this script never writes on its
+  // own render path are watched, and renderAtt's signature check makes a repeat render a no-op, so this can't loop.
+  const LIVE = ["threshold", "eseTarget", "bunkBasis", "adjust", "excused", "timetable", "sortBy", "tour"];
+  chrome.storage.onChanged.addListener((ch, area) => {
+    if (area !== "local" || !chrome.runtime?.id || route() !== "att" || !LIVE.some((k) => k in ch)) return; // the marking pages keep their own state
+    if ("tour" in ch && !ch.tour.newValue?.drawer && !drawerTour) { tourChecked = false; attSig = ""; } // "Replay" in the popup: show the drawer tour again
+    clearTimeout(timer);
+    timer = setTimeout(() => { timer = 0; tick(); }, 50);
+  });
   // The extension was reloaded under this tab: say so once and stop, instead of throwing on every page change.
   function expire() {
     mo.disconnect();

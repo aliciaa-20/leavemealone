@@ -5,6 +5,11 @@ importScripts("calc.js", "calendar.js", "plan.js");
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create("daily-check", { periodInMinutes: 24 * 60, delayInMinutes: 1 });
+  // Timetables saved before 0.5.0 could keep weekdays from an older semester. Drop them once; the tour asks for a fresh one.
+  chrome.storage.local.get({ ttSchema: 0 }, (d) => {
+    if (d.ttSchema >= 2) return;
+    chrome.storage.local.remove(["timetable", "timetableSavedAt"], () => chrome.storage.local.set({ ttSchema: 2 }));
+  });
 });
 
 chrome.alarms.onAlarm.addListener((a) => {
@@ -28,8 +33,7 @@ chrome.alarms.onAlarm.addListener((a) => {
         message = `Data is ${Math.floor(ageDays)} days old. Open the CUE attendance page to refresh.`;
       }
       // MSE needs 75%: warn about courses that can't get there or have no spare classes left.
-      const n = new Date();
-      const risks = d.timetable ? Plan.mseRisks({ eff, tt: d.timetable, from: Cal.addDays(new Date(n.getFullYear(), n.getMonth(), n.getDate()), 1) }) : [];
+      const risks = d.timetable ? Plan.mseRisks({ eff, tt: d.timetable, from: Cal.addDays(Cal.day0(), 1) }) : [];
       if (risks.length) {
         const names = (st) => risks.filter((r) => r.state === st).map((r) => r.code || r.name).join(", ");
         const parts = [names("out") && `out of reach: ${names("out")}`, names("zero") && `no spare classes: ${names("zero")}`].filter(Boolean);

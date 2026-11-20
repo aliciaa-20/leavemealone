@@ -451,3 +451,19 @@ body.cue .hero .v { font-size: 36px; }
 .mkt.on .trk { background: var(--pick); }
 .mkt.on .trk::after { transform: translateX(16px); background: var(--onpick); }
 .lg.grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2) var(--s3); }
+
+/* ---- guided tour (UI.tour): everything dims except the hole over one element; the card explains it ---- */
+.tour { position: fixed; inset: 0; z-index: 2147483600; }
+.tour-block { position: absolute; inset: 0; }
+.tour-hole { position: fixed; border-radius: var(--r-card); box-shadow: 0 0 0 9999px color-mix(in srgb, var(--bg-deep) 78%, transparent); outline: 2px solid var(--gold-line); outline-offset: 0; pointer-events: none;
+  transition: left var(--d-acc) var(--ease), top var(--d-acc) var(--ease), width var(--d-acc) var(--ease), height var(--d-acc) var(--ease); }
+.tour-hole.none { outline-color: transparent; }
+.tour-card { position: fixed; width: min(300px, calc(100vw - 32px)); padding: var(--s4); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: 0 12px 32px color-mix(in srgb, var(--black) 45%, transparent);
+  transition: left var(--d-acc) var(--ease), top var(--d-acc) var(--ease); animation: tourIn var(--d-acc) var(--ease) both; }
+.tour-card .h3 { margin-top: 4px; }
+.tour-card > .sub { margin: 6px 0 0; font-size: var(--t13); }
+.tour-n { font: 600 var(--t12) var(--font-head); color: var(--gold); letter-spacing: .02em; }
+.tour-act { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin-top: var(--s4); }
+.tour-act .link { color: var(--mute); font-weight: 500; }
+.tour-btns { display: inline-flex; gap: var(--s2); }
+@keyframes tourIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }

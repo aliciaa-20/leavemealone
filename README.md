@@ -28,6 +28,8 @@ To update, download the ZIP again, replace the old folder, and press the reload 
 - Matches up with the portal when it catches up, so nothing is counted twice.
 - **Toolbar popup** with the same numbers, exam countdowns and best days.
 - **Daily alert** if a course is low (can be turned off).
+- **Quick tour** the first time you open the popup and the pill: Next, Next, Done (or Skip). Replay it from Settings.
+- **Backup:** Settings → Export saves all your data to a file; Import brings it back, e.g. on a new browser.
 
 Every rule used in the maths is in [docs/attendance_rules.md](docs/attendance_rules.md).
 

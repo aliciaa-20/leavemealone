@@ -56,6 +56,7 @@ const Cal = (() => {
     return new Date(y, m - 1, dd);
   };
   const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const day0 = (d = new Date()) => addDays(d, 0); // midnight at the start of d (today by default)
   const yearOf = (k) => YEARS.find((y) => k >= y.from && k <= y.to) || null;
 
   // { classDay, reason, holiday } for a Date.
@@ -75,19 +76,23 @@ const Cal = (() => {
     return { classDay: true, reason: "" };
   }
 
-  // Last instruction day of the semester containing d (or the next one), or null if unknown.
-  function semesterEnd(d) {
-    const k = key(d);
-    for (const y of YEARS) for (const s of y.semesters) if (k <= s.end) return parse(s.end);
-    return null;
-  }
-
   // The semester containing d, or the next one that hasn't ended yet.
   const semesterOf = (d) => {
     const k = key(d);
     for (const y of YEARS) for (const s of y.semesters) if (k <= s.end) return s;
     return null;
   };
+  // Last instruction day of that semester, or null if unknown.
+  const semesterEnd = (d) => { const s = semesterOf(d); return s ? parse(s.end) : null; };
+
+  // The last class day before `date` (looking back up to 30 days), or null. With `notBefore`, null if it falls before that.
+  function lastClassBefore(date, notBefore) {
+    for (let x = addDays(date, -1), i = 0; i < 30; x = addDays(x, -1), i++) {
+      if (notBefore && key(x) < key(notBefore)) return null;
+      if (dayInfo(x).classDay) return x;
+    }
+    return null;
+  }
 
   // Mid-semester exam window { from, to } for that semester, or null if unknown or already over.
   function mseWindow(d) {
@@ -109,11 +114,7 @@ const Cal = (() => {
     if (kind === "ese") return semesterEnd(d);
     const w = mseWindow(d);
     if (!w || key(d) >= key(w.from)) return null;
-    for (let x = addDays(w.from, -1), i = 0; i < 30; x = addDays(x, -1), i++) {
-      if (key(x) < key(d)) return null;
-      if (dayInfo(x).classDay) return x;
-    }
-    return null;
+    return lastClassBefore(w.from, d);
   }
 
   // Named holidays from `from` to `to` (inclusive), oldest first: [{ date, name }].
@@ -134,11 +135,10 @@ const Cal = (() => {
     }
     const s = semesterOf(d);
     if (!s || !s.mse || k > s.mse.to) return null;
-    for (let x = addDays(parse(s.mse.from), -1), i = 0; i < 30; x = addDays(x, -1), i++) if (dayInfo(x).classDay) return x;
-    return null;
+    return lastClassBefore(parse(s.mse.from));
   }
 
-  return { key, parse, addDays, dayInfo, semesterEnd, mseWindow, eseWindow, cutoff, cutoffRef, holidays, known: (d) => !!yearOf(key(d)) };
+  return { key, parse, addDays, day0, dayInfo, semesterEnd, mseWindow, eseWindow, cutoff, cutoffRef, holidays, known: (d) => !!yearOf(key(d)) };
 })();
 
 if (typeof module !== "undefined") module.exports = Cal;

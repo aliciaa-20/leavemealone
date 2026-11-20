@@ -102,7 +102,7 @@ const Calc = {
       courses,
       overall: {
         attended: withCc + medicalAdded, scheduled, cocurricular: cc,
-        medical, medicalAdded, medicalState, medicalApplies: medicalState === "applies",
+        medical, medicalState,
         withoutMedical: withCc, ccIncluded: !!snap.hasCc, goneHrs: sum("goneHrs"),
       },
     };
