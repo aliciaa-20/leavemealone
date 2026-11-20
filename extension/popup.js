@@ -92,10 +92,11 @@ function draw() {
     const line = Plan.thresholdFor(basis, t, esePct);
 
     const days = (d) => plural(Math.round((d - today) / 86400000), "day");
-    const mse = Cal.mseWindow(today), mseCut = Cal.cutoff("mse", from), eseEnd = Cal.semesterEnd(from);
+    const mse = Cal.mseWindow(today), mseCut = Cal.cutoff("mse", from), eseEnd = Cal.semesterEnd(from), eseWin = Cal.eseWindow(today);
     const tiles = [];
     if (mse && mse.from > today) tiles.push(h("div", {}, h("b", {}, days(mse.from)), h("span", {}, "to MSE", sep(), `need ${Math.round(Plan.MSE_MIN * 100)}%`)));
-    if (eseEnd) tiles.push(h("div", {}, h("b", {}, days(eseEnd)), h("span", {}, "to ESE", sep(), `target ${esePct}%`)));
+    const eseStart = eseWin && eseWin.from > today ? eseWin.from : eseEnd; // the exams start after the last class day
+    if (eseStart) tiles.push(h("div", {}, h("b", {}, days(eseStart)), h("span", {}, "to ESE", sep(), `target ${esePct}%`)));
     const notes = [];
     if (mse && mse.from > today && mseCut) notes.push(`MSE starts ${dayLabel(mse.from)}, attendance counts till ${dayLabel(mseCut)}.`);
     const mb = D.timetable && mseCut ? Plan.budgets({ eff, tt: D.timetable, basis: "mse", t: Plan.MSE_MIN, from }) : null;
