@@ -176,6 +176,9 @@
     const hero = h("div", { class: `hero w-${tn}` },
       h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
       bar(op, threshold),
+      h("p", { class: "sub" }, op >= threshold ? h("b", {}, `${(op - threshold).toFixed(1)} points above`) : h("b", {}, `${(threshold - op).toFixed(1)} points below`), ` your ${threshold}% minimum`),
+      h("p", { class: "sub" }, op < threshold ? `Attend the next ${plural(Calc.mustAttend(o.attended, o.scheduled, t), "class")} to get back to ${threshold}%`
+        : Calc.canSkip(o.attended, o.scheduled, t) ? `You can skip ${plural(Calc.canSkip(o.attended, o.scheduled, t), "class")} and stay above it` : "No spare classes: skipping any would put you below it"),
       o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
       o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.")
         : o.cocurricular ? h("p", { class: "sub" }, `Includes ${fmt(o.cocurricular)}h co-curricular claimed.`) : null);
