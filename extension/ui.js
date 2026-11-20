@@ -18,6 +18,10 @@ const UI = (() => {
   // Semester labels end in a Roman numeral ("... VI"): its value, for picking the latest one (0 if none).
   const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
   const semRank = (label) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(label.toUpperCase())?.[1]] || 0;
+  // Below 75% the university detains you, whatever minimum you set in the extension.
+  const DETAIN = 75;
+  const detain = (pct) => pct < DETAIN;
+  const detainTag = () => h("span", { class: "chip bad", title: `Below ${DETAIN}%: not allowed to write the exams unless it comes back up` }, "pakka detain");
   const tone = (pct, thr) => (pct < thr ? "bad" : pct < thr + 10 ? "warn" : "good");
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -68,7 +72,7 @@ const UI = (() => {
   // "attend next N", or a plain "out of reach" when no number of classes can get you back (a 100% minimum after a missed class).
   const mustText = (n) => (Number.isFinite(n) ? `attend next ${n}` : "out of reach");
   // The label for a run of days off around a day you could skip. n counts the skipped day too, so the break itself is n - 1.
-  const breakTag = (n) => n >= 4 ? [`${n - 1}-day break`, `${n - 1} days off in a row. Skipping this day makes it ${n}.`] : n === 3 ? ["long weekend", "Skipping this day gives you 3 days off in a row."] : null;
+  const breakTag = (n) => n >= 4 ? [`${n - 1}-day break`, `${n - 1} days off in a row. Bunking this day makes it ${n}.`] : n === 3 ? ["long weekend", "Bunking this day gives you 3 days off in a row."] : null;
   const TAGLINE = "Unofficially vibecoded UI just like this website, but better."; // the footer under every drawer, panel and the popup
   const chip = (kind, text, title) => h("span", { class: `chip ${kind}`, title }, text);
   const bar = (pct, thr) =>
@@ -303,5 +307,5 @@ const UI = (() => {
     return { refresh: place, end: () => end(false), get active() { return live; } };
   };
 
-  return { h, semRank, spotlight, tour, absentSummary, absentDays, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, semRank, DETAIN, detain, detainTag, spotlight, tour, absentSummary, absentDays, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
 })();

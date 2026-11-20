@@ -12,7 +12,7 @@ A Chrome / Edge extension for the CUE student portal. It reads your attendance p
 2. Open `chrome://extensions` (Edge: `edge://extensions`) and turn on **Developer mode** (top right).
 3. Click **Load unpacked** and choose that `extension` folder.
 4. Log in to the CUE portal and open **Attendance** in **table view**. A small pill with your percentage appears at the bottom right; click it.
-5. Optional: open the portal's **Timetable** page once. That unlocks *Skip today?* and *Plan a bunk*.
+5. Optional: open the portal's **Timetable** page once. That unlocks *Skip today?* and *Put a bunk*.
 
 To update, download the ZIP again, replace the old folder, and press the reload icon on the extension's card in `chrome://extensions`.
 
@@ -21,7 +21,7 @@ To update, download the ZIP again, replace the old folder, and press the reload 
 - Tells you per course and overall: **can skip N** or **attend next N**.
 - **Skip today?** lists the next class day's classes and which you can skip.
 - Tap a course to see **what it needs**, with the real dates of its next classes.
-- **Plan a bunk:** pick days on a calendar, see the cost, get best days to bunk.
+- **Put a bunk:** pick days on a calendar, see the cost, get best days to bunk.
 - Plans for **MSE** (every course at 75%) and **ESE** (overall at 85%).
 - **Mark absent hours** as Absent, Co-curricular, Medical or Later, one course at a time or from the all-courses list.
 - Counts co-curricular hours in the overall and in their course; medical in the overall only (74.5% to 84.49%).

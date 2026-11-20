@@ -27,7 +27,8 @@ chrome.alarms.onAlarm.addListener((a) => {
       const low = snap.courses.filter((c) => (c.attended / c.scheduled) * 100 < d.threshold);
       const ageDays = (Date.now() - snap.syncedAt) / 86400000;
       if (low.length) {
-        title = `Low attendance in ${low.length} course(s)`;
+        const detained = low.filter((c) => (c.attended / c.scheduled) * 100 < 75).length; // the university's detain line (UI.DETAIN)
+        title = detained ? `Pakka detain: ${detained} course${detained > 1 ? "s" : ""} below 75%` : `Low attendance in ${low.length} course(s)`;
         message = low.map((c) => `${c.code || c.name} ${((c.attended / c.scheduled) * 100).toFixed(0)}%`).join(", ");
       } else if (ageDays > 3) {
         message = `Data is ${Math.floor(ageDays)} days old. Open the CUE attendance page to refresh.`;

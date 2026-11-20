@@ -42,12 +42,12 @@ function startTour() {
     mount: document.body,
     steps: [
       { target: () => q("hero"), title: "Your attendance", text: "Your actual overall %: the portal's numbers plus the hours you've marked. The tick on the bar is your minimum." },
-      { target: () => q("whatif"), title: "What if I skip?", text: "Pick how many of your next classes to skip and see where your overall would land." },
+      { target: () => q("whatif"), title: "What if I put a bunk?", text: "Pick how many of your next classes to bunk and see where your overall would land." },
       { target: () => q("exam"), title: "Exam countdown", text: `Days to MSE and ESE. MSE needs ${Math.round(Plan.MSE_MIN * 100)}% in every course; ESE needs your overall target.` },
-      { target: () => q("best"), title: "Best days to bunk", text: "Your safest days to skip, worked out from your timetable. Open the CUE timetable once to unlock this." },
+      { target: () => q("best"), title: "Best days to bunk", text: "Your safest days to bunk, worked out from your timetable. Open the CUE timetable once to unlock this." },
       { before: () => { accOpen.add("settings"); draw(); }, target: () => q("settings"), title: "Settings and backup", text: "Your minimum, the ESE target and the daily alert. Export a backup of your data here, or import one on a new browser." },
       D.timetable
-        ? { title: "You're all set", text: "On CUE, the pill at the bottom right shows the same numbers, plus Plan a bunk. Mark absent hours from a course's View Details." }
+        ? { title: "You're all set", text: "On CUE, the pill at the bottom right shows the same numbers, plus Put a bunk. Mark absent hours from a course's View Details." }
         : { title: "Last step: your timetable", text: "Open your CUE timetable once. The extension saves your weekly classes, so it can show your best days to bunk. On CUE, the pill at the bottom right has everything else.",
             next: { label: "Open timetable", run: () => chrome.tabs.create({ url: "https://cue.christuniversity.in/main/timeTable" }) } },
     ],
@@ -156,6 +156,7 @@ function drawAll() {
   const courses = eff.courses.filter((c) => c.scheduled > 0); // portal order, on purpose
   const pc = (c) => Calc.percent(c.attended, c.scheduled);
   const low = courses.filter((c) => pc(c) < thr);
+  const detained = courses.filter((c) => UI.detain(pc(c)));
   const sems = Object.keys(D.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a));
   const tn = tone(op, thr);
   const toggleAcc = (id) => (v) => { v ? accOpen.add(id) : accOpen.delete(id); draw(); };
@@ -172,13 +173,14 @@ function drawAll() {
   const after = wi ? Calc.percent(o.attended, o.scheduled + wi.known) : Calc.afterSkipping(o.attended, o.scheduled, skip);
   // what-if lives in the big card, right above the number it changes
   const whatIf = h("div", { class: "whatif" },
-    h("div", { class: "row" }, h("span", {}, "If I skip the next"),
+    h("div", { class: "row" }, h("span", {}, "If I bunk the next"),
       h("span", { class: "row" }, stepper(skip, { min: 0, max: 999, label: "classes to skip", key: "skip", onchange: (v) => { skip = v; draw(); } }), h("span", {}, "classes"))),
-    skip ? h("p", { class: "sub" }, wi && wi.taken ? `Skipping the next ${plural(wi.taken, "class")}${wi.taken < skip ? " (all that are left)" : ""}, until ${dayLabel(wi.last)}: ` : "Overall would be ", h("b", { class: tone(after, thr) }, `${after.toFixed(1)}%`), wi && wi.taken ? " overall." : ".") : null);
+    skip ? h("p", { class: "sub" }, wi && wi.taken ? `Bunking the next ${plural(wi.taken, "class")}${wi.taken < skip ? " (all that are left)" : ""}, until ${dayLabel(wi.last)}: ` : "Overall would be ", h("b", { class: tone(after, thr) }, `${after.toFixed(1)}%`), wi && wi.taken ? " overall." : ".") : null);
   const overall = h("div", { class: `hero w-${tn}` },
     h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${op.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
     bar(op, thr),
-    low.length ? h("p", {}, h("b", {}, plural(low.length, "course")), ` ${low.length > 1 ? "are" : "is"} below ${thr}%.`) : h("p", {}, `All courses are at or above ${thr}%.`),
+    detained.length ? h("p", {}, h("b", { class: "bad" }, "Pakka detain: "), `${plural(detained.length, "course")} below ${UI.DETAIN}%.`)
+      : low.length ? h("p", {}, h("b", {}, plural(low.length, "course")), ` ${low.length > 1 ? "are" : "is"} below ${thr}%.`) : h("p", {}, `All courses are at or above ${thr}%.`),
     Math.abs(o.attended - effP.overall.attended) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(o.attended - effP.overall.attended))}h you added. The portal shows ${portalPct.toFixed(1)}%.`) : null,
     o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
     o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.") : null,
@@ -236,8 +238,8 @@ function drawAll() {
     low.length ? h("div", { class: "blk" }, low.map((c) => courseRow(c, thr, t, false))) : h("div", { class: "sub" }, `Nothing below ${thr}%.`));
   const safe = courses.filter((c) => pc(c) >= thr).map((c) => ({ c, n: Calc.canSkip(c.attended, c.scheduled, t) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3);
   const safeBox = h("div", {},
-    h("div", { class: "sec" }, "Safe to skip"),
-    safe.length ? h("div", { class: "blk" }, safe.map(({ c }) => courseRow(c, thr, t, false))) : h("div", { class: "sub" }, "No spare hours right now."),
+    h("div", { class: "sec" }, "Safe to bunk"),
+    safe.length ? h("div", { class: "blk" }, safe.map(({ c }) => courseRow(c, thr, t, false))) : h("div", { class: "sub" }, "No bunks left right now."),
     acc({ title: "All courses", icon: "list", tone: "pick", sub: skip && wi ? "Arrows show the courses those classes belong to" : `${plural(courses.length, "course")}, including the ones above`, open: accOpen.has("all"), ontoggle: toggleAcc("all") }, courses.map((c) => courseRow(c, thr, t, true))));
 
   // ---- your marks (pending on the portal)
@@ -325,7 +327,7 @@ function drawAll() {
     h("div", { class: "row" }, h("span", {}, label), control), help ? h("div", { class: "sub", style: "margin-top:4px" }, help) : null);
   const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Minimum, ESE target, alert, backup", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
     h("div", { "data-tour": "settings" },
-      setRow("Minimum %", "For each course and the overall. Sets 'can skip', 'attend next', the colours and the daily alert.",
+      setRow("Minimum %", "For each course and the overall. Sets 'can bunk', 'attend next', the colours and the daily alert. Below 75% is always 'pakka detain'.",
         stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", key: "set-min", live: true, onchange: (v) => save({ threshold: v }) }), true),
       setRow("ESE target (overall) %", `The overall % you need to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Used by the ESE countdown and 'Before ESE' planning.`,
         stepper(Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL)), { min: 1, max: 100, label: "ESE target", key: "set-ese", live: true, onchange: (v) => save({ eseTarget: v }) })),
@@ -355,14 +357,14 @@ function courseRow(c, thr, t, showAfter) {
   const skipN = Calc.canSkip(c.attended, c.scheduled, t);
   const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
   const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
-  const status = pct < thr ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skipN ? "good" : "warn", skipN ? `can skip ${skipN}` : "no spare");
+  const status = pct < thr ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skipN ? "good" : "warn", skipN ? `can bunk ${skipN}` : "no bunks left");
   const num = h("span", { class: "p", style: `color:var(--${tone(pct, thr)})` }, `${pct.toFixed(0)}%`);
   const k = wi ? wi.missed[c.key] || 0 : 0; // classes of THIS course among the ones skipped
   const afterN = skip && showAfter && k ? h("span", { class: "to" }, `→ ${Calc.percent(c.attended, c.scheduled + k).toFixed(0)}%`) : null;
   return h("div", { class: "it2" },
     h("div", { class: "row" },
       h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
-        c.code || adjusted ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null) : null),
+        c.code || adjusted || UI.detain(pct) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.detain(pct) ? UI.detainTag() : null, adjusted ? chip("mute", "adj", tip) : null) : null),
       afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status) : h("span", {}, num, " ", status)),
     bar(pct, thr));
 }
