@@ -287,7 +287,7 @@
 
     // Calendar picker
     out.push(h("div", { class: "sec" }, "Pick days"));
-    out.push(calendarView(from, end));
+    out.push(calendarView(from, Cal.semesterEnd(from), end));
 
     // Expanded day: choose single periods
     if (planOpenDay && planSel.has(planOpenDay)) {
@@ -334,8 +334,9 @@
 
   const monthOffset = (a, b) => (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
 
-  function calendarView(from, end) {
-    const maxOff = end ? Math.max(0, monthOffset(from, end)) : 3;
+  // navEnd = last month you can browse to (semester end); last = last day that can be picked (the basis' cutoff).
+  function calendarView(from, navEnd, last) {
+    const maxOff = navEnd ? Math.max(0, monthOffset(from, navEnd)) : 3;
     planMonth = Math.min(Math.max(0, planMonth), maxOff);
     const first = new Date(from.getFullYear(), from.getMonth() + planMonth, 1);
     const daysIn = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
@@ -347,10 +348,10 @@
       const k = Cal.key(d);
       const info = Cal.dayInfo(d);
       const cls = Plan.classesOn(d, A.tt).length;
-      const usable = d >= from && (!end || d <= end) && info.classDay && cls > 0;
+      const usable = d >= from && (!last || d <= last) && info.classDay && cls > 0;
       const sel = planSel.has(k);
       const kind = !usable ? (info.holiday ? "hol" : "off") : sel ? "sel" : "open";
-      const title = usable ? `${cls} class${cls > 1 ? "es" : ""}` : info.reason || (d < from ? "Past" : "No classes");
+      const title = usable ? `${cls} class${cls > 1 ? "es" : ""}` : info.reason || (d < from ? "Past" : last && d > last ? "After the cutoff" : "No classes");
       cells.push(h(usable ? "button" : "span", {
         class: `cday ${kind}`, title, "aria-label": `${dayLabel(d)}: ${title}`, "aria-pressed": usable ? String(sel) : null,
         onclick: usable ? () => {
