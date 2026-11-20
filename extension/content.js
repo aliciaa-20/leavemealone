@@ -247,27 +247,18 @@
     const courses = eff.courses.filter((c) => c.scheduled > 0);
 
     const po = effPortal.overall, pp = Calc.percent(po.attended, po.scheduled);
-    const added = o.attended - po.attended, changed = Math.abs(added) > 1e-9;
-    const clamp = (x) => Math.min(100, Math.max(0, x));
-    // The bar splits what the portal counts from what you added on top (gold); without changes it is the plain bar.
-    const mainBar = changed ? h("div", { class: "abar" },
-      h("i", { style: `width:${clamp(Math.min(pp, op))}%;background:var(--${tn})` }),
-      op > pp ? h("s", { style: `left:${clamp(pp)}%;width:${clamp(op) - clamp(pp)}%` }) : null,
-      h("u", { style: `left:${threshold}%` })) : bar(op, threshold);
+    const added = o.attended - po.attended;
     const heroNum = h("span", { class: "v", style: `color:var(--${tn})` });
     tween(heroNum, "hero", op, (x) => `${x.toFixed(1)}%`, { animate: A.open, countUp: true });
     const hero = h("div", { class: `hero w-${tn}` },
       h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
-      mainBar,
-      changed ? h("div", { class: "alegend" },
-        h("span", {}, h("i", { style: `--c:var(--${tn})` }), `Portal ${pp.toFixed(1)}%`),
-        h("span", {}, h("i", { style: "--c:var(--gold)" }), `You added ${added > 0 ? "+" : ""}${fmt(added)}h`, " ", deltaTxt(op - pp))) : null,
+      bar(op, threshold),
       h("p", { class: "sub" }, op >= threshold ? h("b", {}, `${(op - threshold).toFixed(1)} points above`) : h("b", {}, `${(threshold - op).toFixed(1)} points below`), ` your ${threshold}% minimum`),
       h("p", { class: "sub" }, op < threshold ? (Number.isFinite(Calc.mustAttend(o.attended, o.scheduled, t)) ? `Attend the next ${plural(Calc.mustAttend(o.attended, o.scheduled, t), "class")} to get back to ${threshold}%` : `${threshold}% is out of reach now: a missed class stays missed`)
         : Calc.canSkip(o.attended, o.scheduled, t) ? `You can skip ${plural(Calc.canSkip(o.attended, o.scheduled, t), "class")} and stay above it` : "No spare classes: skipping any would put you below it"),
+      Math.abs(added) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(added))}h you added. The portal shows ${pp.toFixed(1)}%.`) : null,
       o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
       o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.") : null);
-    const ex = extrasView(threshold);
 
     const review = effMarks.courses.filter((c) => c.stale || c.goneHrs);
     const reviewBox = review.length
@@ -300,58 +291,7 @@
         h("div", { class: "cdet", inert: open ? null : "" }, h("div", {}, needView(c, pct, skip, t, threshold))));
     });
 
-    return [hero, ex.acc, todayCard(eff, threshold, t), reviewBox, sortBar, h("div", { class: "blk" }, list), ex.notes];
-  }
-
-  const deltaTxt = (d) => h("span", { class: `dl ${d > 0.049 ? "good" : d < -0.049 ? "bad" : ""}` }, `${d > 0 ? "+" : ""}${d.toFixed(1)}%`);
-  // ---- Where your extra hours come from (accordion) and the policy notes, shown on the Overview when you have any.
-  function extrasView(threshold) {
-    const mo = effMarks.overall;
-
-    // 3. Where the extra hours come from: day by day like the absent list, one row per hour with what you did to it.
-    const items = [];
-    const typedCc = mo.ccIncluded ? 0 : (A.adj && A.adj.cocurricular) || 0;
-    if (typedCc) items.push({ typed: true, code: "Overall", name: "Co-curricular hours you typed in", hrs: typedCc, kind: "tcc" });
-    for (const c of effMarks.courses) {
-      const rows = (A.exc && A.exc[c.key] && A.exc[c.key].rows || []).filter((r) => !r.gone);
-      for (const kind of ["later", "cc", "med"]) {
-        const eff = kind === "later" ? c.laterHrs : kind === "cc" ? c.ccHrs : c.medHrs;
-        const mine = rows.filter((r) => (r.s === "cc" || r.s === "med" ? r.s : "later") === kind);
-        const raw = mine.reduce((n, r) => n + r.h, 0), f = raw ? eff / raw : 1; // scaled like Calc.effective: never above the portal's absent count
-        if (eff) for (const r of mine) { const [date, period] = String(r.k).split("|"); items.push({ date, period, code: c.code || c.name, name: c.code ? c.name : "", hrs: r.h * f, kind, off: kind === "med" && !mo.medicalApplies }); }
-      }
-      if (c.adj.att) items.push({ typed: true, code: c.code || c.name, name: c.code ? c.name : "", hrs: c.adj.att, kind: "tatt" });
-      if (c.adj.sch) items.push({ typed: true, code: c.code || c.name, name: c.code ? c.name : "", hrs: c.adj.sch, kind: "tsch" });
-    }
-    const MON = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
-    const dayKey = (d) => { const m = /^([A-Za-z]{3})[A-Za-z]*\s+(\d{1,2})/.exec(d || ""); return m ? ((MON[m[1].toLowerCase()] + 7) % 12) * 100 + +m[2] : -1; }; // the academic year starts in June, newest first
-    const days = new Map();
-    for (const it of items.filter((x) => !x.typed)) { if (!days.has(it.date)) days.set(it.date, []); days.get(it.date).push(it); }
-    const dayList = [...days.entries()].sort((a, b) => dayKey(b[0]) - dayKey(a[0]));
-    const CHIP = { later: ["mute", "later", "You marked it as present on the portal's way: it counts as present here"], cc: ["gold", "co-curricular"], med: ["blue", "medical"], tcc: ["gold", "co-curricular"], tatt: ["mute", "typed in"] };
-    const chipFor = (it) => it.kind === "tsch" ? chip("mute", `+${fmt(it.hrs)}h scheduled`) : it.off ? chip("mute", "not counted", "Medical hours only count between 74.5% and 85% overall") : chip(...CHIP[it.kind]);
-    const codeCell = (it) => h("span", { class: "ac", title: it.name }, h("b", {}, it.code), it.name ? h("small", {}, it.name) : null);
-    const total = (list) => fmt(list.filter((x) => x.kind !== "tsch" && !x.off).reduce((n, x) => n + x.hrs, 0));
-    const typedItems = items.filter((x) => x.typed);
-    const extra = items.filter((x) => x.kind !== "tsch" && !x.off).reduce((n, x) => n + x.hrs, 0);
-    const srcList = [
-      ...dayList.map(([d, list]) => [
-        h("div", { class: "pday" }, h("b", {}, niceDate(d)), h("span", { class: "sub" }, `${total(list)}h`)),
-        list.map((it) => h("div", { class: "arow nt" }, h("span", {}, nicePeriod(it.period)), codeCell(it), chipFor(it)))]),
-      typedItems.length ? [
-        h("div", { class: "pday" }, h("b", {}, "Typed in by you"), h("span", { class: "sub" }, `${total(typedItems)}h`)),
-        typedItems.map((it) => h("div", { class: "arow nt" }, h("span", {}), codeCell(it), chipFor(it)))] : null];
-    const hasSrc = items.length > 0;
-
-    const has = (...k) => items.some((x) => k.includes(x.kind));
-    const notes = hasSrc ? h("div", { class: "notes" },
-      has("later") ? h("p", { class: "sub" }, h("b", {}, "Later: "), "attendance will be updated later.") : null,
-      has("cc", "tcc") ? h("p", { class: "sub" }, h("b", {}, "Co-curricular: "), "counted in the overall and in each course.") : null,
-      has("med") ? h("p", { class: "sub" }, h("b", {}, "Medical: "), "added to the overall only, when the overall is 74.5% to 84.49% at semester end.") : null) : null;
-    return { acc: hasSrc ? acc({ title: "Where the extra hours come from", sub: [`+${fmt(extra)}h added`, sep(), (dayList.length ? plural(dayList.length, "day") : "typed in")], open: accOpen.has("extra"), key: "acc-extra",
-        ontoggle: (v) => { v ? accOpen.add("extra") : accOpen.delete("extra"); rerender(); } },
-        srcList, h("div", { class: "pday tot" }, h("b", {}, "Added to attended"), h("b", {}, `+${fmt(extra)}h`))) : null,
-      notes, has: hasSrc };
+    return [hero, todayCard(eff, threshold, t), reviewBox, sortBar, h("div", { class: "blk" }, list)];
   }
 
   // ---- Plan a bunk tab
@@ -592,7 +532,7 @@
 
     pill.className = `pill ${tone(op, threshold)}${pill.classList.contains("clicked") ? " clicked" : ""}`;
     pill.setAttribute("aria-expanded", String(A.open));
-    pill.replaceChildren(h("i"), `${op.toFixed(1)}%`, lowN ? h("span", { class: "sub" }, `${lowN} low`) : null);
+    pill.replaceChildren(...[h("i"), `${op.toFixed(1)}%`, lowN ? h("span", { class: "sub" }, `${lowN} low`) : null].filter(Boolean)); // a null child would print "null"
     sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
     for (const [id, btn] of tabs) {
       btn.classList.toggle("on", tab === id);
