@@ -179,8 +179,8 @@ function drawAll() {
   const overall = h("div", { class: `hero w-${tn}` },
     h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${op.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
     bar(op, thr),
-    detained.length ? h("p", {}, h("b", { class: "bad" }, "Pakka detain: "), `${plural(detained.length, "course")} below ${UI.DETAIN}%.`)
-      : low.length ? h("p", {}, h("b", {}, plural(low.length, "course")), ` ${low.length > 1 ? "are" : "is"} below ${thr}%.`) : h("p", {}, `All courses are at or above ${thr}%.`),
+    detained.length ? h("p", {}, UI.vibeLead(0), h("b", {}, plural(detained.length, "course")), ` below ${UI.DETAIN}%.`)
+      : low.length ? h("p", {}, h("b", {}, plural(low.length, "course")), ` ${low.length > 1 ? "are" : "is"} below ${thr}%.`) : h("p", {}, UI.susegad(op) ? UI.vibeLead(op) : null, `All courses are at or above ${thr}%.`),
     Math.abs(o.attended - effP.overall.attended) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(o.attended - effP.overall.attended))}h you added. The portal shows ${portalPct.toFixed(1)}%.`) : null,
     o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
     o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.") : null,
@@ -327,7 +327,7 @@ function drawAll() {
     h("div", { class: "row" }, h("span", {}, label), control), help ? h("div", { class: "sub", style: "margin-top:4px" }, help) : null);
   const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Minimum, ESE target, alert, backup", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
     h("div", { "data-tour": "settings" },
-      setRow("Minimum %", "For each course and the overall. Sets 'can bunk', 'attend next', the colours and the daily alert. Below 75% is always 'pakka detain'.",
+      setRow("Minimum %", "For each course and the overall. Sets 'can bunk', 'attend next', the colours and the daily alert. Below 75% is always 'pakka detain', 85% and up is 'susegad'.",
         stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", key: "set-min", live: true, onchange: (v) => save({ threshold: v }) }), true),
       setRow("ESE target (overall) %", `The overall % you need to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Used by the ESE countdown and 'Before ESE' planning.`,
         stepper(Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL)), { min: 1, max: 100, label: "ESE target", key: "set-ese", live: true, onchange: (v) => save({ eseTarget: v }) })),
@@ -364,7 +364,7 @@ function courseRow(c, thr, t, showAfter) {
   return h("div", { class: "it2" },
     h("div", { class: "row" },
       h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
-        c.code || adjusted || UI.detain(pct) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.detain(pct) ? UI.detainTag() : null, adjusted ? chip("mute", "adj", tip) : null) : null),
+        c.code || adjusted || UI.vibeTag(pct) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.vibeTag(pct), adjusted ? chip("mute", "adj", tip) : null) : null),
       afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status) : h("span", {}, num, " ", status)),
     bar(pct, thr));
 }

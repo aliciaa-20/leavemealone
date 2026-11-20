@@ -21,7 +21,16 @@ const UI = (() => {
   // Below 75% the university detains you, whatever minimum you set in the extension.
   const DETAIN = 75;
   const detain = (pct) => pct < DETAIN;
-  const detainTag = () => h("span", { class: "chip bad", title: `Below ${DETAIN}%: not allowed to write the exams unless it comes back up` }, "pakka detain");
+  // 85% and up: the ESE overall bar is cleared, nothing to worry about. Susegad (Goan: laid-back, relaxed).
+  const SUSEGAD = 85;
+  const susegad = (pct) => pct >= SUSEGAD;
+  // The tag next to a course: "pakka detain" below 75%, "susegad" at 85% or more, nothing in between.
+  // Styled as a quiet italic aside (.vibe), never as a chip: the can-bunk / attend chip stays the loudest thing.
+  const vibeTag = (pct) => detain(pct)
+    ? h("span", { class: "vibe bad", title: `Below ${DETAIN}%: not allowed to write the exams unless it comes back up` }, "pakka detain")
+    : susegad(pct) ? h("span", { class: "vibe good", title: `${SUSEGAD}% or more: relax` }, "susegad") : null;
+  // The same aside as a lead-in for a headline ("pakka detain · ..."), or null. The real message stays the main text.
+  const vibeLead = (pct) => { const t = vibeTag(pct); return t ? [t, " "] : null; };
   const tone = (pct, thr) => (pct < thr ? "bad" : pct < thr + 10 ? "warn" : "good");
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -307,5 +316,5 @@ const UI = (() => {
     return { refresh: place, end: () => end(false), get active() { return live; } };
   };
 
-  return { h, semRank, DETAIN, detain, detainTag, spotlight, tour, absentSummary, absentDays, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, spotlight, tour, absentSummary, absentDays, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
 })();

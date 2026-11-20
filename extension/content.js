@@ -252,7 +252,7 @@
     const hero = h("div", { class: `hero w-${tn}` },
       h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
       bar(op, threshold),
-      h("p", { class: "sub" }, UI.detain(op) ? h("b", { class: "bad" }, "Pakka detain. ") : null, op >= threshold ? h("b", {}, `${(op - threshold).toFixed(1)} points above`) : h("b", {}, `${(threshold - op).toFixed(1)} points below`), ` your ${threshold}% minimum`),
+      h("p", { class: "sub" }, UI.vibeLead(op), op >= threshold ? h("b", {}, `${(op - threshold).toFixed(1)} points above`) : h("b", {}, `${(threshold - op).toFixed(1)} points below`), ` your ${threshold}% minimum`),
       h("p", { class: "sub" }, op < threshold ? (Number.isFinite(Calc.mustAttend(o.attended, o.scheduled, t)) ? `Attend the next ${plural(Calc.mustAttend(o.attended, o.scheduled, t), "class")} to get back to ${threshold}%` : `${threshold}% is out of reach now: a missed class stays missed`)
         : Calc.canSkip(o.attended, o.scheduled, t) ? `You can bunk ${plural(Calc.canSkip(o.attended, o.scheduled, t), "class")} and stay above it` : "No bunks left: one more would put you below it"),
       Math.abs(added) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(added))}h you added. The portal shows ${pp.toFixed(1)}%.`) : null,
@@ -283,7 +283,7 @@
           onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } } },
         h("div", { class: "row" },
           h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
-            c.code || adjusted || UI.detain(pct) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.detain(pct) ? UI.detainTag() : null, adjusted ? chip("mute", "adj", tip) : null) : null),
+            c.code || adjusted || UI.vibeTag(pct) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.vibeTag(pct), adjusted ? chip("mute", "adj", tip) : null) : null),
           h("span", {}, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`), " ",
             pct < threshold ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skip ? "good" : "warn", skip ? `can bunk ${skip}` : "no bunks left"))),
         h("div", { class: "cbar" }, bar(pct, threshold), ico("chev", "ic chev")),
@@ -542,7 +542,7 @@
 
     pill.className = `pill ${tone(op, threshold)}${pill.classList.contains("clicked") ? " clicked" : ""}`;
     pill.setAttribute("aria-expanded", String(A.open));
-    pill.replaceChildren(...[h("i"), `${op.toFixed(1)}%`, detainN ? h("span", { class: "sub bad" }, "pakka detain") : lowN ? h("span", { class: "sub" }, `${lowN} low`) : null].filter(Boolean)); // a null child would print "null"
+    pill.replaceChildren(...[h("i"), `${op.toFixed(1)}%`, detainN ? h("span", { class: "sub vibe bad" }, "pakka detain") : lowN ? h("span", { class: "sub" }, `${lowN} low`) : UI.susegad(op) ? h("span", { class: "sub vibe good" }, "susegad") : null].filter(Boolean)); // a null child would print "null"
     sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
     for (const [id, btn] of tabs) {
       btn.classList.toggle("on", tab === id);

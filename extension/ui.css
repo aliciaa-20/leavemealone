@@ -150,6 +150,13 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .chip.mute { background: var(--card2); color: var(--mute); }
 .chip.gold { background: var(--gold-bg); color: var(--gold); }
 .chip.blue { background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--blue); }
+/* "pakka detain" / "susegad": a joke aside, deliberately quieter than the status chips (no fill, no caps, no icon) */
+.vibe { font: italic 500 var(--t12)/1.4 var(--font-body); letter-spacing: .01em; white-space: nowrap; }
+.vibe.bad { color: color-mix(in srgb, var(--bad) 70%, var(--mute)); text-decoration: underline wavy color-mix(in srgb, var(--bad) 45%, transparent); text-underline-offset: 3px; } /* a teacher's red-pen squiggle */
+.vibe.good { color: color-mix(in srgb, var(--good) 70%, var(--mute)); display: inline-block; transform: rotate(-3deg); } /* leaning back, relaxed */
+.pill .vibe.bad { text-decoration: none; }
+.cl .vibe { margin-left: 8px; }
+.cl .vibe:first-child { margin-left: 0; }
 .chip.good::before { content: "✓ "; } .chip.warn::before { content: "! "; } .chip.bad::before { content: "× "; }
 
 /* ---- buttons, controls ---- */
