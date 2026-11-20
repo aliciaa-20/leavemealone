@@ -117,7 +117,18 @@ const UI = (() => {
   const stepper = (value, { min = 0, max = 999, onchange, label, key }) =>
     h("span", { class: "stp", role: "group", "aria-label": label },
       h("button", { "aria-label": `Decrease ${label || ""}`.trim(), "data-key": key ? `${key}-dec` : null, disabled: value <= min, onclick: () => onchange(Math.max(min, value - 1)) }, "−"),
-      h("b", {}, String(value)),
+      // The number can be typed too: digits only, clamped to min..max on Enter or blur, Escape puts the old value back.
+      h("input", { class: "stv", type: "text", inputmode: "numeric", autocomplete: "off", "aria-label": label || "value", "data-key": key ? `${key}-val` : null, value: String(value),
+        onfocus: (e) => e.target.select(),
+        oninput: (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 3); },
+        onkeydown: (e) => { if (e.key === "Enter") e.target.blur(); else if (e.key === "Escape") { e.target.value = String(value); e.target.blur(); } e.stopPropagation(); },
+        onchange: (e) => {
+          const n = parseInt(e.target.value, 10);
+          if (Number.isNaN(n)) { e.target.value = String(value); return; }
+          const v = Math.min(max, Math.max(min, n));
+          e.target.value = String(v);
+          if (v !== value) onchange(v);
+        } }),
       h("button", { "aria-label": `Increase ${label || ""}`.trim(), "data-key": key ? `${key}-inc` : null, disabled: value >= max, onclick: () => onchange(Math.min(max, value + 1)) }, "+"));
 
   const toggle = (on, onchange, label, key) =>

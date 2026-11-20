@@ -12,7 +12,7 @@ chrome.alarms.onAlarm.addListener((a) => {
   chrome.storage.local.get({ threshold: 75, snapshots: {}, latest: null, adjust: {}, excused: {}, alerts: true, timetable: null }, (d) => {
     if (d.alerts === false) return; // turned off in the popup settings
     const snap = d.snapshots[d.latest];
-    const eff = snap ? Calc.effective(snap, d.adjust[d.latest], d.excused[d.latest]) : null; // include adjustments
+    const eff = snap ? Calc.effective(snap, d.adjust[d.latest], {}) : null; // the portal's numbers plus typed adjustments; reclassified hours are not counted
     if (snap) snap.courses = eff.courses;
     let title = "Attendance check";
     let message;

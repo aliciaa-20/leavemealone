@@ -118,6 +118,7 @@
   let attOpen = false;
   let attSig = "";
   let A = null;
+  let effMarks = null;           // same numbers WITH the hours you reclassified: only used for the review notice, everything else shows the portal's data
   let tab = "overview";          // "overview" | "plan"
   let planSel = new Map();       // dayKey -> Set(periods SKIPPED) | null (whole day skipped). The view shows ticked = attending.
   let planMonth = 0;             // months after the first plannable month
@@ -126,6 +127,8 @@
   let calShown = null;           // month the calendar last drew, to slide when it changes
   let lastPicked = null;         // day just picked, for the springy pop
 
+  // one-shot ring on the pill's status dot when it is clicked (re-triggerable)
+  const ping = (pill) => { pill.classList.remove("clicked"); void pill.offsetWidth; pill.classList.add("clicked"); };
   const rerender = () => { if (A) { attSig = ""; renderAtt(A); } };
   function setOpen(v) {
     if (!v && shell && host?.shadowRoot?.activeElement && shell.drawer.contains(host.shadowRoot.activeElement)) shell.pill.focus(); // don't strand focus in a hidden drawer
@@ -176,7 +179,7 @@
       o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.")
         : o.cocurricular ? h("p", { class: "sub" }, `Includes ${fmt(o.cocurricular)}h co-curricular claimed.`) : null);
 
-    const review = courses.filter((c) => c.stale || c.goneHrs);
+    const review = effMarks.courses.filter((c) => c.stale || c.goneHrs);
     const reviewBox = review.length
       ? h("div", { class: "warnbox" }, h("b", {}, "Needs review"),
           review.map((c) => h("div", { class: "sub" }, `${c.code || c.name}: `,
@@ -423,8 +426,9 @@
     A = state;
     attOpen = A.open;
     const { snap, threshold } = A;
-    const eff = Calc.effective(snap, A.adj, A.exc);
-    const sig = JSON.stringify([eff, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, [...accOpen]]);
+    const eff = Calc.effective(snap, A.adj, {});
+    effMarks = Calc.effective(snap, A.adj, A.exc);
+    const sig = JSON.stringify([eff, A.exc, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, [...accOpen]]);
     if (sig === attSig && host?.isConnected) return;
     await ensureHost();
     attSig = sig;
@@ -440,7 +444,7 @@
     const focused = host.shadowRoot.activeElement;
     const focusKey = focused && drawer.contains(focused) ? focusKeyOf(focused) : null;
 
-    pill.className = `pill ${tone(op, threshold)}`;
+    pill.className = `pill ${tone(op, threshold)}${pill.classList.contains("clicked") ? " clicked" : ""}`;
     pill.setAttribute("aria-expanded", String(A.open));
     pill.replaceChildren(h("i"), `${op.toFixed(1)}%`, lowN ? h("span", { class: "sub" }, `${lowN} low`) : null);
     sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
@@ -460,7 +464,8 @@
   // Drawer shell, built once per mount of the attendance page.
   let shell = null;
   function buildShell() {
-    const pill = h("button", { class: "pill", "aria-label": "Attendance summary", "data-key": "pill", onclick: () => setOpen(!attOpen) });
+    const pill = h("button", { class: "pill", "aria-label": "Attendance summary", "data-key": "pill", onclick: () => { setOpen(!attOpen); ping(pill); } });
+    pill.addEventListener("animationend", (e) => { if (e.animationName === "dotClick") pill.classList.remove("clicked"); });
     const sub = h("div", { class: "sub" });
     const tabs = new Map();
     for (const [id, label] of [["overview", "Overview"], ["plan", "Plan a bunk"]]) {
@@ -821,7 +826,8 @@
     }
     await ensureHost();
     if (!absShell || !dock.contains(absShell.drawer)) {
-      const pill = h("button", { class: "pill", "aria-label": "Absent hours summary", "aria-expanded": "false", onclick: () => setAbsOpen(!absOpen) });
+      const pill = h("button", { class: "pill", "aria-label": "Absent hours summary", "aria-expanded": "false", onclick: () => { setAbsOpen(!absOpen); ping(pill); } });
+      pill.addEventListener("animationend", (e) => { if (e.animationName === "dotClick") pill.classList.remove("clicked"); });
       const sub = h("div", { class: "sub" });
       const body = h("div", { class: "blk" });
       const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Absent hours" },

@@ -46,7 +46,8 @@ function draw() {
   }
   const thr = D.threshold, t = thr / 100;
   const adj = D.adjust[viewSem] || { cocurricular: 0, courses: {} };
-  const eff = Calc.effective(snap, adj, D.excused[viewSem]);
+  const eff = Calc.effective(snap, adj, {}); // the portal's own numbers (plus typed adjustments) drive everything on screen
+  const effM = Calc.effective(snap, adj, D.excused[viewSem]); // the same with your reclassified hours: only the Reclassified card shows it
   const o = eff.overall;
   const op = Calc.percent(o.attended, o.scheduled);
   const courses = eff.courses.filter((c) => c.scheduled > 0); // portal order, on purpose
@@ -133,11 +134,12 @@ function draw() {
     acc({ title: "All courses", icon: "list", tone: "pick", sub: `${plural(courses.length, "course")}, including the ones above`, open: accOpen.has("all"), ontoggle: toggleAcc("all") }, courses.map((c) => courseRow(c, thr, t, true))));
 
   // ---- your marks (pending on the portal)
-  const marked = courses.filter((c) => c.excusedHrs || c.goneHrs);
+  const marked = effM.courses.filter((c) => c.scheduled > 0 && (c.excusedHrs || c.goneHrs));
   const markedHrs = marked.reduce((n, c) => n + (c.excusedHrs || 0) + (c.goneHrs || 0), 0);
   const pending = marked.length
     ? acc({ title: "Reclassified absences", icon: "checks", tone: "blue", sub: [`${fmt(markedHrs)}h moved out of absent`, sep(), plural(marked.length, "course")], open: accOpen.has("marks"), ontoggle: toggleAcc("marks") },
-        h("div", { class: "sub", style: "padding: 12px 0 4px" }, "Absent hours you reclassified on the portal. They count in your numbers until the portal catches up."),
+        h("div", { class: "sub", style: "padding: 12px 0 4px" }, "Absent hours you reclassified on the portal. Everything else here uses the portal's own numbers; this card shows what they would be with your marks.",
+          h("div", { style: "margin-top:6px" }, "Overall: ", h("b", { class: tone(Calc.percent(effM.overall.attended, effM.overall.scheduled), thr) }, `${Calc.percent(effM.overall.attended, effM.overall.scheduled).toFixed(1)}%`), ` with marks, ${op.toFixed(1)}% on the portal`)),
         marked.map((c) => {
           const parts = [[c.laterHrs, "later"], [c.ccHrs, "co-curricular"], [c.medHrs, "medical"]].filter(([x]) => x).map(([x, n]) => `${fmt(x)}h ${n}`);
           const key = `clear:${c.key}`;
@@ -147,11 +149,11 @@ function draw() {
                 ? h("span", {}, h("span", { class: "bad" }, "Clear marks? "), h("button", { class: "link", onclick: () => { confirming.delete(key); delete D.excused[viewSem][c.key]; save({ excused: D.excused }); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete(key); draw(); } }, "no"))
                 : h("button", { class: "link", onclick: () => { confirming.add(key); draw(); } }, "clear")
               : null),
-            parts.length ? h("div", { class: "sub" }, parts.join(", ")) : null,
+            parts.length ? h("div", { class: "sub" }, parts.join(", "), c.excusedHrs ? [sep(), `${pc(courses.find((x) => x.key === c.key) || c).toFixed(1)}% → `, h("b", { class: tone(pc(c), thr) }, `${pc(c).toFixed(1)}%`)] : null) : null,
             c.goneHrs ? h("div", { class: "sub warn" }, `${fmt(c.goneHrs)}h updated on the portal: open its View Details and press Confirm present.`) : null,
             c.stale && !c.goneHrs ? h("div", { class: "sub warn" }, "The portal's numbers changed since you marked this. Check it.") : null);
         }),
-        o.goneHrs ? openBtn("Open CUE to confirm") : null)
+        effM.overall.goneHrs ? openBtn("Open CUE to confirm") : null)
     : null;
 
   // ---- absent hours day by day (saved when the all-courses absent list is opened on CUE)
@@ -213,7 +215,14 @@ function draw() {
 
   const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Your minimum and the daily alert", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
     h("div", { class: "row", style: "padding-top:12px" }, h("span", {}, "Minimum attendance %"), stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", onchange: (v) => save({ threshold: v }) })),
-    h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "Daily alert if a course is low"), toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert")));
+    h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "ESE target %"), stepper(Math.min(100, Math.max(1, D.eseTarget ?? D.threshold)), { min: 1, max: 100, label: "ESE target", onchange: (v) => save({ eseTarget: v }) })),
+    h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "Daily alert if a course is low"), toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert")),
+    h("div", { class: "it2", style: "margin-top:12px" },
+      h("div", { class: "row" }, h("span", {}, "Saved attendance data"),
+        confirming.has("wipe")
+          ? h("span", {}, h("span", { class: "bad" }, "Erase? "), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); viewSem = null; chrome.storage.local.remove(["snapshots", "latest", "adjust", "excused", "lastCourse", "timetable", "absentList"]).then(load); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); draw(); } }, "no"))
+          : h("button", { class: "btn danger sm", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase")),
+      h("div", { class: "sub", style: "margin-top:4px" }, "Removes synced attendance, your marks, adjustments and timetable from this browser. Settings stay, and the portal is untouched.")));
 
   app.replaceChildren(...[header, overall, examCard, bestCard, whatIf, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")].filter(Boolean));
   document.documentElement.scrollTop = y;
