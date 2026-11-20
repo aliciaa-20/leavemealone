@@ -104,7 +104,7 @@ function draw() {
     const inDays = (d) => { const k = Math.round((d - today) / 86400000); return k === 1 ? "1 day" : `${k} days`; };
     const mse = Cal.mseWindow(today), mseCut = Cal.cutoff("mse", from), eseEnd = Cal.semesterEnd(from);
     const lines = [];
-    if (mse && mseCut) lines.push(`MSE in ${inDays(mse.from)} (${label(mse.from)}) · attendance counts till ${label(mseCut)}`);
+    if (mse && mse.from > today) lines.push(`MSE in ${inDays(mse.from)} (${label(mse.from)})${mseCut ? ` · attendance counts till ${label(mseCut)}` : ""}`);
     if (eseEnd) lines.push(`ESE cutoff in ${inDays(eseEnd)} (${label(eseEnd)})`);
     const mb = D.timetable && mseCut ? Plan.budgets({ eff, tt: D.timetable, basis: "mse", t: Plan.MSE_MIN, from }) : null;
     if (mb) {
@@ -126,7 +126,7 @@ function draw() {
             ? best.days.map((b) => h("div", { class: "course" },
                 h("div", { class: "row" }, h("b", {}, label(b.date)), h("span", { class: `chip ${b.safe ? "good" : "bad"}` }, b.safe ? "safe" : "risky")),
                 h("div", { class: "sub" }, [`${b.classes} class${b.classes > 1 ? "es" : ""}`, ...b.tags].join(" · "))))
-            : h("div", { class: "sub" }, "No class days left this semester."),
+            : h("div", { class: "sub" }, basis === "mse" ? "No class days left before MSE." : "No class days left this semester."),
           h("div", { style: "margin-top:8px" }, openBtn("Plan on CUE"))));
     }
   }

@@ -228,7 +228,9 @@
     const line = Plan.thresholdFor(basis, t, esePct);
     const end = Plan.horizon(basis, from);
     const examName = basis === "mse" ? "MSE" : "ESE";
+    const picked = planSel.size;
     planSel = Plan.clipSelection(planSel, end);
+    const dropped = picked - planSel.size;
     if (planOpenDay && !planSel.has(planOpenDay)) planOpenDay = null;
     const courses = eff.courses;
     const out = [];
@@ -243,12 +245,14 @@
       out.push(h("div", { class: "row", style: "margin-bottom:8px" },
         h("span", { class: "sub" }, "My ESE target (%)"),
         h("input", { type: "number", min: 1, max: 100, value: esePct, "aria-label": "ESE target percentage", onchange: (e) => {
-          A.eseTarget = Math.min(100, Math.max(1, parseFloat(e.target.value) || threshold));
+          const v = parseFloat(e.target.value);
+          A.eseTarget = v > 0 ? Math.min(100, Math.max(1, v)) : threshold; // empty, 0 or negative: back to the minimum
           store.set({ eseTarget: A.eseTarget });
           rerender();
         } })));
     }
-    if (A.basis === "mse" && basis === "now") out.push(h("div", { class: "note warn" }, "MSE has started or isn't in the calendar, so these are right-now numbers."));
+    if (A.basis === "mse" && basis === "now") out.push(h("div", { class: "note warn" }, "MSE isn't open for planning (no class days left before it, or it isn't in the calendar), so these are right-now numbers."));
+    if (dropped) out.push(h("div", { class: "note muted" }, `${dropped} selected day${dropped > 1 ? "s" : ""} after the ${examName} cutoff ${dropped > 1 ? "were" : "was"} removed.`));
     if (!Cal.known(from)) out.push(h("div", { class: "note warn" }, "This year's academic calendar isn't in the extension yet, so holidays aren't known."));
 
     // Bunk budget: classes each course can still miss before the cutoff
@@ -279,7 +283,7 @@
             h("span", { class: `chip ${b.safe ? "good" : "bad"}` }, b.safe ? "safe" : "risky")),
           h("div", { class: "sub" }, `${b.classes} class${b.classes > 1 ? "es" : ""}${b.lowest != null ? ` · lowest after: ${b.lowest.toFixed(0)}%` : ""}`),
           b.tags.length ? h("div", { class: "tags" }, b.tags.map((x) => h("span", { class: "tagchip" }, x))) : null))
-        : h("div", { class: "sub" }, "No class days left this semester.")));
+        : h("div", { class: "sub" }, basis === "mse" ? "No class days left before MSE." : "No class days left this semester.")));
 
     // Calendar picker
     out.push(h("div", { class: "sec" }, "Pick days"));
