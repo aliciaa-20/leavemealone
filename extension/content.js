@@ -131,7 +131,6 @@
     if (!v && shell && host?.shadowRoot?.activeElement && shell.drawer.contains(host.shadowRoot.activeElement)) shell.pill.focus(); // don't strand focus in a hidden drawer
     attOpen = v;
     if (v) growBars = true;
-    store.set({ panelOpen: v });
     if (A) { A.open = v; rerender(); }
   }
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (attOpen) setOpen(false); else if (absOpen) setAbsOpen(false); } });
@@ -493,7 +492,7 @@
   async function tickAtt() {
     const snap = parseCourses();
     if (!snap) return;
-    const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, panelOpen: false, sortBy: "portal", timetable: null, bunkBasis: "now", eseTarget: undefined });
+    const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, sortBy: "portal", timetable: null, bunkBasis: "now", eseTarget: undefined });
     const prev = d.snapshots[snap.semester];
     const same = prev && JSON.stringify([prev.overall, prev.courses, prev.hasCc]) === JSON.stringify([snap.overall, snap.courses, snap.hasCc]);
     if (same && Date.now() - prev.syncedAt < 60000) snap.syncedAt = prev.syncedAt; // unchanged: don't rewrite storage on every tick
@@ -504,7 +503,7 @@
     if (!same || snap.syncedAt !== prev.syncedAt || d.latest !== latest) await store.set({ snapshots: d.snapshots, latest });
     renderAtt({
       snap, threshold: d.threshold, adj: d.adjust[snap.semester], exc: d.excused[snap.semester],
-      open: d.panelOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis, eseTarget: d.eseTarget,
+      open: attOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis, eseTarget: d.eseTarget,
     });
   }
 
@@ -845,7 +844,7 @@
     const r = route();
     syncGutter();
     if (r !== lastRoute) { // page changed: clear the old UI, and a drawer left open on the last page shrinks back to its pill
-      if (lastRoute !== null) { absOpen = false; attOpen = false; absShell = null; shell = null; store.set({ panelOpen: false }); }
+      if (lastRoute !== null) { absOpen = false; attOpen = false; absShell = null; shell = null; }
       dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; lastRoute = r;
     }
     if (!r) {

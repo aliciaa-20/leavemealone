@@ -31,7 +31,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `adjust[sem]` = `{ cocurricular, courses: { [key]: { att, sch, baseSch } } }`: hours typed in that aren't on the portal yet
 - `excused[sem][key]` = `{ rows: [{ k, h, s, p?, gone? }], baseAbsent }`: per-absent-hour marks, `s` ∈ `later | cc | med`
 - `lastCourse`: the Absent Details page doesn't say which course it shows, so the course whose "View Details" was last clicked is remembered
-- `threshold`, `alerts`, `timetable`, `panelOpen`, `sortBy`, `bunkBasis` (`now | mse | end`, where `end` is ESE), `eseTarget` (ESE target %, unset = the minimum), `absentList` (`{ sem, at, rows: [{ date, day, period, time, code, name, type, kind, h }] }`, saved from the all-courses absent page; the popup groups it by day)
+- `threshold`, `alerts`, `timetable`, `sortBy`, `bunkBasis` (`now | mse | end`, where `end` is ESE), `eseTarget` (ESE target %, unset = the minimum), `absentList` (`{ sem, at, rows: [{ date, day, period, time, code, name, type, kind, h }] }`, saved from the all-courses absent page; the popup groups it by day)
 
 Course key = `code || name`.
 

@@ -134,23 +134,23 @@ function draw() {
 
   // ---- your marks (pending on the portal)
   const marked = courses.filter((c) => c.excusedHrs || c.goneHrs);
+  const markedHrs = marked.reduce((n, c) => n + (c.excusedHrs || 0) + (c.goneHrs || 0), 0);
   const pending = marked.length
-    ? h("div", {},
-        h("div", { class: "sec" }, "Your marks"),
-        h("div", { class: "blk" },
-          marked.map((c) => {
-            const parts = [[c.laterHrs, "later"], [c.ccHrs, "co-curricular"], [c.medHrs, "medical"]].filter(([x]) => x).map(([x, n]) => `${fmt(x)}h ${n}`);
-            const key = `clear:${c.key}`;
-            return h("div", { class: "it2" },
-              h("div", { class: "row" }, h("span", {}, h("b", {}, c.code || c.name)), c.excusedHrs
-                ? confirming.has(key)
-                  ? h("span", {}, h("span", { class: "bad" }, "Clear marks? "), h("button", { class: "link", onclick: () => { confirming.delete(key); delete D.excused[viewSem][c.key]; save({ excused: D.excused }); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete(key); draw(); } }, "no"))
-                  : h("button", { class: "link", onclick: () => { confirming.add(key); draw(); } }, "clear")
-                : null),
-              parts.length ? h("div", { class: "sub" }, parts.join(", ")) : null,
-              c.goneHrs ? h("div", { class: "sub warn" }, `${fmt(c.goneHrs)}h updated on the portal: open its View Details and press Confirm present.`) : null,
-              c.stale && !c.goneHrs ? h("div", { class: "sub warn" }, "The portal's numbers changed since you marked this. Check it.") : null);
-          })),
+    ? acc({ title: "Reclassified absences", icon: "checks", tone: "blue", sub: [`${fmt(markedHrs)}h moved out of absent`, sep(), plural(marked.length, "course")], open: accOpen.has("marks"), ontoggle: toggleAcc("marks") },
+        h("div", { class: "sub", style: "padding: 12px 0 4px" }, "Absent hours you reclassified on the portal. They count in your numbers until the portal catches up."),
+        marked.map((c) => {
+          const parts = [[c.laterHrs, "later"], [c.ccHrs, "co-curricular"], [c.medHrs, "medical"]].filter(([x]) => x).map(([x, n]) => `${fmt(x)}h ${n}`);
+          const key = `clear:${c.key}`;
+          return h("div", { class: "it2" },
+            h("div", { class: "row" }, h("span", {}, h("b", {}, c.code || c.name)), c.excusedHrs
+              ? confirming.has(key)
+                ? h("span", {}, h("span", { class: "bad" }, "Clear marks? "), h("button", { class: "link", onclick: () => { confirming.delete(key); delete D.excused[viewSem][c.key]; save({ excused: D.excused }); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete(key); draw(); } }, "no"))
+                : h("button", { class: "link", onclick: () => { confirming.add(key); draw(); } }, "clear")
+              : null),
+            parts.length ? h("div", { class: "sub" }, parts.join(", ")) : null,
+            c.goneHrs ? h("div", { class: "sub warn" }, `${fmt(c.goneHrs)}h updated on the portal: open its View Details and press Confirm present.`) : null,
+            c.stale && !c.goneHrs ? h("div", { class: "sub warn" }, "The portal's numbers changed since you marked this. Check it.") : null);
+        }),
         o.goneHrs ? openBtn("Open CUE to confirm") : null)
     : null;
 
@@ -215,7 +215,7 @@ function draw() {
     h("div", { class: "row", style: "padding-top:12px" }, h("span", {}, "Minimum attendance %"), stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", onchange: (v) => save({ threshold: v }) })),
     h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "Daily alert if a course is low"), toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert")));
 
-  app.replaceChildren(...[header, overall, examCard, bestCard, whatIf, needs, safeBox, pending, absBox, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")].filter(Boolean));
+  app.replaceChildren(...[header, overall, examCard, bestCard, whatIf, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")].filter(Boolean));
   document.documentElement.scrollTop = y;
 }
 
