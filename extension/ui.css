@@ -317,7 +317,7 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 
 /* ---- popup ---- */
 body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); min-height: 200px; }
-.exam { display: flex; gap: var(--s2); margin-top: var(--s4); }
+.exam { display: flex; gap: var(--s4); margin-top: var(--s4); }
 .exam > div { flex: 1; padding: var(--s3) var(--s4); }
 .exam b { display: block; font: 500 var(--t28)/1.1 var(--font-head); letter-spacing: -.03em; }
 .exam span { color: var(--mute); font-size: var(--t12); }
