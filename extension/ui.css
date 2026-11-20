@@ -306,7 +306,10 @@ body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); m
 .arow { display: grid; grid-template-columns: 24px 40px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; }
 .arow .pt { text-align: right; }
 .blk .arow:last-child { padding-bottom: var(--s3); }
-.arow .ac { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arow .ac { min-width: 0; }
+.arow .ac b, .arow .ac small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arow .ac b { font-weight: 400; }
+.arow .ac small { font-size: 11px; line-height: 1.3; color: var(--mute); }
 .rr { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 
 /* narrow windows: the drawer shrinks with the viewport, so loosen the fixed widths */
