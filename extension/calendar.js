@@ -9,7 +9,7 @@ const Cal = (() => {
       to: "2027-05-31",
       semesters: [
         { name: "Odd", start: "2026-06-01", end: "2026-09-26", mse: { from: "2026-08-03", to: "2026-08-08" } }, // end = last instruction day
-        { name: "Even", start: "2026-10-27", end: "2027-03-05", mse: { from: "2027-01-04", to: "2027-01-09" } },
+        { name: "Even", start: "2026-10-27", end: "2027-03-05", mse: { from: "2027-01-04", to: "2027-01-09" }, ese: { to: "2027-04-01" } }, // ese.to = last day the ESE planner stays open
       ],
       holidays: {
         "2026-06-26": "Muharram",
