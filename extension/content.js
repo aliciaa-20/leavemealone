@@ -23,7 +23,7 @@
   };
   const semester = () => document.querySelector('[role="combobox"]')?.textContent.trim() || "unknown";
   const COURSE_TABLE = 'table[aria-label="coursewise attendance table"]';
-  const { h, plural, fmt, tone, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, hrsOf } = UI;
+  const { h, plural, fmt, tone, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, hrsOf, spotlight } = UI;
 
   // ---------------------------------------------------------------- parsing
   function parseRow(tr) {
@@ -77,6 +77,7 @@
   // ---------------------------------------------------------------- shadow host
   let host, dock, hostPromise, cssText = "";
   async function buildHost() {
+    if (!alive()) return; // the extension was reloaded under this tab: tick() shows the notice
     if (!cssText) {
       try { cssText = await (await fetch(chrome.runtime.getURL("ui.css"))).text(); } catch { cssText = ""; }
     }
@@ -94,6 +95,7 @@
     const style = document.createElement("style");
     style.textContent = cssText;
     shadow.append(style, dock);
+    spotlight(dock);
     document.body.append(host);
     syncGutter();
   }
@@ -313,7 +315,7 @@
           }),
         ];
       });
-      out.push(acc({ title: "Classes you will still attend", sub: [`${plural(K, "class")} skipped`, sep(), "tick any you will still attend"], open: accOpen.has("per"), key: "acc-per",
+      out.push(acc({ title: "Classes you will still attend", icon: "checks", tone: "pick", sub: [`${plural(K, "class")} skipped`, sep(), "tick any you will still attend"], open: accOpen.has("per"), key: "acc-per",
         ontoggle: (v) => { v ? accOpen.add("per") : accOpen.delete("per"); rerender(); } }, days));
 
       // ---- result
@@ -336,12 +338,12 @@
     if (best) out.push(h("div", { class: "sec" }, "Best days to bunk"));
     if (best) out.push(best.days.length
       ? h("div", { class: "blk" }, best.days.map((b) => {
-          const tags = b.tags.filter((x) => !/^Only \d/.test(x)); // the class count is already shown
           return h("button", { class: `it2 click${planSel.has(b.key) ? " on" : ""}`, "data-key": `best-${b.key}`,
             onclick: () => { planSel = new Map([[b.key, null]]); planMonth = monthOffset(from, b.date); rerender(); } },
             h("div", { class: "row" }, h("b", { class: "d" }, dayLabel(b.date)), chip(b.safe ? "good" : "bad", b.safe ? "safe" : "risky")),
             b.lowest != null ? h("div", { class: "low" }, "Lowest after ", h("b", { style: `color:var(--${b.safe ? "good" : "bad"})` }, `${b.lowest.toFixed(0)}%`)) : null,
-            h("div", { class: "sub" }, plural(b.classes, "class"), tags.length ? [sep(), tags.join(", ")] : null));
+            h("div", { class: "sub" }, plural(b.classes, "class")),
+            b.breakDays >= 3 ? h("div", { class: "brk" }, chip("mute", `${b.breakDays}-day break`), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
         }))
       : h("div", { class: "sub" }, "No class days left this semester."));
 
@@ -363,7 +365,7 @@
               h("span", { class: "rr" }, h("span", { class: "p", style: `color:var(--${tone(r.pct, linePct)})` }, `${r.pct.toFixed(0)}%`), budChip(r))))),
       ];
       if (planSel.size) {
-        out.push(acc({ title: `Before ${examName} budget`, sub: o.reachable ? [`Can still skip ${o.budget} overall`, sep(), left(o).replace(" until then", "")] : "Out of reach", open: accOpen.has("budget"), key: "acc-budget",
+        out.push(acc({ title: `Before ${examName} budget`, icon: "gauge", tone: "warn", sub: o.reachable ? [`Can still skip ${o.budget} overall`, sep(), left(o).replace(" until then", "")] : "Out of reach", open: accOpen.has("budget"), key: "acc-budget",
           ontoggle: (v) => { v ? accOpen.add("budget") : accOpen.delete("budget"); rerender(); } }, rows));
       } else {
         out.push(h("div", { class: "sec" }, h("span", {}, past ? `At the ${examName} cutoff` : `Before ${examName}`), h("span", { class: "sub" }, dayLabel(bud.end))));
@@ -840,7 +842,10 @@
     if (!alive()) { expire(); return; }
     const r = route();
     syncGutter();
-    if (r !== lastRoute) { dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; lastRoute = r; } // page changed: clear the old UI
+    if (r !== lastRoute) { // page changed: clear the old UI, and a drawer left open on the last page shrinks back to its pill
+      if (lastRoute !== null) { absOpen = false; attOpen = false; absShell = null; shell = null; store.set({ panelOpen: false }); }
+      dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; lastRoute = r;
+    }
     if (!r) {
       host?.remove();
       host = null;

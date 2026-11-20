@@ -2,7 +2,7 @@
 const CUE_URL = "https://cue.christuniversity.in/main/attendence";
 const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
 const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
-const { h, plural, fmt, tone, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays } = UI;
+const { h, plural, fmt, tone, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays, holidayIcon, spotlight } = UI;
 const ago = (t) => {
   const m = Math.round((Date.now() - t) / 60000);
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
@@ -107,10 +107,10 @@ function draw() {
         h("div", { class: "sec" }, "Best days to bunk"),
         best.days.length
           ? h("div", { class: "blk" }, best.days.map((b) => {
-              const tags = b.tags.filter((x) => !/^Only \d/.test(x)); // the class count is already shown
               return h("div", { class: "it2" },
                 h("div", { class: "row" }, h("b", {}, dayLabel(b.date)), chip(b.safe ? "good" : "bad", b.safe ? "safe" : "risky")),
-                h("div", { class: "sub" }, plural(b.classes, "class"), tags.length ? [sep(), tags.join(", ")] : null));
+                h("div", { class: "sub" }, plural(b.classes, "class")),
+                b.breakDays >= 3 ? h("div", { class: "brk" }, chip("mute", `${b.breakDays}-day break`), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
             }))
           : h("div", { class: "sub" }, basis === "mse" ? "No class days left before MSE." : "No class days left this semester."),
         openBtn("Plan on CUE"));
@@ -130,7 +130,7 @@ function draw() {
   const safeBox = h("div", {},
     h("div", { class: "sec" }, "Safe to skip"),
     safe.length ? h("div", { class: "blk" }, safe.map(({ c }) => courseRow(c, thr, t, false))) : h("div", { class: "sub" }, "No spare hours right now."),
-    acc({ title: "All courses", sub: `${plural(courses.length, "course")}, including the ones above`, open: accOpen.has("all"), ontoggle: toggleAcc("all") }, courses.map((c) => courseRow(c, thr, t, true))));
+    acc({ title: "All courses", icon: "list", tone: "pick", sub: `${plural(courses.length, "course")}, including the ones above`, open: accOpen.has("all"), ontoggle: toggleAcc("all") }, courses.map((c) => courseRow(c, thr, t, true))));
 
   // ---- your marks (pending on the portal)
   const marked = courses.filter((c) => c.excusedHrs || c.goneHrs);
@@ -157,7 +157,7 @@ function draw() {
   // ---- absent hours day by day (saved when the all-courses absent list is opened on CUE)
   const al = D.absentList && D.absentList.sem === viewSem && D.absentList.rows.length ? D.absentList : null;
   const absBox = acc({
-    title: "Absent hours", sub: al ? absentSummary(al.rows) : "Not saved yet",
+    title: "Absent hours", icon: "userx", tone: "bad", sub: al ? absentSummary(al.rows) : "Not saved yet",
     open: accOpen.has("abs"), ontoggle: toggleAcc("abs") },
     al ? absentDays(al.rows) : h("div", { class: "sub", style: "padding-top:12px" }, "Open the Absent card on the CUE attendance page once and the list will appear here."));
 
@@ -178,19 +178,28 @@ function draw() {
         if (!m || m.label !== label) months.push((m = { label, rows: [] }));
         m.rows.push(e);
       }
-      const next = events[0], away = Math.round((next.date - today) / 86400000);
-      holBox = acc({ title: "Holidays", sub: [`Next: ${dayLabel(next.date)}`, sep(), away === 0 ? "today" : `in ${plural(away, "day")}`],
+      const next = events[0];
+      const daysTo = (d) => Math.round((d - today) / 86400000);
+      const when = (d) => (daysTo(d) === 0 ? "today" : daysTo(d) === 1 ? "tomorrow" : `in ${daysTo(d)} days`);
+      let i = 0;
+      holBox = acc({ title: "Holidays", sub: [`Next: ${dayLabel(next.date)}`, sep(), when(next.date)], icon: "cal", tone: "gold",
         open: accOpen.has("hol"), ontoggle: toggleAcc("hol") },
         months.map((m) => [
           h("div", { class: "pday" }, h("b", {}, m.label), h("span", { class: "sub" }, plural(m.rows.length, "date"))),
-          m.rows.map((e) => h("div", { class: "hrow" }, h("span", { class: "hd" }, dayLabel(e.date)), h("span", { class: "hn" }, e.name), e.tag ? chip("blue", e.tag) : null)),
+          m.rows.map((e) => {
+            const [icon, tn] = holidayIcon(e.name), br = Plan.breakLength(e.date);
+            return h("div", { class: `hrow${e === next ? " next" : ""}`, style: `--i:${i++}` },
+              h("span", { class: `ai t-${tn}` }, ico(icon)),
+              h("span", { class: "hx" }, h("b", {}, dayLabel(e.date)), h("span", { class: "sub" }, e.name)),
+              h("span", { class: "hr" }, e.tag ? chip("blue", e.tag) : br.n >= 3 ? chip("mute", `${br.n}-day break`) : null, h("span", { class: "sub" }, when(e.date))));
+          }),
         ]));
     }
   }
 
   // ---- adjustments (rare path) and settings
   const num = (v, label, onchange) => stepper(v || 0, { min: 0, max: 999, label, onchange });
-  const adjBox = acc({ title: "Add hours the portal is missing", sub: "For a class the portal has not counted", open: accOpen.has("adj"), ontoggle: toggleAcc("adj") },
+  const adjBox = acc({ title: "Add hours the portal is missing", icon: "clock", tone: "good", sub: "For a class the portal has not counted", open: accOpen.has("adj"), ontoggle: toggleAcc("adj") },
     D.snapshots[viewSem].hasCc
       ? h("div", { class: "sub", style: "padding-top:12px" }, "Co-curricular claims aren't needed: the portal already includes them.")
       : h("div", { class: "row", style: "padding-top:12px" }, h("span", {}, "Co-curricular hours yet to be updated"), num(adj.cocurricular, "co-curricular hours", (v) => {
@@ -202,7 +211,7 @@ function draw() {
       h("span", { class: "row" }, num(c.adj.att, `${c.code || c.name} attended`, (v) => setCourseAdj(viewSem, c, "att", v)), num(c.adj.sch, `${c.code || c.name} held`, (v) => setCourseAdj(viewSem, c, "sch", v))))),
     h("div", { class: "sub", style: "margin-top:8px" }, "Went to an extra class the portal hasn't counted? Add 1 under Attended and 1 under Held."));
 
-  const settings = acc({ title: "Settings", sub: "Your minimum and the daily alert", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
+  const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Your minimum and the daily alert", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
     h("div", { class: "row", style: "padding-top:12px" }, h("span", {}, "Minimum attendance %"), stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", onchange: (v) => save({ threshold: v }) })),
     h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "Daily alert if a course is low"), toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert")));
 
@@ -230,4 +239,5 @@ function openBtn(text = "Open CUE") {
   return h("button", { class: "btn solid cta", onclick: () => chrome.tabs.create({ url: CUE_URL }) }, text, ico("out"));
 }
 
+spotlight(document.body);
 load();

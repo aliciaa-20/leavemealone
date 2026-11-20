@@ -168,8 +168,8 @@ const Plan = (() => {
       const br = breakLength(d);
       const tags = [];
       if (cls.length <= 2) tags.push(`Only ${cls.length} class${cls.length > 1 ? "es" : ""}`);
-      if (br.n >= 3) tags.push(`${br.n}-day break${br.names.length ? `: ${br.names.join(", ")}` : ""}`); // holiday names can contain brackets themselves
-      out.push({ date: d, key: K.key(d), classes: cls.length, safe: imp.safe, lowest: Number.isFinite(lowest) ? lowest : null, breakDays: br.n, tags, impact: imp });
+      if (br.n >= 3) 
+      out.push({ date: d, key: K.key(d), classes: cls.length, safe: imp.safe, lowest: Number.isFinite(lowest) ? lowest : null, breakDays: br.n, breakNames: br.names, tags, impact: imp });
     }
     out.sort((a, b) => (b.safe - a.safe) || (b.breakDays - a.breakDays) || (a.classes - b.classes) || ((b.lowest ?? 0) - (a.lowest ?? 0)));
     return { days: out.slice(0, limit), remaining, end };

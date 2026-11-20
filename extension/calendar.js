@@ -25,7 +25,7 @@ const Cal = (() => {
         "2026-11-08": "Naraka Chaturdashi",
         "2026-11-10": "Balipadyami, Deepavali",
         "2026-11-27": "Kanakadasa Jayanthi",
-        "2026-11-28": "Holiday (compensatory for 21 Nov)",
+        "2026-11-28": "Compensatory holiday for 21 Nov",
         "2027-01-14": "Makara Sankranti",
         "2027-01-26": "Republic Day",
         "2027-03-06": "Maha Shivaratri",
