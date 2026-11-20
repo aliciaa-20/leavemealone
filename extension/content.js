@@ -962,7 +962,7 @@
         { class: "panel" },
         h("div", { class: "h3" }, ctx.name || ctx.key),
         h("div", { class: "sub" }, `${plural(rows.length, "hour")} listed as absent or leave. Changes save as you click.`),
-        h("div", { class: "lg" }, CHOICES.map((c) => h("span", { title: c.tip }, h("b", { style: `background:${c.color}` }, c.letter), c.label))),
+        legendEl(),
         h("div", { class: "blk" }, hourEls),
         goneBox,
         preview,
@@ -990,6 +990,7 @@
   let absOpen = false, absShell = null;
   let absMark = false;           // the "Mark hours" toggle of the all-courses drawer
   let absRows = [], absData = null;
+  const legendEl = () => h("div", { class: "lg" }, CHOICES.map((c) => h("span", { title: c.tip }, h("b", { style: `background:${c.color}` }, c.letter), c.label))); // A / C / M / L key, shared by both marking views
   const absKey = (r) => (r.code && r.code.toUpperCase() !== "N/A" ? r.code : r.name);
   async function refreshAbsData() {
     const d = await store.get({ latest: null, snapshots: {}, excused: {}, adjust: {} });
@@ -1022,7 +1023,7 @@
       const base = Calc.effective(snap, {}, {}), now = Calc.effective(snap, absData.adjust, absData.excused);
       const bp = Calc.percent(base.overall.attended, base.overall.scheduled), np = Calc.percent(now.overall.attended, now.overall.scheduled);
       preview = h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "With your marks")), h("span", { class: "big" }, `${bp.toFixed(1)}% to `, h("b", { class: np > bp ? "good" : "" }, `${np.toFixed(1)}%`))),
-        h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one."));
+        h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one."), legendEl());
     }
     absShell.body.replaceChildren(...[preview, absentDays(absRows, opts)].flat(Infinity).filter(Boolean));
     if (fk) absShell.drawer.querySelector(`[data-key="${fk}"]`)?.focus({ preventScroll: true });
