@@ -167,7 +167,7 @@ const UI = (() => {
           ? h("span", { class: "seg", role: "group", "aria-label": `Mark ${when}` },
               opts.choices.map((c) => h("button", { class: `${c.cls}${sel === c.s ? " on" : ""}`, "data-key": `mk-${r.date}-${r.period}-${c.s}`, "aria-pressed": String(sel === c.s), title: c.tip, "aria-label": `${c.label}: ${when}`, onclick: () => { if (sel !== c.s) opts.pick(r, c.s); } }, c.letter)))
           : sel !== "abs" ? chip(...MARKED[sel]) : chip(KIND[r.kind][0], KIND[r.kind][1]);
-        return h("div", { class: "arow" }, h("span", {}, nicePeriod(r.period)), h("span", { class: "pt" }, startTime(r.time)), h("span", { class: "ac", title: r.name }, h("b", {}, r.code), r.name ? h("small", {}, r.name) : null), cell);
+        return h("div", { class: `arow${opts && opts.on ? " mk" : ""}` }, h("span", {}, nicePeriod(r.period)), h("span", { class: "pt" }, startTime(r.time)), h("span", { class: "ac", title: r.name }, h("b", {}, r.code), r.name ? h("small", {}, r.name) : null), cell);
       }),
     ]);
   };

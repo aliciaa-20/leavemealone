@@ -449,3 +449,5 @@ body.cue .hero .v { font-size: 36px; }
 /* All-courses absent drawer: the "Mark hours" toggle sits next to close. */
 .topa { display: flex; align-items: center; gap: var(--s2); }
 .btn.sm[aria-pressed="true"] { background: var(--card2); border-color: var(--pick); }
+.arow.mk { grid-template-columns: 24px 1fr auto; }
+.arow.mk .pt { display: none; }
