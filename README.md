@@ -10,6 +10,7 @@ A Chrome / Edge extension for the CUE student portal. It reads your attendance p
 - **Absent Details marking:** mark each absent hour as *Absent*, *Co-curricular*, *Medical* or *Later* (the portal will be updated, count it now). Changes save as you click, with Undo.
 - **Reconciles with the portal:** hours the portal already labels (e.g. Medical Leave) are picked up and locked. Hours you marked that the portal has since updated are flagged so you can **Confirm present** and nothing is counted twice.
 - **Semester-end handling:** once the portal shows a Co-curricular column, it has already added those hours, so the extension adds none of its own.
+- **Actual tab:** appears in the drawer only when your typed hours or marks change the numbers. It shows the portal's own percentage next to what it would be with yours, per course and overall (co-curricular and medical count in the overall only).
 - **Daily alert:** a notification if a course is below your minimum (can be turned off).
 - **Plan a bunk:** open your CUE **Timetable** page once and the extension saves it. The drawer's *Plan a bunk* tab then shows:
   - **Best days to bunk:** safe days first, then the ones that make a long break with a holiday, then days with few classes.

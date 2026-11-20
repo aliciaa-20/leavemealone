@@ -118,8 +118,9 @@
   let attOpen = false;
   let attSig = "";
   let A = null;
+  let effPortal = null;          // the portal's own numbers, nothing of yours added: the "Actual" tab compares it with effMarks
   let effMarks = null;           // same numbers WITH the hours you reclassified: only used for the review notice, everything else shows the portal's data
-  let tab = "overview";          // "overview" | "plan"
+  let tab = "overview";          // "overview" | "plan" | "actual"
   let planSel = new Map();       // dayKey -> Set(periods SKIPPED) | null (whole day skipped). The view shows ticked = attending.
   let planMonth = 0;             // months after the first plannable month
   const accOpen = new Set();     // which accordions are open ("per", "budget")
@@ -207,6 +208,34 @@
     });
 
     return [hero, reviewBox, sortBar, h("div", { class: "blk" }, list)];
+  }
+
+  // ---- Actual tab: the portal as-is next to the numbers with your typed hours and marks. Only offered when they differ.
+  const SAME = (a, b) => Math.abs(a - b) < 1e-9;
+  const differs = (p, m) => !SAME(p.attended, m.attended) || !SAME(p.scheduled, m.scheduled);
+  const deltaChip = (d) => chip(d > 0.049 ? "good" : d < -0.049 ? "bad" : "mute", `${d > 0 ? "+" : ""}${d.toFixed(1)}%`);
+  function actualView(threshold) {
+    const po = effPortal.overall, mo = effMarks.overall;
+    const pp = Calc.percent(po.attended, po.scheduled), mp = Calc.percent(mo.attended, mo.scheduled);
+    const tn = tone(pp, threshold);
+    const hero = h("div", { class: `hero w-${tn}` },
+      h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${pp.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(po.attended)} / ${po.scheduled}h`)),
+      bar(pp, threshold),
+      h("p", { class: "sub" }, "This is what the portal shows. With your own hours and marks it would be ", h("b", {}, `${mp.toFixed(1)}%`), " ", deltaChip(mp - pp), "."),
+      mo.cocurricular ? h("p", { class: "sub" }, `${fmt(mo.cocurricular)}h co-curricular counts in the overall only, never in a course.`) : null,
+      mo.medicalAdded ? h("p", { class: "sub" }, `${fmt(mo.medicalAdded)}h medical is added to the overall.`) : null);
+    const rows = effMarks.courses.map((m, i) => [effPortal.courses[i], m]).filter(([p, m]) => differs(p, m) && m.scheduled > 0);
+    const same = effMarks.courses.filter((c) => c.scheduled > 0).length - rows.length;
+    const list = rows.map(([p, m]) => {
+      const a = Calc.percent(p.attended, p.scheduled), b = Calc.percent(m.attended, m.scheduled);
+      return h("div", { class: "it2" },
+        h("div", { class: "row" },
+          h("span", {}, h("b", { class: "nm", title: m.name }, m.name || m.code), m.code ? h("div", { class: "cl" }, h("span", { class: "sub" }, m.code), m.stale ? chip("warn", "review") : null) : null),
+          h("span", {}, h("span", { class: "p", style: `color:var(--${tone(b, threshold)})` }, `${b.toFixed(1)}%`), " ", deltaChip(b - a))),
+        h("div", { class: "sub" }, `Portal ${fmt(p.attended)}/${p.scheduled}h (${a.toFixed(1)}%), with yours ${fmt(m.attended)}/${m.scheduled}h`));
+    });
+    return [hero, rows.length ? h("div", { class: "sec" }, h("span", {}, "Changed by you")) : null, rows.length ? h("div", { class: "blk" }, list) : null,
+      same > 0 ? h("p", { class: "sub" }, `${plural(same, rows.length ? "other course" : "course")} ${same === 1 ? "matches" : "match"} the portal.`) : null];
   }
 
   // ---- Plan a bunk tab
@@ -428,7 +457,10 @@
     const { snap, threshold } = A;
     const eff = Calc.effective(snap, A.adj, {});
     effMarks = Calc.effective(snap, A.adj, A.exc);
-    const sig = JSON.stringify([eff, A.exc, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, [...accOpen]]);
+    effPortal = Calc.effective(snap, {}, {});
+    const hasChanges = differs(effPortal.overall, effMarks.overall) || effMarks.courses.some((c, i) => differs(effPortal.courses[i], c));
+    if (tab === "actual" && !hasChanges) tab = "overview"; // nothing left to compare (e.g. you erased your data)
+    const sig = JSON.stringify([eff, A.exc, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, hasChanges, [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, [...accOpen]]);
     if (sig === attSig && host?.isConnected) return;
     await ensureHost();
     attSig = sig;
@@ -449,13 +481,14 @@
     pill.replaceChildren(h("i"), `${op.toFixed(1)}%`, lowN ? h("span", { class: "sub" }, `${lowN} low`) : null);
     sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
     for (const [id, btn] of tabs) {
+      btn.style.display = id === "actual" && !hasChanges ? "none" : "";
       btn.classList.toggle("on", tab === id);
       btn.setAttribute("aria-selected", String(tab === id));
     }
     drawer.classList.toggle("open", A.open);
     body.classList.toggle("grow", growBars && A.open);
     if (A.open) growBars = false;
-    body.replaceChildren(...[tab === "plan" ? planView(eff, threshold, t) : overviewView(eff, threshold, t)].flat(Infinity).filter((x) => x != null && x !== false)); // views return arrays
+    body.replaceChildren(...[tab === "plan" ? planView(eff, threshold, t) : tab === "actual" ? actualView(threshold) : overviewView(eff, threshold, t)].flat(Infinity).filter((x) => x != null && x !== false)); // views return arrays
     lastPicked = null;
     placeThumb(shell.tabsBox, "tabs");
     if (focusKey) restoreFocus(focusKey);
@@ -468,7 +501,7 @@
     pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
     const sub = h("div", { class: "sub" });
     const tabs = new Map();
-    for (const [id, label] of [["overview", "Overview"], ["plan", "Plan a bunk"]]) {
+    for (const [id, label] of [["overview", "Overview"], ["plan", "Plan a bunk"], ["actual", "Actual"]]) {
       tabs.set(id, h("button", { role: "tab", "data-key": `tab-${id}`, onclick: () => { tab = id; growBars = true; calShown = null; rerender(); } }, label));
     }
     const tabsBox = h("div", { class: "pills", role: "tablist" }, ...tabs.values());
