@@ -104,13 +104,13 @@ function draw() {
     } else {
       const best = Plan.bestDays({ eff, tt: D.timetable, courses: eff.courses, basis, t: line, from, limit: 3 });
       bestCard = h("div", {},
-        h("div", { class: "sec" }, "Best days to bunk"),
+        h("div", { class: "sec" }, best.days.some((b) => b.safe) ? "Best days to bunk" : "Least risky days"),
         best.days.length
           ? h("div", { class: "blk" }, best.days.map((b) => {
               return h("div", { class: "it2" },
                 h("div", { class: "row" }, h("b", {}, dayLabel(b.date)), chip(b.safe ? "good" : "bad", b.safe ? "safe" : "risky")),
                 h("div", { class: "sub" }, plural(b.classes, "class")),
-                b.breakDays >= 3 ? h("div", { class: "brk" }, chip("mute", `${b.breakDays}-day break`), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
+                b.breakDays >= 3 ? h("div", { class: "brk" }, chip("mute", `${b.breakDays}-day break`, `${b.breakDays} days off in a row if you skip this day`), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
             }))
           : h("div", { class: "sub" }, basis === "mse" ? "No class days left before MSE." : "No class days left this semester."),
         openBtn("Plan on CUE"));
@@ -190,8 +190,8 @@ function draw() {
             const br = Plan.breakLength(e.date), tn = e.tag ? "blue" : e === next ? "gold" : "mute";
             return h("div", { class: `hrow${e === next ? " next" : ""}`, style: `--i:${i++}` },
               h("span", { class: `dbadge t-${tn}` }, h("small", {}, e.date.toLocaleDateString("en-IN", { month: "short" })), h("b", {}, String(e.date.getDate()))),
-              h("span", { class: "hx" }, h("b", {}, e.name), h("span", { class: "sub" }, e.date.toLocaleDateString("en-IN", { weekday: "long" }))),
-              h("span", { class: "hr" }, e.tag ? chip("blue", e.tag) : br.n >= 3 ? chip("mute", `${br.n}-day break`) : null, h("span", { class: "sub" }, when(e.date))));
+              h("span", { class: "hx" }, h("b", {}, e.name), h("span", { class: "sub" }, e.date.toLocaleDateString("en-IN", { weekday: "long" }), e.tag ? chip("blue", e.tag) : br.n >= 3 ? chip("mute", `${br.n}-day break`, `${br.n} days off in a row`) : null)),
+              h("span", { class: "hr sub" }, when(e.date)));
           }),
         ]));
     }
@@ -202,12 +202,12 @@ function draw() {
   const adjBox = acc({ title: "Add hours the portal is missing", icon: "clock", tone: "good", sub: "For a class the portal has not counted", open: accOpen.has("adj"), ontoggle: toggleAcc("adj") },
     D.snapshots[viewSem].hasCc
       ? h("div", { class: "sub", style: "padding-top:12px" }, "Co-curricular claims aren't needed: the portal already includes them.")
-      : h("div", { class: "row", style: "padding-top:12px" }, h("span", {}, "Co-curricular hours yet to be updated"), num(adj.cocurricular, "co-curricular hours", (v) => {
+      : h("div", { class: "row", style: "padding-top:12px" }, h("span", { class: "lbl" }, "Co-curricular hours pending"), num(adj.cocurricular, "co-curricular hours", (v) => {
           const adjust = D.adjust; (adjust[viewSem] = adjust[viewSem] || { cocurricular: 0, courses: {} }).cocurricular = v;
           save({ adjust });
         })),
     h("div", { class: "th" }, h("span", {}, "Attended"), h("span", {}, "Held")),
-    courses.map((c) => h("div", { class: "row", style: "padding:3px 0" }, h("span", {}, c.code || c.name),
+    courses.map((c) => h("div", { class: "row", style: "padding:3px 0" }, h("span", { class: "lbl", title: c.name }, c.code || c.name),
       h("span", { class: "row" }, num(c.adj.att, `${c.code || c.name} attended`, (v) => setCourseAdj(viewSem, c, "att", v)), num(c.adj.sch, `${c.code || c.name} held`, (v) => setCourseAdj(viewSem, c, "sch", v))))),
     h("div", { class: "sub", style: "margin-top:8px" }, "Went to an extra class the portal hasn't counted? Add 1 under Attended and 1 under Held."));
 

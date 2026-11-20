@@ -315,7 +315,7 @@
           }),
         ];
       });
-      out.push(acc({ title: "Classes you will still attend", icon: "checks", tone: "pick", sub: [`${plural(K, "class")} skipped`, sep(), "tick any you will still attend"], open: accOpen.has("per"), key: "acc-per",
+      out.push(acc({ title: "Classes you will still attend", icon: "checks", tone: "pick", sub: [`${plural(K, "class")} skipped`, sep(), "tick to attend some"], open: accOpen.has("per"), key: "acc-per",
         ontoggle: (v) => { v ? accOpen.add("per") : accOpen.delete("per"); rerender(); } }, days));
 
       // ---- result
@@ -335,7 +335,7 @@
     }
 
     // ---- best days to bunk (only for "After the bunk")
-    if (best) out.push(h("div", { class: "sec" }, "Best days to bunk"));
+    if (best) out.push(h("div", { class: "sec" }, best.days.some((b) => b.safe) || !best.days.length ? "Best days to bunk" : "Least risky days"));
     if (best) out.push(best.days.length
       ? h("div", { class: "blk" }, best.days.map((b) => {
           return h("button", { class: `it2 click${planSel.has(b.key) ? " on" : ""}`, "data-key": `best-${b.key}`,
@@ -343,7 +343,7 @@
             h("div", { class: "row" }, h("b", { class: "d" }, dayLabel(b.date)), chip(b.safe ? "good" : "bad", b.safe ? "safe" : "risky")),
             b.lowest != null ? h("div", { class: "low" }, "Lowest after ", h("b", { style: `color:var(--${b.safe ? "good" : "bad"})` }, `${b.lowest.toFixed(0)}%`)) : null,
             h("div", { class: "sub" }, plural(b.classes, "class")),
-            b.breakDays >= 3 ? h("div", { class: "brk" }, chip("mute", `${b.breakDays}-day break`), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
+            b.breakDays >= 3 ? h("div", { class: "brk" }, chip("mute", `${b.breakDays}-day break`, `${b.breakDays} days off in a row if you skip this day`), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
         }))
       : h("div", { class: "sub" }, "No class days left this semester."));
 
@@ -607,7 +607,8 @@
           { class: "panel" },
           h("div", { class: "h3" }, "Which course is this?"),
           h("p", { class: "sub" }, 'This page doesn\'t say. Go back, switch the course list to table view and open a course with its "View Details" button.'),
-          h("button", { class: "btn solid cta", onclick: () => history.back() }, "Back to attendance")
+          h("button", { class: "btn solid cta", onclick: () => history.back() }, "Back to attendance"),
+          h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")
         )
       );
       return;
@@ -783,7 +784,8 @@
         goneBox,
         preview,
         actions,
-        toastBox
+        toastBox,
+        h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")
       )
     );
     paint();

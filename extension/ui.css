@@ -27,7 +27,7 @@
 :host {
   --t44: clamp(34px, 1.6vw + 20px, 44px); --t28: clamp(24px, .6vw + 18px, 28px);
   --t17: clamp(16px, .2vw + 13.5px, 17px); --t15: clamp(14px, .2vw + 11.5px, 15px);
-  --t13: clamp(12.5px, .1vw + 11px, 13.5px); --t12: clamp(11.5px, .1vw + 10.3px, 12.5px);
+  --t13: clamp(13px, .1vw + 11.7px, 13.5px); --t12: clamp(12px, .1vw + 10.9px, 12.5px);
 }
 @media (prefers-contrast: more) {
   :root, :host { --line: #4A5F9E; --mute: #C3CCE3; }
@@ -155,7 +155,7 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .btn:hover:not(:disabled) { border-color: var(--mute); }
 .btn:active:not(:disabled) { transform: scale(.97); transition-duration: var(--d-press); }
 .btn.solid { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600; }
-.btn.solid:hover:not(:disabled) { border-color: var(--ink); background: #fff; }
+.btn.solid:hover:not(:disabled) { border-color: #FAF6EC; background: #FAF6EC; }
 .btn.cta { width: 100%; height: 44px; padding: 0; margin-top: var(--s4); font-size: var(--t15); }
 .btn.danger { color: var(--bad); border-color: rgba(242,128,122,.5); }
 .btn.sm { height: 28px; padding: 0 12px; font-size: var(--t12); }
@@ -331,13 +331,17 @@ body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); m
 .arow .ac b { font-weight: 400; }
 .arow .ac small { font-size: 11px; line-height: 1.3; color: var(--mute); white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .rr { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+/* a label beside a control: never push the control sideways (steppers line up across rows) */
+.lbl { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lbl + .row { flex: none; }
 
-/* narrow windows: the drawer shrinks with the viewport, so loosen the fixed widths */
+/* narrow windows: the on-page drawer shrinks with the viewport, so loosen the fixed widths.
+   Scoped to :host on purpose: the popup is a 380px window and must not match these. */
 @media (max-width: 420px) {
-  .it2 .p + .chip, .it2.minor .p + .chip { min-width: 0; }
-  .pills button { padding: 0 4px; font-size: var(--t12); }
-  .hero .v { font-size: 36px; }
-  .per { grid-template-columns: 18px 24px 40px 1fr; gap: 8px; }
+  :host .it2 .p + .chip, :host .it2.minor .p + .chip { min-width: 0; }
+  :host .pills button { padding: 0 4px; font-size: var(--t12); }
+  :host .hero .v { font-size: 36px; }
+  :host .per { grid-template-columns: 18px 24px 40px 1fr; gap: 8px; }
 }
 
 /* holidays: a calendar-leaf badge per date, the next one lit, a countdown, and a staggered reveal when the card opens */
@@ -349,6 +353,7 @@ body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); m
 .dbadge b { display: block; margin-top: 3px; font: 600 var(--t17)/1 var(--font-head); color: var(--ink); }
 .hrow:hover .dbadge { transform: translateY(-2px); }
 .hx b { display: block; font-weight: 500; font-size: var(--t13); }
+.hx .sub { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
 .hr { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
 .hrow.next { background: rgba(232,199,125,.08); border-radius: var(--r-card); margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
 .hrow.next .dbadge { border-color: rgba(232,199,125,.55); animation: ping 2.4s var(--ease) infinite; }
@@ -358,3 +363,6 @@ body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); m
 /* toolbar popup: a rounded card framed by a darker margin, with a dark scrollbar (Chrome draws the window itself, so the roundness is ours) */
 html { background: #040A18; scrollbar-width: thin; scrollbar-color: var(--card2) #040A18; }
 body.cue { margin: 8px; width: 364px; padding: var(--s4); border-radius: 14px; border: 1px solid var(--line); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+/* popup: chips share one width so the percent column lines up (the longest, "attend next 10", is ~121px); hero stays at the 36px seen in review */
+body.cue .it2 .p + .chip { min-width: 122px; text-align: center; }
+body.cue .hero .v { font-size: 36px; }
