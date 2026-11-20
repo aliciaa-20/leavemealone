@@ -465,7 +465,7 @@
   let shell = null;
   function buildShell() {
     const pill = h("button", { class: "pill", "aria-label": "Attendance summary", "data-key": "pill", onclick: () => { setOpen(!attOpen); ping(pill); } });
-    pill.addEventListener("animationend", (e) => { if (e.animationName === "dotClick") pill.classList.remove("clicked"); });
+    pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
     const sub = h("div", { class: "sub" });
     const tabs = new Map();
     for (const [id, label] of [["overview", "Overview"], ["plan", "Plan a bunk"]]) {
@@ -827,7 +827,7 @@
     await ensureHost();
     if (!absShell || !dock.contains(absShell.drawer)) {
       const pill = h("button", { class: "pill", "aria-label": "Absent hours summary", "aria-expanded": "false", onclick: () => { setAbsOpen(!absOpen); ping(pill); } });
-      pill.addEventListener("animationend", (e) => { if (e.animationName === "dotClick") pill.classList.remove("clicked"); });
+      pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
       const sub = h("div", { class: "sub" });
       const body = h("div", { class: "blk" });
       const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Absent hours" },
