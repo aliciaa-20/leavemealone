@@ -23,7 +23,7 @@
   };
   const semester = () => document.querySelector('[role="combobox"]')?.textContent.trim() || "unknown";
   const COURSE_TABLE = 'table[aria-label="coursewise attendance table"]';
-  const { h, plural, fmt, tone, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, hrsOf, spotlight } = UI;
+  const { h, plural, fmt, tone, mustText, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, hrsOf, spotlight } = UI;
 
   // ---------------------------------------------------------------- parsing
   function parseRow(tr) {
@@ -177,7 +177,7 @@
       h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
       bar(op, threshold),
       h("p", { class: "sub" }, op >= threshold ? h("b", {}, `${(op - threshold).toFixed(1)} points above`) : h("b", {}, `${(threshold - op).toFixed(1)} points below`), ` your ${threshold}% minimum`),
-      h("p", { class: "sub" }, op < threshold ? `Attend the next ${plural(Calc.mustAttend(o.attended, o.scheduled, t), "class")} to get back to ${threshold}%`
+      h("p", { class: "sub" }, op < threshold ? (Number.isFinite(Calc.mustAttend(o.attended, o.scheduled, t)) ? `Attend the next ${plural(Calc.mustAttend(o.attended, o.scheduled, t), "class")} to get back to ${threshold}%` : `${threshold}% is out of reach now: a missed class stays missed`)
         : Calc.canSkip(o.attended, o.scheduled, t) ? `You can skip ${plural(Calc.canSkip(o.attended, o.scheduled, t), "class")} and stay above it` : "No spare classes: skipping any would put you below it"),
       o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
       o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.")
@@ -206,7 +206,7 @@
           h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
             c.code || adjusted ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null) : null),
           h("span", {}, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`), " ",
-            pct < threshold ? chip("bad", `attend next ${Calc.mustAttend(c.attended, c.scheduled, t)}`) : chip(skip ? "good" : "warn", skip ? `can skip ${skip}` : "no spare"))),
+            pct < threshold ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skip ? "good" : "warn", skip ? `can skip ${skip}` : "no spare"))),
         bar(pct, threshold));
     });
 
@@ -429,7 +429,7 @@
         h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, arrow(res.overall, 1)))),
         res.rows.map((r) => h("div", { class: `it2 minor${r.safe ? "" : " fail"}` }, h("div", { class: "row" },
           nameCell(r, h("span", { class: "sub" }, r.code ? [sep(), `−${r.k}h`] : `−${r.k}h`)),
-          h("span", { class: "rr" }, h("span", {}, arrow(r, 1)), r.safe ? chip("good", "safe") : chip("bad", basis !== "now" ? `below ${linePct}%` : `attend next ${r.recover}`))))),
+          h("span", { class: "rr" }, h("span", {}, arrow(r, 1)), r.safe ? chip("good", "safe") : chip("bad", basis !== "now" ? `below ${linePct}%` : mustText(r.recover)))))),
         res.unknown.length ? h("div", { class: "it2 sub" }, `Not in your attendance table: ${res.unknown.join(", ")}.`) : null,
         basis !== "now" ? h("div", { class: "it2 sub" }, `Assumes you attend every other class until ${end ? dayLabel(end) : "the semester ends"} (${examName}).`) : null));
     }

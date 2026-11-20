@@ -2,7 +2,7 @@
 const CUE_URL = "https://cue.christuniversity.in/main/attendence";
 const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
 const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
-const { h, plural, fmt, tone, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays, spotlight } = UI;
+const { h, plural, fmt, tone, mustText, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays, spotlight } = UI;
 const ago = (t) => {
   const m = Math.round((Date.now() - t) / 60000);
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
@@ -237,7 +237,7 @@ function courseRow(c, thr, t, showAfter) {
   const skipN = Calc.canSkip(c.attended, c.scheduled, t);
   const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
   const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
-  const status = pct < thr ? chip("bad", `attend next ${Calc.mustAttend(c.attended, c.scheduled, t)}`) : chip(skipN ? "good" : "warn", skipN ? `can skip ${skipN}` : "no spare");
+  const status = pct < thr ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skipN ? "good" : "warn", skipN ? `can skip ${skipN}` : "no spare");
   const num = h("span", { class: "p", style: `color:var(--${tone(pct, thr)})` }, `${pct.toFixed(0)}%`);
   const k = wi ? wi.missed[c.key] || 0 : 0; // classes of THIS course among the ones skipped
   const afterN = skip && showAfter && k ? h("span", { class: "to" }, `→ ${Calc.percent(c.attended, c.scheduled + k).toFixed(0)}%`) : null;
