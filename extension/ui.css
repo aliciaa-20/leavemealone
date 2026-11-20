@@ -469,6 +469,7 @@ body.cue .hero .v { font-size: 36px; }
   transition: left var(--d-acc) var(--ease), top var(--d-acc) var(--ease); animation: tourIn var(--d-acc) var(--ease) both; }
 .tour-card .h3 { margin-top: 4px; }
 .tour-card > .sub { margin: 6px 0 0; font-size: var(--t13); }
+.tour-em { color: var(--bad); text-decoration: underline; text-underline-offset: 3px; }
 .tour-n { font: 600 var(--t12) var(--font-head); color: var(--gold); letter-spacing: .02em; }
 .tour-act { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin-top: var(--s4); }
 .tour-act .link { color: var(--mute); font-weight: 500; }

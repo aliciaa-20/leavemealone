@@ -218,7 +218,7 @@ const UI = (() => {
   });
 
   // Guided tour: dims everything but one element per step, with a card saying what it is (Back / Next / Skip, Done at the end).
-  // steps: [{ target?: () => Element|null, title, text, before?: () => void|Promise }]. No `target` = a centred card.
+  // steps: [{ target?: () => Element|null, title, text, before?: () => void|Promise }]. `text` is a string or an array of strings and nodes. No `target` = a centred card.
   // A step whose target function returns null is skipped. `mount` is where the overlay lives: document.body in the popup,
   // the shadow root on CUE (outside #app / .dock, so the caller's redraws don't remove it). Call refresh() after a redraw.
   // A step with `next: { label, run }` shows that label instead of Next/Done; clicking it ends the tour (completed) and runs it.
@@ -277,7 +277,7 @@ const UI = (() => {
       const s = steps[i];
       count.textContent = `${i + 1} of ${steps.length}`;
       title.textContent = s.title;
-      text.textContent = s.text;
+      text.replaceChildren(...[s.text].flat());
       back.disabled = i === 0;
       next.textContent = s.next?.label || (i === steps.length - 1 ? "Done" : "Next");
       target?.scrollIntoView({ block: "nearest" });

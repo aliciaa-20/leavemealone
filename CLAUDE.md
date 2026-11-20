@@ -52,3 +52,9 @@ The full, current list lives in `docs/attendance_rules.md`; keep it in step with
 - **Never commit real portal pages or screenshots.** `Pages/` (gitignored) holds saved portal HTML with a real student's name and attendance; use it locally for selector work only. Anonymise or invent any fixture data.
 - The extension must make no network requests besides loading its own bundled files (`ui.css`, `fonts/`) (the README's privacy claim depends on it).
 - Portal markup changes; selectors like `table[aria-label="coursewise attendance table"]` are the fragile part. Only the table view of the course list is parsed.
+
+## Copy and tone
+
+- The voice is Bangalore college slang: "bunk", never "skip" ("Put a bunk" tab, "can bunk 3", "no bunks left").
+- Jokes are tied to fixed lines, not the user's minimum: `UI.DETAIN` (75, "pakka detain") and `UI.SUSEGAD` (85, "susegad", Goan). Render them only through `UI.vibeTag` / `UI.vibeLead` (`.vibe`: quiet italic aside, no fill or icon). The can-bunk / attend chips (`.chip`) must stay the loudest element; never style a joke as a chip.
+- Tour steps take `text` as a string or an array with nodes; `.tour-em` (red, underlined) highlights the one action to take.

@@ -574,7 +574,7 @@
         { before: show("overview"), target: () => q("hero"), title: "Where you stand", text: "Your actual overall: the portal plus the hours you've marked, how far you are from your minimum, and how many classes you can bunk or must attend." },
         { before: show("overview"), target: () => q("course"), title: "Every course", text: "Tap a course to see what it needs and when its next classes are." },
         { before: show("plan"), target: () => shell?.tabs.get("plan"), title: "Put a bunk", text: "Pick days on a calendar and see every course before and after. 'Safe means' switches between right after the bunk, before MSE and before ESE." },
-        { before: show("overview"), title: "Marking absent hours", text: "Got an absent hour that was really co-curricular or medical? Open that course's View Details and mark it; your numbers update straight away." },
+        { before: show("overview"), title: "Marking absent hours", text: ["Got an absent hour that was really co-curricular or medical? Open that course's ", h("span", { class: "tour-em" }, "View Details and mark it"), "; your numbers update straight away."] },
         A?.tt ? null : { title: "Last step: your timetable", text: "Open your CUE timetable once. The extension saves your weekly classes, so the Today card and Put a bunk can pick your best days. Then come back to Attendance.",
           next: { label: "Open timetable", run: () => location.assign("/main/timeTable") } },
       ].filter(Boolean),
