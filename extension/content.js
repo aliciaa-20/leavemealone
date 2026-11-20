@@ -217,11 +217,11 @@
   function actualView(threshold) {
     const po = effPortal.overall, mo = effMarks.overall;
     const pp = Calc.percent(po.attended, po.scheduled), mp = Calc.percent(mo.attended, mo.scheduled);
-    const tn = tone(pp, threshold);
+    const tn = tone(mp, threshold);
     const hero = h("div", { class: `hero w-${tn}` },
-      h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${pp.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(po.attended)} / ${po.scheduled}h`)),
-      bar(pp, threshold),
-      h("p", { class: "sub" }, "This is what the portal shows. With your own hours and marks it would be ", h("b", {}, `${mp.toFixed(1)}%`), " ", deltaChip(mp - pp), "."),
+      h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${mp.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(mo.attended)} / ${mo.scheduled}h`)),
+      bar(mp, threshold),
+      h("p", { class: "sub" }, `Your actual attendance, with your own hours and marks. The portal shows ${pp.toFixed(1)}% (${fmt(po.attended)} / ${po.scheduled}h), a difference of `, deltaChip(mp - pp), "."),
       mo.cocurricular ? h("p", { class: "sub" }, `${fmt(mo.cocurricular)}h co-curricular counts in the overall only, never in a course.`) : null,
       mo.medicalAdded ? h("p", { class: "sub" }, `${fmt(mo.medicalAdded)}h medical is added to the overall.`) : null);
     const rows = effMarks.courses.map((m, i) => [effPortal.courses[i], m]).filter(([p, m]) => differs(p, m) && m.scheduled > 0);
