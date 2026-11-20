@@ -387,3 +387,18 @@ body.cue { margin: 8px; width: 364px; padding: var(--s4); border-radius: 14px; b
 /* popup: chips share one width so the percent column lines up (the longest, "attend next 10", is ~121px); hero stays at the 36px seen in review */
 body.cue .it2 .p + .chip { min-width: 122px; text-align: center; }
 body.cue .hero .v { font-size: 36px; }
+
+/* Actual tab: the bar shows what the portal counts and, in gold, what you added on top. */
+.abar { position: relative; height: 8px; border-radius: var(--r-bar); background: var(--card2); margin: 14px 0 12px; }
+.abar i, .abar s { position: absolute; top: 0; bottom: 0; text-decoration: none; transform-origin: left; }
+.abar i { left: 0; border-radius: var(--r-bar) 0 0 var(--r-bar); }
+.abar s { background: var(--gold); border-radius: 0 var(--r-bar) var(--r-bar) 0; }
+.abar u { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--ink); opacity: .5; text-decoration: none; }
+.grow .abar i { animation: grow var(--d-grow) var(--ease) both; }
+.grow .abar s { animation: grow var(--d-grow) var(--ease) 220ms both; }
+.alegend { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: var(--t12); color: var(--mute); }
+.alegend b { color: var(--ink); font-weight: 600; }
+.alegend i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--c); }
+.arow.nt { grid-template-columns: 28px 1fr auto; }
+.pday.tot { border-top: 1px solid var(--line); margin-top: var(--s2); padding-top: var(--s3); }
+.pday.tot b:last-child { color: var(--gold); }

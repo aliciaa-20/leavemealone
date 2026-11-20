@@ -220,33 +220,54 @@
     const tn = tone(mp, threshold);
     const sc = (txt) => h("div", { class: "sec" }, h("span", {}, txt));
 
-    // 1. The answer: your actual attendance.
+    // 1. The answer: your actual attendance. The bar shows the portal's part and, in gold, what you added on top.
+    const added = mo.attended - po.attended;
+    const clamp = (x) => Math.min(100, Math.max(0, x));
+    const abar = h("div", { class: "abar" },
+      h("i", { style: `width:${clamp(Math.min(pp, mp))}%;background:var(--${tn})` }),
+      mp > pp ? h("s", { style: `left:${clamp(pp)}%;width:${clamp(mp) - clamp(pp)}%` }) : null,
+      h("u", { style: `left:${threshold}%` }));
     const hero = h("div", { class: `hero w-${tn}` },
       h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${mp.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(mo.attended)} / ${mo.scheduled}h`)),
-      bar(mp, threshold),
-      h("p", { class: "sub" }, "Your actual attendance: the portal's numbers plus the hours you added or marked."));
+      abar,
+      h("div", { class: "alegend" },
+        h("span", {}, h("i", { style: `--c:var(--${tn})` }), "Portal ", h("b", {}, `${pp.toFixed(1)}%`), ` (${fmt(po.attended)}h)`),
+        h("span", {}, h("i", { style: "--c:var(--gold)" }), "You added ", h("b", {}, `${added > 0 ? "+" : ""}${fmt(added)}h`), " ", deltaChip(mp - pp))));
 
-    // 2. Side by side with the portal.
-    const cmp = h("div", { class: "blk" },
-      h("div", { class: "it2" }, h("div", { class: "row" }, h("span", { class: "sub" }, "Portal shows"), h("span", {}, h("span", { class: "p" }, `${pp.toFixed(1)}%`), " ", h("span", { class: "sub" }, `${fmt(po.attended)} / ${po.scheduled}h`)))),
-      h("div", { class: "it2" }, h("div", { class: "row" }, h("span", { class: "sub" }, "You are at"), h("span", {}, h("span", { class: "p", style: `color:var(--${tn})` }, `${mp.toFixed(1)}%`), " ", deltaChip(mp - pp)))));
-
-    // 3. Where the extra hours come from, one line per source.
-    const src = [];
-    const typedCc = effMarks.overall.ccIncluded ? 0 : (A.adj && A.adj.cocurricular) || 0;
-    if (typedCc) src.push({ name: "Overall", label: "Co-curricular, typed in", h: typedCc });
+    // 3. Where the extra hours come from: day by day like the absent list, one row per hour with what you did to it.
+    const items = [];
+    const typedCc = mo.ccIncluded ? 0 : (A.adj && A.adj.cocurricular) || 0;
+    if (typedCc) items.push({ typed: true, code: "Overall", name: "Co-curricular hours you typed in", hrs: typedCc, kind: "tcc" });
     for (const c of effMarks.courses) {
-      const nm = c.name || c.code;
-      if (c.adj.att) src.push({ name: nm, label: "Attended, typed in", h: c.adj.att });
-      if (c.laterHrs) src.push({ name: nm, label: "Marked Later", h: c.laterHrs });
-      if (c.ccHrs) src.push({ name: nm, label: "Marked co-curricular", h: c.ccHrs });
-      if (c.medHrs) src.push({ name: nm, label: mo.medicalApplies ? "Marked medical" : "Marked medical", h: mo.medicalApplies ? c.medHrs : 0, off: c.medHrs });
-      if (c.adj.sch) src.push({ name: nm, label: "Scheduled, typed in", h: c.adj.sch, unit: "scheduled" });
+      const rows = (A.exc && A.exc[c.key] && A.exc[c.key].rows || []).filter((r) => !r.gone);
+      for (const kind of ["later", "cc", "med"]) {
+        const eff = kind === "later" ? c.laterHrs : kind === "cc" ? c.ccHrs : c.medHrs;
+        const mine = rows.filter((r) => (r.s === "cc" || r.s === "med" ? r.s : "later") === kind);
+        const raw = mine.reduce((n, r) => n + r.h, 0), f = raw ? eff / raw : 1; // scaled like Calc.effective: never above the portal's absent count
+        if (eff) for (const r of mine) { const [date, period] = String(r.k).split("|"); items.push({ date, period, code: c.code || c.name, name: c.code ? c.name : "", hrs: r.h * f, kind, off: kind === "med" && !mo.medicalApplies }); }
+      }
+      if (c.adj.att) items.push({ typed: true, code: c.code || c.name, name: c.code ? c.name : "", hrs: c.adj.att, kind: "tatt" });
+      if (c.adj.sch) items.push({ typed: true, code: c.code || c.name, name: c.code ? c.name : "", hrs: c.adj.sch, kind: "tsch" });
     }
-    const extra = src.filter((r) => r.unit !== "scheduled").reduce((n, r) => n + r.h, 0);
-    const srcList = src.map((r) => h("div", { class: "it2" }, h("div", { class: "row" },
-      h("span", {}, h("b", { class: "nm", title: r.name }, r.name), h("div", { class: "sub" }, r.label)),
-      r.h || !r.off ? h("span", { class: "p" }, `+${fmt(r.h)}h`, r.unit ? h("span", { class: "sub" }, ` ${r.unit}`) : null) : chip("mute", "not counted", `${fmt(r.off)}h medical, not counted at this %`))));
+    const MON = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+    const dayKey = (d) => { const m = /^([A-Za-z]{3})[A-Za-z]*\s+(\d{1,2})/.exec(d || ""); return m ? ((MON[m[1].toLowerCase()] + 7) % 12) * 100 + +m[2] : -1; }; // the academic year starts in June, newest first
+    const days = new Map();
+    for (const it of items.filter((x) => !x.typed)) { if (!days.has(it.date)) days.set(it.date, []); days.get(it.date).push(it); }
+    const dayList = [...days.entries()].sort((a, b) => dayKey(b[0]) - dayKey(a[0]));
+    const CHIP = { later: ["good", "later", "You marked it as present on the portal's way: it counts as present here"], cc: ["gold", "co-curricular"], med: ["blue", "medical"], tcc: ["gold", "co-curricular"], tatt: ["mute", "typed in"] };
+    const chipFor = (it) => it.kind === "tsch" ? chip("mute", `+${fmt(it.hrs)}h scheduled`) : it.off ? chip("mute", "not counted", "Medical hours only count between 74.5% and 85% overall") : chip(...CHIP[it.kind]);
+    const codeCell = (it) => h("span", { class: "ac", title: it.name }, h("b", {}, it.code), it.name ? h("small", {}, it.name) : null);
+    const total = (list) => fmt(list.filter((x) => x.kind !== "tsch" && !x.off).reduce((n, x) => n + x.hrs, 0));
+    const typedItems = items.filter((x) => x.typed);
+    const extra = items.filter((x) => x.kind !== "tsch" && !x.off).reduce((n, x) => n + x.hrs, 0);
+    const srcList = [
+      ...dayList.map(([d, list]) => [
+        h("div", { class: "pday" }, h("b", {}, niceDate(d)), h("span", { class: "sub" }, `${total(list)}h`)),
+        list.map((it) => h("div", { class: "arow nt" }, h("span", {}, nicePeriod(it.period)), codeCell(it), chipFor(it)))]),
+      typedItems.length ? [
+        h("div", { class: "pday" }, h("b", {}, "Typed in by you"), h("span", { class: "sub" }, `${total(typedItems)}h`)),
+        typedItems.map((it) => h("div", { class: "arow nt" }, h("span", {}), codeCell(it), chipFor(it)))] : null];
+    const hasSrc = items.length > 0;
 
     // 4. Course by course, only the ones that differ.
     const rows = effMarks.courses.map((m, i) => [effPortal.courses[i], m]).filter(([p, m]) => differs(p, m) && m.scheduled > 0);
@@ -262,10 +283,10 @@
     const note = same > 0 ? h("p", { class: "sub" }, `${plural(same, rows.length ? "other course" : "course")} ${same === 1 ? "matches" : "match"} the portal.`) : null;
 
     return [hero,
-      sc("Compared with the portal"), cmp,
-      src.length ? sc("Where the extra hours come from") : null,
-      src.length ? h("div", { class: "blk" }, srcList, h("div", { class: "it2" }, h("div", { class: "row" }, h("b", {}, "Total added to attended"), h("b", { class: "p" }, `+${fmt(extra)}h`)))) : null,
-      src.length ? h("p", { class: "sub" }, "Later = the portal hasn't updated that absent hour yet, so it counts as present here. Co-curricular and medical hours count in the overall only, never in a course.") : null,
+      hasSrc ? acc({ title: "Where the extra hours come from", icon: "list", tone: "gold", sub: [`+${fmt(extra)}h added`, sep(), (dayList.length ? plural(dayList.length, "day") : "typed in")], open: accOpen.has("extra"), key: "acc-extra",
+        ontoggle: (v) => { v ? accOpen.add("extra") : accOpen.delete("extra"); rerender(); } },
+        srcList, h("div", { class: "pday tot" }, h("b", {}, "Added to attended"), h("b", {}, `+${fmt(extra)}h`))) : null,
+      hasSrc ? h("p", { class: "sub" }, "Later = the portal hasn't updated that absent hour yet, so it counts as present here. Co-curricular and medical hours count in the overall only, never in a course.") : null,
       rows.length ? sc("Course by course") : null,
       rows.length ? h("div", { class: "blk" }, list) : null,
       note];
