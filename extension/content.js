@@ -410,7 +410,7 @@
       btn.setAttribute("aria-selected", String(tab === id));
     }
     drawer.classList.toggle("open", A.open);
-    body.replaceChildren(tab === "plan" ? planView(eff, threshold, t) : overviewView(eff, threshold, t));
+    body.replaceChildren(...[tab === "plan" ? planView(eff, threshold, t) : overviewView(eff, threshold, t)].flat(Infinity).filter((x) => x != null && x !== false)); // views return arrays
     if (focusKey) restoreFocus(focusKey);
   }
 
