@@ -341,7 +341,7 @@ body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); m
 .exam b { display: block; font: 500 var(--t28)/1.1 var(--font-head); letter-spacing: -.03em; }
 .exam span { color: var(--mute); font-size: var(--t12); }
 .exam + .note { margin-top: var(--s3); }
-.arow { display: grid; grid-template-columns: 24px 40px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; }
+.arow { display: grid; grid-template-columns: 24px 40px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; }
 .arow .pt { text-align: right; }
 .blk .arow:last-child { padding-bottom: var(--s3); }
 .arow .ac { min-width: 0; }
