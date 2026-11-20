@@ -1,0 +1,37 @@
+# Packs only the extension/ folder into leavemealone.zip and attaches it to the GitHub release
+# for the version in extension/manifest.json (created on the first push of a new version, refreshed after that).
+# The README links to releases/latest/download/leavemealone.zip, which always serves the newest one.
+name: Release extension zip
+
+on:
+  push:
+    branches: [main]
+    paths: ["extension/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build leavemealone.zip
+        run: |
+          VERSION=$(jq -r .version extension/manifest.json)
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          cp -r extension leavemealone
+          zip -r -q leavemealone.zip leavemealone
+
+      - name: Publish to release v${{ env.VERSION }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v$VERSION"
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "leavemealone $VERSION" \
+              --notes "Unzip, then load the leavemealone folder with Load unpacked in chrome://extensions. See the README for steps."
+          fi
+          gh release upload "$TAG" leavemealone.zip --clobber

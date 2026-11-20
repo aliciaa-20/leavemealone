@@ -1,18 +1,18 @@
 # leavemealone
 
-A Chrome / Edge extension for the CUE student portal. It reads your attendance page and tells you how many classes you can skip, or must attend, to stay above your minimum.
+A Chrome / Edge extension for the CUE student portal. It reads your attendance page and tells you how many classes you can bunk, or must attend, to stay above your minimum.
 
 > **Unofficial.** This project is not affiliated with, endorsed by, or connected to CHRIST (Deemed to be University) or the ESPro / CUE portal. Numbers shown here are estimates; the portal is always the source of truth.
 
 ## Get it (for students)
 
-**[Download the extension (ZIP)](https://github.com/antiiiiny/leavemealone/archive/refs/heads/main.zip)**
+**[Download the extension (ZIP)](https://github.com/antiiiiny/leavemealone/releases/latest/download/leavemealone.zip)**
 
-1. Download the ZIP above and unzip it. You get a folder called `leavemealone-main`; the extension is the `extension` folder inside it.
+1. Download the ZIP above and unzip it. You get a folder called `leavemealone`: that is the whole extension.
 2. Open `chrome://extensions` (Edge: `edge://extensions`) and turn on **Developer mode** (top right).
-3. Click **Load unpacked** and choose that `extension` folder.
+3. Click **Load unpacked** and choose that `leavemealone` folder.
 4. Log in to the CUE portal and open **Attendance** in **table view**. A small pill with your percentage appears at the bottom right; click it.
-5. Optional: open the portal's **Timetable** page once. That unlocks *Skip today?* and *Put a bunk*.
+5. Optional: open the portal's **Timetable** page once. That unlocks *Put a bunk today?* and *Put a bunk*.
 
 To update, download the ZIP again, replace the old folder, and press the reload icon on the extension's card in `chrome://extensions`.
 
