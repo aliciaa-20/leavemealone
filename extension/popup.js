@@ -2,7 +2,7 @@
 const CUE_URL = "https://cue.christuniversity.in/main/attendence";
 const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
 const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
-const { h, plural, fmt, tone, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays, spotlight } = UI;
+const { h, plural, fmt, tone, mustText, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays, spotlight } = UI;
 const ago = (t) => {
   const m = Math.round((Date.now() - t) / 60000);
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
@@ -92,10 +92,11 @@ function draw() {
     const line = Plan.thresholdFor(basis, t, esePct);
 
     const days = (d) => plural(Math.round((d - today) / 86400000), "day");
-    const mse = Cal.mseWindow(today), mseCut = Cal.cutoff("mse", from), eseEnd = Cal.semesterEnd(from);
+    const mse = Cal.mseWindow(today), mseCut = Cal.cutoff("mse", from), eseEnd = Cal.semesterEnd(from), eseWin = Cal.eseWindow(today);
     const tiles = [];
     if (mse && mse.from > today) tiles.push(h("div", {}, h("b", {}, days(mse.from)), h("span", {}, "to MSE", sep(), `need ${Math.round(Plan.MSE_MIN * 100)}%`)));
-    if (eseEnd) tiles.push(h("div", {}, h("b", {}, days(eseEnd)), h("span", {}, "to ESE", sep(), `target ${esePct}%`)));
+    const eseStart = eseWin && eseWin.from > today ? eseWin.from : eseEnd; // the exams start after the last class day
+    if (eseStart) tiles.push(h("div", {}, h("b", {}, days(eseStart)), h("span", {}, "to ESE", sep(), `target ${esePct}%`)));
     const notes = [];
     if (mse && mse.from > today && mseCut) notes.push(`MSE starts ${dayLabel(mse.from)}, attendance counts till ${dayLabel(mseCut)}.`);
     const mb = D.timetable && mseCut ? Plan.budgets({ eff, tt: D.timetable, basis: "mse", t: Plan.MSE_MIN, from }) : null;
@@ -120,7 +121,7 @@ function draw() {
               return h("div", { class: "it2" },
                 h("div", { class: "row" }, h("b", {}, dayLabel(b.date)), chip(b.safe ? "good" : "bad", b.safe ? "safe" : "risky")),
                 h("div", { class: "sub" }, plural(b.classes, "class")),
-                b.breakDays >= 3 ? h("div", { class: "brk" }, chip("mute", `${b.breakDays}-day break`, `${b.breakDays} days off in a row if you skip this day`), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
+                UI.breakTag(b.breakDays) ? h("div", { class: "brk" }, chip("mute", ...UI.breakTag(b.breakDays)), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
             }))
           : h("div", { class: "sub" }, basis === "mse" ? "No class days left before MSE." : "No class days left this semester."),
         openBtn("Plan on CUE"));
@@ -237,7 +238,7 @@ function courseRow(c, thr, t, showAfter) {
   const skipN = Calc.canSkip(c.attended, c.scheduled, t);
   const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
   const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
-  const status = pct < thr ? chip("bad", `attend next ${Calc.mustAttend(c.attended, c.scheduled, t)}`) : chip(skipN ? "good" : "warn", skipN ? `can skip ${skipN}` : "no spare");
+  const status = pct < thr ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skipN ? "good" : "warn", skipN ? `can skip ${skipN}` : "no spare");
   const num = h("span", { class: "p", style: `color:var(--${tone(pct, thr)})` }, `${pct.toFixed(0)}%`);
   const k = wi ? wi.missed[c.key] || 0 : 0; // classes of THIS course among the ones skipped
   const afterN = skip && showAfter && k ? h("span", { class: "to" }, `→ ${Calc.percent(c.attended, c.scheduled + k).toFixed(0)}%`) : null;

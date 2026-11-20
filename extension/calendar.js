@@ -9,7 +9,7 @@ const Cal = (() => {
       to: "2027-05-31",
       semesters: [
         { name: "Odd", start: "2026-06-01", end: "2026-09-26", mse: { from: "2026-08-03", to: "2026-08-08" } }, // end = last instruction day
-        { name: "Even", start: "2026-10-27", end: "2027-03-05", mse: { from: "2027-01-04", to: "2027-01-09" } },
+        { name: "Even", start: "2026-10-27", end: "2027-03-05", mse: { from: "2027-01-04", to: "2027-01-09" }, ese: { from: "2027-03-13", to: "2027-03-24" } }, // ESE exams 13-24 Mar; the ESE planner stays open until ese.to
       ],
       holidays: {
         "2026-06-26": "Muharram",
@@ -96,6 +96,13 @@ const Cal = (() => {
     return { from: parse(s.mse.from), to: parse(s.mse.to) };
   }
 
+  // The ESE exam window of the semester that holds d (null if the calendar has none, or it is over).
+  function eseWindow(d) {
+    const k = key(d); // the exams fall after the last class day, outside semesterOf(), so look at every semester
+    for (const y of YEARS) for (const s of y.semesters) if (s.ese && s.ese.from && k >= s.start && k <= s.ese.to) return { from: parse(s.ese.from), to: parse(s.ese.to) };
+    return null;
+  }
+
   // Last day attendance counts for an exam: "mse" = last class day before the MSE window,
   // "ese" = last instruction day. Null if unknown, if the window has started, or if no class day is left.
   function cutoff(kind, d) {
@@ -131,7 +138,7 @@ const Cal = (() => {
     return null;
   }
 
-  return { key, parse, addDays, dayInfo, semesterEnd, mseWindow, cutoff, cutoffRef, holidays, known: (d) => !!yearOf(key(d)) };
+  return { key, parse, addDays, dayInfo, semesterEnd, mseWindow, eseWindow, cutoff, cutoffRef, holidays, known: (d) => !!yearOf(key(d)) };
 })();
 
 if (typeof module !== "undefined") module.exports = Cal;

@@ -10,6 +10,10 @@ A Chrome / Edge extension for the CUE student portal. It reads your attendance p
 - **Absent Details marking:** mark each absent hour as *Absent*, *Co-curricular*, *Medical* or *Later* (the portal will be updated, count it now). Changes save as you click, with Undo.
 - **Reconciles with the portal:** hours the portal already labels (e.g. Medical Leave) are picked up and locked. Hours you marked that the portal has since updated are flagged so you can **Confirm present** and nothing is counted twice.
 - **Semester-end handling:** once the portal shows a Co-curricular column, it has already added those hours, so the extension adds none of its own.
+- **Actual tab:** appears in the drawer only when your typed hours or marks change the numbers. Your actual percentage is the big number with a bar that shows the portal's part and what you added; a day-by-day list shows where the extra hours come from; and a course-by-course list shows each changed course from the portal's % to yours. It is a reference view: co-curricular hours you marked also count in their own course here, and medical hours follow the portal's 74.5% to 84.49% rule.
+- **Skip today?:** the Overview shows the next class day's classes, which of them you can skip, and tapping classes shows what skipping them would cost (then "Open in planner").
+- **What each course needs:** tap a course on the Overview for a plain sentence ("Attend the next 4 classes to get back to 75%") with the real dates of those classes from your timetable.
+- **Mark hours on the all-courses list:** on the portal's Absent Details list, the drawer's "Mark hours" button lets you mark every plain-absent hour as Absent, Co-curricular, Medical or Later without opening each course.
 - **Daily alert:** a notification if a course is below your minimum (can be turned off).
 - **Plan a bunk:** open your CUE **Timetable** page once and the extension saves it. The drawer's *Plan a bunk* tab then shows:
   - **Best days to bunk:** safe days first, then the ones that make a long break with a holiday, then days with few classes.
@@ -57,6 +61,7 @@ Issues and pull requests are welcome. The portal's markup can change, so selecto
 - Only the table view of the course list is parsed (not the grid view).
 - The wording of a co-curricular status on Absent Details is a guess; only Medical Leave has been observed.
 - Before-MSE assumes attendance counts up to the last class day before the MSE window, and the ESE target is one number for all courses.
+- The Timetable page shows one week at a time; the saved timetable is merged per weekday, so a holiday week doesn't wipe days, but a weekday that really lost all its classes keeps the old ones until you erase your data in the popup.
 - Chrome and Edge only.
 
 ## Licence
