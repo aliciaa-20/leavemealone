@@ -462,3 +462,4 @@ body.cue .hero .v { font-size: 36px; }
 .tact { margin-top: var(--s4); }
 .trow .ac small { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .trow .chip { min-width: 80px; }
+.today { padding-top: var(--s4); padding-bottom: var(--s4); }
