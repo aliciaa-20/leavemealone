@@ -11,6 +11,7 @@ const ago = (t) => {
 let D = null;        // storage
 let viewSem = null;  // semester shown (defaults to the highest one)
 let skip = 0;        // what-if: classes skipped
+let wi = null;       // what-if result from the timetable (null without one)
 const confirming = new Set(); // keys of inline "are you sure?" prompts
 const accOpen = new Set();    // open accordions ("all", "adj", "settings")
 
@@ -63,14 +64,22 @@ function draw() {
       ? h("select", { "aria-label": "Semester", onchange: (e) => { viewSem = e.target.value; draw(); } }, sems.map((s) => h("option", { value: s, selected: s === viewSem }, s)))
       : h("span", { class: "t" }, viewSem),
     h("span", { class: "sub" }, `synced ${ago(snap.syncedAt)}`));
-  const after = Calc.afterSkipping(o.attended, o.scheduled, skip);
+  // what-if: with a timetable the next `skip` classes are charged to their own courses; without one only the overall is known
+  const wiFrom = Cal.addDays(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()), 1);
+  wi = skip && D.timetable ? Plan.nextClasses(D.timetable, eff.courses, wiFrom, skip) : null;
+  const after = wi ? Calc.percent(o.attended, o.scheduled + wi.known) : Calc.afterSkipping(o.attended, o.scheduled, skip);
+  // what-if lives in the big card, right above the number it changes
+  const whatIf = h("div", { class: "whatif" },
+    h("div", { class: "row" }, h("span", {}, "If I skip the next"),
+      h("span", { class: "row" }, stepper(skip, { min: 0, max: 999, label: "classes to skip", onchange: (v) => { skip = v; draw(); } }), h("span", {}, "classes"))),
+    skip ? h("p", { class: "sub" }, wi && wi.taken ? `Skipping the next ${plural(wi.taken, "class")}${wi.taken < skip ? " (all that are left)" : ""}, until ${dayLabel(wi.last)}: ` : "Overall would be ", h("b", { class: tone(after, thr) }, `${after.toFixed(1)}%`), wi && wi.taken ? " overall." : ".") : null);
   const overall = h("div", { class: `hero w-${tn}` },
     h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${op.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
     bar(op, thr),
     low.length ? h("p", {}, h("b", {}, plural(low.length, "course")), ` ${low.length > 1 ? "are" : "is"} below ${thr}%.`) : h("p", {}, `All courses are at or above ${thr}%.`),
-    skip ? h("p", { class: "sub" }, `After skipping ${skip}: overall ${after.toFixed(1)}%.`) : null,
-    o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
-    o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.") : null);
+        o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
+    o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.") : null,
+    whatIf);
 
   // ---- exam countdown, best days to bunk (top 3; the full planner lives in the drawer on CUE)
   let examCard = null, bestCard = null;
@@ -118,11 +127,6 @@ function draw() {
     }
   }
 
-  // ---- what-if
-  const whatIf = h("div", { class: "row", style: "margin-top:16px" },
-    h("span", {}, "If I skip the next"),
-    h("span", { class: "row" }, stepper(skip, { min: 0, max: 999, label: "classes to skip", onchange: (v) => { skip = v; draw(); } }), h("span", {}, "classes")));
-
   // ---- needs attention, then safe to skip (top 3) and every course
   const needs = h("div", {},
     h("div", { class: "sec" }, "Needs attention"),
@@ -131,7 +135,7 @@ function draw() {
   const safeBox = h("div", {},
     h("div", { class: "sec" }, "Safe to skip"),
     safe.length ? h("div", { class: "blk" }, safe.map(({ c }) => courseRow(c, thr, t, false))) : h("div", { class: "sub" }, "No spare hours right now."),
-    acc({ title: "All courses", icon: "list", tone: "pick", sub: `${plural(courses.length, "course")}, including the ones above`, open: accOpen.has("all"), ontoggle: toggleAcc("all") }, courses.map((c) => courseRow(c, thr, t, true))));
+    acc({ title: "All courses", icon: "list", tone: "pick", sub: skip && wi ? "Arrows show the courses those classes belong to" : `${plural(courses.length, "course")}, including the ones above`, open: accOpen.has("all"), ontoggle: toggleAcc("all") }, courses.map((c) => courseRow(c, thr, t, true))));
 
   // ---- your marks (pending on the portal)
   const marked = effM.courses.filter((c) => c.scheduled > 0 && (c.excusedHrs || c.goneHrs));
@@ -224,7 +228,7 @@ function draw() {
           : h("button", { class: "btn danger sm", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase")),
       h("div", { class: "sub", style: "margin-top:4px" }, "Removes synced attendance, your marks, adjustments and timetable from this browser. Settings stay, and the portal is untouched.")));
 
-  app.replaceChildren(...[header, overall, examCard, bestCard, whatIf, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")].filter(Boolean));
+  app.replaceChildren(...[header, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")].filter(Boolean));
   document.documentElement.scrollTop = y;
 }
 
@@ -235,7 +239,8 @@ function courseRow(c, thr, t, showAfter) {
   const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
   const status = pct < thr ? chip("bad", `attend next ${Calc.mustAttend(c.attended, c.scheduled, t)}`) : chip(skipN ? "good" : "warn", skipN ? `can skip ${skipN}` : "no spare");
   const num = h("span", { class: "p", style: `color:var(--${tone(pct, thr)})` }, `${pct.toFixed(0)}%`);
-  const afterN = skip && showAfter ? h("span", { class: "to" }, `→ ${Calc.afterSkipping(c.attended, c.scheduled, skip).toFixed(0)}%`) : null;
+  const k = wi ? wi.missed[c.key] || 0 : 0; // classes of THIS course among the ones skipped
+  const afterN = skip && showAfter && k ? h("span", { class: "to" }, `→ ${Calc.percent(c.attended, c.scheduled + k).toFixed(0)}%`) : null;
   return h("div", { class: "it2" },
     h("div", { class: "row" },
       h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),

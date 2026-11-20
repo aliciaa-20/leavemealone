@@ -128,6 +128,9 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .hero.plan .v { font-size: 32px; }
 .hero .bar { margin: 0 0 14px; }
 .hero .bar:last-child { margin-bottom: 0; }
+.hero .whatif { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--line); }
+.hero .whatif .row { margin-bottom: 0; }
+.hero .whatif p { margin-top: var(--s2); }
 
 /* ---- progress bar with a mark at the minimum ---- */
 .bar { position: relative; height: 6px; border-radius: var(--r-bar); background: var(--card2); margin-top: 10px; }

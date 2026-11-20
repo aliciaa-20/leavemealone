@@ -29,6 +29,25 @@ const Plan = (() => {
     return { missed, unknown: [...unknown] };
   }
 
+  // The next n class slots on the timetable from `from` on (class days only, periods in order), charged to
+  // the course each one belongs to: { missed: {courseKey: hours}, known: slots that belong to a table course,
+  // taken: slots found, last: date of the last one }. Slots of courses not in the table count as taken only.
+  function nextClasses(tt, courses, from, n, limit = 400) {
+    const km = keyMap(courses), missed = {};
+    let known = 0, taken = 0, last = null;
+    if (!tt || !(n > 0)) return { missed, known, taken, last };
+    const num = (p) => parseInt(/\d+/.exec(p || "")?.[0], 10) || 0;
+    for (let d = from, i = 0; taken < n && i < limit; d = K.addDays(d, 1), i++) {
+      for (const c of [...classesOn(d, tt)].sort((a, b) => num(a.period) - num(b.period))) {
+        if (taken >= n) break;
+        taken++; last = d;
+        const key = km[norm(c.name)];
+        if (key) { missed[key] = (missed[key] || 0) + 1; known++; }
+      }
+    }
+    return { missed, known, taken, last };
+  }
+
   // Classes still to come per course key, from `from` to `to` inclusive.
   function remainingHours(tt, courses, from, to) {
     const km = keyMap(courses);
@@ -184,7 +203,7 @@ const Plan = (() => {
     return !skipped.size ? undefined : skipped.size === periods.length ? null : skipped;
   }
 
-  return { MSE_MIN, classesOn, missedFor, setAttend, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
+  return { MSE_MIN, classesOn, nextClasses, missedFor, setAttend, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
 })();
 
 if (typeof module !== "undefined") module.exports = Plan;
