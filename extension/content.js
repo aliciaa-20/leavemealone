@@ -213,6 +213,7 @@
   // ---- Actual tab: the portal as-is next to the numbers with your typed hours and marks. Only offered when they differ.
   const SAME = (a, b) => Math.abs(a - b) < 1e-9;
   const differs = (p, m) => !SAME(p.attended, m.attended) || !SAME(p.scheduled, m.scheduled);
+  const deltaTxt = (d) => h("span", { class: `dl ${d > 0.049 ? "good" : d < -0.049 ? "bad" : ""}` }, `${d > 0 ? "+" : ""}${d.toFixed(1)}%`);
   const deltaChip = (d) => chip(d > 0.049 ? "good" : d < -0.049 ? "bad" : "mute", `${d > 0 ? "+" : ""}${d.toFixed(1)}%`);
   function actualView(threshold) {
     const po = effPortal.overall, mo = effMarks.overall;
@@ -234,7 +235,7 @@
       abar,
       h("div", { class: "alegend" },
         h("span", {}, h("i", { style: `--c:var(--${tn})` }), `Portal ${pp.toFixed(1)}%`),
-        h("span", {}, h("i", { style: "--c:var(--gold)" }), `You added ${added > 0 ? "+" : ""}${fmt(added)}h `, deltaChip(mp - pp))));
+        h("span", {}, h("i", { style: "--c:var(--gold)" }), `You added ${added > 0 ? "+" : ""}${fmt(added)}h`, " ", deltaTxt(mp - pp))));
 
     // 3. Where the extra hours come from: day by day like the absent list, one row per hour with what you did to it.
     const items = [];
@@ -256,7 +257,7 @@
     const days = new Map();
     for (const it of items.filter((x) => !x.typed)) { if (!days.has(it.date)) days.set(it.date, []); days.get(it.date).push(it); }
     const dayList = [...days.entries()].sort((a, b) => dayKey(b[0]) - dayKey(a[0]));
-    const CHIP = { later: ["good", "later", "You marked it as present on the portal's way: it counts as present here"], cc: ["gold", "co-curricular"], med: ["blue", "medical"], tcc: ["gold", "co-curricular"], tatt: ["mute", "typed in"] };
+    const CHIP = { later: ["mute", "later", "You marked it as present on the portal's way: it counts as present here"], cc: ["gold", "co-curricular"], med: ["blue", "medical"], tcc: ["gold", "co-curricular"], tatt: ["mute", "typed in"] };
     const chipFor = (it) => it.kind === "tsch" ? chip("mute", `+${fmt(it.hrs)}h scheduled`) : it.off ? chip("mute", "not counted", "Medical hours only count between 74.5% and 85% overall") : chip(...CHIP[it.kind]);
     const codeCell = (it) => h("span", { class: "ac", title: it.name }, h("b", {}, it.code), it.name ? h("small", {}, it.name) : null);
     const total = (list) => fmt(list.filter((x) => x.kind !== "tsch" && !x.off).reduce((n, x) => n + x.hrs, 0));
@@ -281,7 +282,7 @@
         h("div", { class: "row" },
           h("span", {}, h("b", { class: "nm", title: m.name }, m.name || m.code), m.code ? h("div", { class: "cl" }, h("span", { class: "sub" }, m.code), m.stale ? chip("warn", "review") : null) : null),
           h("span", { class: "ft" }, h("span", { class: "sub" }, `${a.toFixed(1)}%`), ico("right"), h("span", { class: "p", style: `color:var(--${tone(b, threshold)})` }, `${b.toFixed(1)}%`))),
-        h("div", { class: "row sub" }, h("span", {}, `${fmt(p.attended)} / ${p.scheduled}h to ${fmt(m.attended)} / ${m.scheduled}h`), deltaChip(b - a)));
+        h("div", { class: "row sub" }, h("span", {}, `${fmt(p.attended)} / ${p.scheduled}h to ${fmt(m.attended)} / ${m.scheduled}h`), deltaTxt(b - a)));
     });
     const note = same > 0 ? h("p", { class: "sub" }, `${plural(same, rows.length ? "other course" : "course")} ${same === 1 ? "matches" : "match"} the portal.`) : null;
 
@@ -295,10 +296,10 @@
       hasSrc ? acc({ title: "Where the extra hours come from", sub: [`+${fmt(extra)}h added`, sep(), (dayList.length ? plural(dayList.length, "day") : "typed in")], open: accOpen.has("extra"), key: "acc-extra",
         ontoggle: (v) => { v ? accOpen.add("extra") : accOpen.delete("extra"); rerender(); } },
         srcList, h("div", { class: "pday tot" }, h("b", {}, "Added to attended"), h("b", {}, `+${fmt(extra)}h`))) : null,
-      rows.length ? sc("Course by course") : null,
-      rows.length ? h("div", { class: "blk" }, list) : null,
+      rows.length ? acc({ title: "Course by course", sub: [`${plural(rows.length, "course")} changed`, sep(), `${same} match the portal`], open: accOpen.has("courses"), key: "acc-courses",
+        ontoggle: (v) => { v ? accOpen.add("courses") : accOpen.delete("courses"); rerender(); } }, list) : null,
       notes,
-      note];
+      rows.length ? null : note];
   }
 
   // ---- Plan a bunk tab
