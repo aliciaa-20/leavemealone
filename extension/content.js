@@ -21,7 +21,7 @@
   };
   const semester = () => document.querySelector('[role="combobox"]')?.textContent.trim() || "unknown";
   const COURSE_TABLE = 'table[aria-label="coursewise attendance table"]';
-  const { h, plural, fmt, tone, bar, dayLabel, ico, sep, chip, pills, stepper, acc, tween, placeThumb } = UI;
+  const { h, plural, fmt, tone, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb } = UI;
 
   // ---------------------------------------------------------------- parsing
   function parseRow(tr) {
@@ -153,26 +153,6 @@
 
   const today0 = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
 
-  // Dates, periods and times the way the design shows them. The portal's formats vary, so fall back to the raw text.
-  const niceDate = (raw) => { // "NOV 12 Thursday" -> "Thu 12 Nov"; without the weekday: "12 Nov"
-    const m = /^([A-Za-z]{3})[A-Za-z]*\s+(\d{1,2})(?:\s+([A-Za-z]{3}))?/.exec((raw || "").trim());
-    if (!m) return raw;
-    const cap = (s) => s[0].toUpperCase() + s.slice(1).toLowerCase();
-    return `${m[3] ? cap(m[3]) + " " : ""}${+m[2]} ${cap(m[1])}`;
-  };
-  const nicePeriod = (raw) => (raw || "").replace(/^Period-?\s*/i, "P"); // "Period-5" -> "P5"
-  const startTime = (raw) => { // "9:00 – 10:00 AM" -> "9:00", "14:00:00 - 15:00:00" -> "14:00"
-    const m = /(\d{1,2}):(\d{2})(?::\d{2})?\s*(?:[–-]\s*(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?)?/i.exec(raw || "");
-    if (!m) return raw || "";
-    let sh = +m[1];
-    const ap = (m[5] || "").toUpperCase();
-    if (ap && m[3] != null) { // AM/PM is only on the end time: put the start on the same side unless that puts it after the end
-      const to24 = (x) => (ap === "PM" ? (x % 12) + 12 : x % 12);
-      sh = to24(sh) > to24(+m[3]) ? to24(sh) - 12 : to24(sh);
-    }
-    return `${sh}:${m[2]}`;
-  };
-
   // ---- Overview tab
   function overviewView(eff, threshold, t) {
     const o = eff.overall;
@@ -209,7 +189,8 @@
       const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
       return h("div", { class: "it2" },
         h("div", { class: "row" },
-          h("span", {}, h("div", { class: "cl" }, h("b", { class: "code" }, c.code || c.name), adjusted ? chip("mute", "adj", tip) : null), c.code ? h("div", { class: "sub" }, c.name) : null),
+          h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
+            c.code || adjusted ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null) : null),
           h("span", {}, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`), " ",
             pct < threshold ? chip("bad", `attend next ${Calc.mustAttend(c.attended, c.scheduled, t)}`) : chip(skip ? "good" : "warn", skip ? `can skip ${skip}` : "no spare"))),
         bar(pct, threshold));
@@ -240,8 +221,8 @@
     const courses = eff.courses;
 
     const bud = Plan.budgets({ eff, tt: A.tt, basis, t: line, from });
-    const best = Plan.bestDays({ eff, tt: A.tt, courses, basis, t: line, from });
-    const remaining = basis !== "now" ? best.remaining : {};
+    const best = basis === "now" ? Plan.bestDays({ eff, tt: A.tt, courses, basis, t: line, from }) : null; // before an exam any safe day is as good as another
+    const remaining = basis !== "now" ? Plan.remainingHours(A.tt, courses, from, end) : {};
     const impactFor = (sel) => { const { missed, unknown } = Plan.missedFor(sel, A.tt, courses); return { ...Plan.impact(eff, missed, basis, remaining, line), unknown }; };
     const res = impactFor(planSel);
     // A day gets the coral outline when a currently-safe plan would tip below the line if you added it.
@@ -282,18 +263,18 @@
     } else if (bud && !bud.overall.reachable) {
       hero = h("div", { class: "hero plan w-bad" },
         h("div", { class: "v" }, "Out of reach", h("s", {}, ".")),
-        h("p", {}, `Even if you attend every class you'd reach `, h("b", {}, `${Math.floor(bud.overall.bestCase)}%`), ` at ${examName}, short of the ${linePct}% needed.`), meta);
+        h("p", {}, `Even if you attend every class you'd reach `, h("b", {}, `${Math.floor(bud.overall.bestCase)}%`), ` at ${examName}, short of the ${linePct}% needed.`));
     } else if (bud) {
       const n = bud.overall.budget;
       hero = h("div", { class: "hero plan w-good" },
         h("div", { class: "v" }, n ? `${n} spare` : "No spare", h("s", {}, ".")),
         n ? h("p", {}, "You can still skip ", h("b", {}, plural(n, "class")), ` overall before ${examName} on `, h("b", {}, dayLabel(bud.end)), ".")
           : h("p", {}, `Every class counts until ${examName} on `, h("b", {}, dayLabel(bud.end)), "."),
-        h("p", {}, "Pick a day below to see what it costs."), meta);
+        null);
     } else {
       hero = h("div", { class: "hero plan" },
         h("div", { class: "v" }, "Pick a day", h("s", {}, ".")),
-        h("p", {}, "Pick days below to see what skipping them costs."), meta);
+        h("p", {}, "Pick days below to see what skipping them costs."));
     }
     out.push(hero);
 
@@ -337,9 +318,9 @@
         basis !== "now" ? h("div", { class: "it2 sub" }, `Assumes you attend every other class until ${end ? dayLabel(end) : "the semester ends"} (${examName}).`) : null));
     }
 
-    // ---- best days to bunk
-    out.push(h("div", { class: "sec" }, "Best days to bunk"));
-    out.push(best.days.length
+    // ---- best days to bunk (only for "After the bunk")
+    if (best) out.push(h("div", { class: "sec" }, "Best days to bunk"));
+    if (best) out.push(best.days.length
       ? h("div", { class: "blk" }, best.days.map((b) => {
           const tags = b.tags.filter((x) => !/^Only \d/.test(x)); // the class count is already shown
           return h("button", { class: `it2 click${planSel.has(b.key) ? " on" : ""}`, "data-key": `best-${b.key}`,
@@ -348,7 +329,7 @@
             b.lowest != null ? h("div", { class: "low" }, "Lowest after ", h("b", { style: `color:var(--${b.safe ? "good" : "bad"})` }, `${b.lowest.toFixed(0)}%`)) : null,
             h("div", { class: "sub" }, plural(b.classes, "class"), tags.length ? [sep(), tags.join(", ")] : null));
         }))
-      : h("div", { class: "sub" }, basis !== "now" ? `No class days left before ${examName}.` : "No class days left this semester."));
+      : h("div", { class: "sub" }, "No class days left this semester."));
 
     // ---- bunk budget: what each course can still skip before the cutoff
     if (bud) {
@@ -784,15 +765,35 @@
     paint();
   }
 
-  // The all-courses list (/main/absence) is not tied to one course, so marking happens on the per-course page.
+  // The all-courses list (/main/absence): save its rows for the toolbar popup's summary and show just a pill.
+  // Marking happens on the per-course page, because the marks are stored per course.
+  function parseAllAbsences() {
+    return [...document.querySelectorAll("main table tbody tr")].map((tr) => {
+      const tds = tr.querySelectorAll("td");
+      if (tds.length < 5) return null;
+      const txt = (td, sel) => td.querySelector(sel)?.textContent.trim() || "";
+      const status = tds[4].textContent;
+      const hrs = parseFloat(/(\d+(?:\.\d+)?)/.exec(status)?.[1] ?? "1") || 1;
+      const kind = /medical/i.test(status) ? "med" : /co-?\s*curricular|on\s*duty/i.test(status) ? "cc" : "abs";
+      return { date: txt(tds[0], "p"), day: txt(tds[0], "span"), period: txt(tds[1], "p"), time: txt(tds[1], "span"), code: txt(tds[2], "p"), name: txt(tds[2], "span"), type: tds[3].textContent.trim(), kind, h: hrs };
+    }).filter((r) => r && r.date && r.period);
+  }
   async function tickAbsAll() {
-    if (absSig === "all" && host?.isConnected) return;
+    const rows = parseAllAbsences();
+    if (!rows.length) return;
+    const sig = JSON.stringify(rows);
+    if (absSig === sig && host?.isConnected) return;
+    absSig = sig;
+    const allCourses = /^all courses/i.test(document.querySelector('[role="combobox"]')?.textContent.trim() || "");
+    if (allCourses) { // a single-course filter would overwrite the full list with a part of it
+      const d = await store.get({ latest: null });
+      await store.set({ absentList: { sem: d.latest, at: Date.now(), rows } });
+    }
     await ensureHost();
-    absSig = "all";
-    dock.replaceChildren(h("div", { class: "panel" },
-      h("div", { class: "h3" }, "Absent hours"),
-      h("p", { class: "sub" }, 'Marking works one course at a time. Go back, open a course with its "View Details" button, and mark its absent hours there.'),
-      h("button", { class: "btn solid cta", onclick: () => location.assign("/main/attendence") }, "Back to attendance", ico("right"))));
+    const sum = (k) => rows.filter((r) => r.kind === k).reduce((n, r) => n + r.h, 0);
+    dock.replaceChildren(h("div", { class: "pill static", title: "Marking happens per course: open one with View Details. A day-by-day summary is in the toolbar popup." },
+      h("i", { class: "bad-dot" }), `${fmt(sum("abs"))}h absent`,
+      sum("cc") || sum("med") ? h("span", { class: "sub" }, [sum("cc") ? `${fmt(sum("cc"))}h co-curricular` : null, sum("med") ? `${fmt(sum("med"))}h medical` : null].filter(Boolean).join(", ")) : null));
   }
 
   // ---------------------------------------------------------------- driver

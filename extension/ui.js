@@ -20,6 +20,26 @@ const UI = (() => {
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const dayLabel = (d) => `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`; // Thu 12 Nov
 
+  // Dates, periods and times the way the design shows them. The portal's formats vary, so fall back to the raw text.
+  const niceDate = (raw) => { // "NOV 12 Thursday" -> "Thu 12 Nov"; without the weekday: "12 Nov"
+    const m = /^([A-Za-z]{3})[A-Za-z]*\s+(\d{1,2})(?:\s+([A-Za-z]{3}))?/.exec((raw || "").trim());
+    if (!m) return raw;
+    const cap = (s) => s[0].toUpperCase() + s.slice(1).toLowerCase();
+    return `${m[3] ? cap(m[3]) + " " : ""}${+m[2]} ${cap(m[1])}`;
+  };
+  const nicePeriod = (raw) => (raw || "").replace(/^Period-?\s*/i, "P"); // "Period-5" -> "P5"
+  const startTime = (raw) => { // "9:00 – 10:00 AM" -> "9:00", "14:00:00 - 15:00:00" -> "14:00"
+    const m = /(\d{1,2}):(\d{2})(?::\d{2})?\s*(?:[–-]\s*(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?)?/i.exec(raw || "");
+    if (!m) return raw || "";
+    let sh = +m[1];
+    const ap = (m[5] || "").toUpperCase();
+    if (ap && m[3] != null) { // AM/PM is only on the end time: put the start on the same side unless that puts it after the end
+      const to24 = (x) => (ap === "PM" ? (x % 12) + 12 : x % 12);
+      sh = to24(sh) > to24(+m[3]) ? to24(sh) - 12 : to24(sh);
+    }
+    return `${sh}:${m[2]}`;
+  };
+
   const PATHS = {
     chev: "M6 3l5 5-5 5",
     close: "M4 4l8 8M12 4l-8 8",
@@ -103,5 +123,5 @@ const UI = (() => {
         h("span", {}, h("b", {}, title), sub ? h("small", {}, sub) : null), ico("chev")),
       h("div", { class: "ab-wrap", inert: open ? null : "" }, h("div", { class: "ab" }, h("div", { class: "abp" }, body))));
 
-  return { h, plural, fmt, tone, dayLabel, ico, sep, chip, bar, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, placeThumb, tween, pills, stepper, toggle, acc };
 })();

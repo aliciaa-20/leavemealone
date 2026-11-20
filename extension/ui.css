@@ -88,6 +88,7 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .it2.click:first-child { border-top: 0; }
 .it2.click:hover { background: rgba(255,255,255,.035); }
 .it2.click.on { background: rgba(124,200,255,.1); }
+.it2 > .row > :first-child > b.nm { display: block; font: 600 var(--t13)/1.35 var(--font-head); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cl { display: flex; align-items: center; gap: 6px; }
 .cl .chip { flex: none; }
 .d { font: 600 var(--t15) var(--font-head); }
@@ -115,8 +116,7 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .hero .v + p { margin-top: var(--s2); }
 .hero p + p { margin-top: 6px; }
 .hero .meta { display: flex; justify-content: space-between; align-items: center; margin-top: var(--s3); }
-.hero.plan { min-height: 176px; display: flex; flex-direction: column; }
-.hero.plan .meta { margin-top: auto; padding-top: var(--s3); }
+.hero.plan .v { font-size: 32px; }
 .hero .bar { margin: 0 0 14px; }
 .hero .bar:last-child { margin-bottom: 0; }
 
@@ -136,6 +136,8 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .chip.warn { background: rgba(242,179,94,.16); color: var(--warn); }
 .chip.bad { background: rgba(242,128,122,.18); color: var(--bad); }
 .chip.mute { background: var(--card2); color: var(--mute); }
+.chip.gold { background: rgba(232,199,125,.16); color: var(--gold); }
+.chip.blue { background: rgba(143,168,255,.18); color: var(--blue); }
 .chip.good::before { content: "✓ "; } .chip.warn::before { content: "! "; } .chip.bad::before { content: "× "; }
 
 /* ---- buttons, controls ---- */
@@ -216,6 +218,9 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--good); }
 .pill.warn i { background: var(--warn); } .pill.bad i { background: var(--bad); }
 .pill .sub { font-weight: 500; }
+.pill.static { cursor: default; }
+.pill.static:active { transform: none; }
+.pill i.bad-dot { background: var(--bad); }
 .drawer, .panel {
   width: 390px; max-width: calc(100vw - 32px); max-height: min(78vh, 720px); overflow: auto;
   background: var(--bg); border: 1px solid rgba(255,255,255,.12); border-radius: var(--r-drawer); padding: var(--s4);
@@ -299,6 +304,10 @@ body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); m
 .exam > div { flex: 1; padding: var(--s3) var(--s4); }
 .exam b { display: block; font: 500 var(--t28)/1.1 var(--font-head); letter-spacing: -.03em; }
 .exam span { color: var(--mute); font-size: var(--t12); }
+.exam + .note { margin-top: var(--s3); }
+.arow { display: grid; grid-template-columns: 24px 40px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; }
+.arow .pt { text-align: right; }
+.arow .ac { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rr { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 
 /* narrow windows: the drawer shrinks with the viewport, so loosen the fixed widths */

@@ -2,7 +2,7 @@
 const CUE_URL = "https://cue.christuniversity.in/main/attendence";
 const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
 const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
-const { h, plural, fmt, tone, bar, dayLabel, ico, sep, chip, stepper, toggle, acc } = UI;
+const { h, plural, fmt, tone, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, stepper, toggle, acc } = UI;
 const ago = (t) => {
   const m = Math.round((Date.now() - t) / 60000);
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
@@ -18,7 +18,7 @@ const save = (patch) => chrome.storage.local.set(patch).then(load);
 
 function load() {
   return chrome.storage.local
-    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: undefined })
+    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: undefined, absentList: null })
     .then((d) => {
       D = d;
       if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || Object.keys(d.snapshots).sort((a, b) => rank(b) - rank(a))[0];
@@ -99,6 +99,8 @@ function draw() {
 
     if (!D.timetable) {
       bestCard = h("div", {}, h("div", { class: "sec" }, "Best days to bunk"), h("div", { class: "sub" }, "Open your CUE timetable once to unlock bunk planning."));
+    } else if (basis !== "now") { // before an exam any safe day is as good as another, so no list: just the planner
+      bestCard = openBtn("Plan on CUE");
     } else {
       const best = Plan.bestDays({ eff, tt: D.timetable, courses: eff.courses, basis, t: line, from, limit: 3 });
       bestCard = h("div", {},
@@ -152,6 +154,25 @@ function draw() {
         o.goneHrs ? openBtn("Open CUE to confirm") : null)
     : null;
 
+  // ---- absent hours day by day (saved when the all-courses absent list is opened on CUE)
+  const al = D.absentList && D.absentList.sem === viewSem && D.absentList.rows.length ? D.absentList : null;
+  const hrsOf = (rows, k) => rows.filter((r) => r.kind === k).reduce((n, r) => n + r.h, 0);
+  const KIND = { abs: ["bad", "absent"], cc: ["gold", "co-curricular"], med: ["blue", "medical"] };
+  const groups = [];
+  for (const r of al ? al.rows : []) {
+    let g = groups[groups.length - 1];
+    if (!g || g.date !== r.date) groups.push((g = { date: r.date, label: niceDate(`${r.date} ${r.day}`), rows: [] }));
+    g.rows.push(r);
+  }
+  const absBox = acc({
+    title: "Absent hours",
+    sub: al ? [`${fmt(hrsOf(al.rows, "abs"))}h absent`, hrsOf(al.rows, "cc") ? [sep(), `${fmt(hrsOf(al.rows, "cc"))}h co-curricular`] : null, hrsOf(al.rows, "med") ? [sep(), `${fmt(hrsOf(al.rows, "med"))}h medical`] : null] : "Open the absent list on CUE once to see it here",
+    open: accOpen.has("abs"), ontoggle: toggleAcc("abs") },
+    al ? groups.map((g) => [
+      h("div", { class: "pday" }, h("b", {}, g.label), h("span", { class: "sub" }, `${fmt(g.rows.reduce((n, r) => n + r.h, 0))}h`)),
+      g.rows.map((r) => h("div", { class: "arow" }, h("span", {}, nicePeriod(r.period)), h("span", { class: "pt" }, startTime(r.time)), h("span", { class: "ac", title: r.name }, r.code), chip(KIND[r.kind][0], KIND[r.kind][1]))),
+    ]) : h("div", { class: "sub", style: "padding-top:12px" }, "The list is saved the first time you open the Absent card on the CUE attendance page."));
+
   // ---- adjustments (rare path) and settings
   const num = (v, label, onchange) => stepper(v || 0, { min: 0, max: 999, label, onchange });
   const adjBox = acc({ title: "Add hours the portal is missing", sub: "For a class the portal has not counted", open: accOpen.has("adj"), ontoggle: toggleAcc("adj") },
@@ -170,7 +191,7 @@ function draw() {
     h("div", { class: "row", style: "padding-top:12px" }, h("span", {}, "Minimum attendance %"), stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", onchange: (v) => save({ threshold: v }) })),
     h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "Daily alert if a course is low"), toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert")));
 
-  app.replaceChildren(...[header, overall, examCard, bestCard, whatIf, needs, safeBox, pending, adjBox, settings, openBtn(), h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")].filter(Boolean));
+  app.replaceChildren(...[header, overall, examCard, bestCard, whatIf, needs, safeBox, pending, absBox, adjBox, settings, openBtn(), h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")].filter(Boolean));
   document.documentElement.scrollTop = y;
 }
 
@@ -184,7 +205,8 @@ function courseRow(c, thr, t, showAfter) {
   const afterN = skip && showAfter ? h("span", { class: "to" }, `→ ${Calc.afterSkipping(c.attended, c.scheduled, skip).toFixed(0)}%`) : null;
   return h("div", { class: "it2" },
     h("div", { class: "row" },
-      h("span", {}, h("div", { class: "cl" }, h("b", { class: "code" }, c.code || c.name), adjusted ? chip("mute", "adj", tip) : null), c.code ? h("div", { class: "sub" }, c.name) : null),
+      h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
+        c.code || adjusted ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null) : null),
       afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status) : h("span", {}, num, " ", status)),
     bar(pct, thr));
 }
