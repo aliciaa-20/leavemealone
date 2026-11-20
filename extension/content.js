@@ -123,6 +123,7 @@
   let tab = "overview";          // "overview" | "plan" | "actual"
   let planSel = new Map();       // dayKey -> Set(periods SKIPPED) | null (whole day skipped). The view shows ticked = attending.
   let planMonth = 0;             // months after the first plannable month
+  const courseOpen = new Set();  // Overview rows opened to show what each course needs
   const accOpen = new Set();     // which accordions are open ("per", "budget")
   let growBars = true;           // bars grow once when the drawer opens or the tab changes, not on every click
   let calShown = null;           // month the calendar last drew, to slide when it changes
@@ -164,6 +165,24 @@
   const nameCell = (c, ...extra) => h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
     c.code || extra.length ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, extra) : null);
 
+  // What a course needs, in plain words, with the real dates of its next classes when the timetable is saved.
+  function needView(c, pct, skip, t, threshold) {
+    const day = (x) => `${dayLabel(x.date)} ${nicePeriod(x.period)}`;
+    const need = Calc.mustAttend(c.attended, c.scheduled, t);
+    const low = pct < threshold;
+    const head = low ? (Number.isFinite(need) ? `Attend the next ${plural(need, "class")} to get back to ${threshold}%.` : `${threshold}% is out of reach for this course now.`)
+      : skip ? `You can skip ${plural(skip, "class")} and stay at ${threshold}% or more.` : "No spare classes: attend every one to stay at the minimum.";
+    const lines = [h("p", {}, head)];
+    if (!A.tt) lines.push(h("p", { class: "sub" }, "Open your timetable once to see the dates."));
+    else {
+      const n = low ? (Number.isFinite(need) ? need : 0) : 1;
+      const dates = n ? Plan.courseClasses(A.tt, c, Plan.upcomingFrom(A.tt, new Date()), Math.min(n, 12)) : [];
+      if (!dates.length && n) lines.push(h("p", { class: "sub" }, "This course isn't on your timetable, so there are no dates to show."));
+      else if (dates.length) lines.push(h("div", { class: "cdates" }, low ? "" : h("span", { class: "sub" }, "Next class"), dates.map((x) => h("span", { class: "dt" }, day(x))), low && need > dates.length ? h("span", { class: "dt more" }, `+${need - dates.length} more`) : null));
+    }
+    return lines;
+  }
+
   // ---- Overview tab
   function overviewView(eff, threshold, t) {
     const o = eff.overall;
@@ -201,13 +220,17 @@
       const adjusted = !!(c.adj.att || c.adj.sch || c.excusedHrs);
       const skip = Calc.canSkip(c.attended, c.scheduled, t);
       const tip = adjusted ? `Includes your own changes. Portal ${c.portalAttended}/${c.portalScheduled}, with your marks ${fmt(c.attended)}/${c.scheduled}` : "";
-      return h("div", { class: "it2" },
+      const open = courseOpen.has(c.key);
+      const toggle = () => { open ? courseOpen.delete(c.key) : courseOpen.add(c.key); rerender(); };
+      return h("div", { class: `it2 cx${open ? " open" : ""}`, role: "button", tabindex: "0", "aria-expanded": String(open), "data-key": `cx-${c.key}`, onclick: toggle,
+          onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } } },
         h("div", { class: "row" },
           h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
-            c.code || adjusted ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null) : null),
+            h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, adjusted ? chip("mute", "adj", tip) : null, ico("chev", "ic chev"))),
           h("span", {}, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`), " ",
             pct < threshold ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skip ? "good" : "warn", skip ? `can skip ${skip}` : "no spare"))),
-        bar(pct, threshold));
+        bar(pct, threshold),
+        h("div", { class: "cdet", inert: open ? null : "" }, h("div", {}, needView(c, pct, skip, t, threshold))));
     });
 
     return [hero, reviewBox, sortBar, h("div", { class: "blk" }, list)];
@@ -529,7 +552,7 @@
     effPortal = Calc.effective(snap, {}, {});
     const hasChanges = differs(effPortal.overall, effMarks.overall) || effMarks.courses.some((c, i) => differs(effPortal.courses[i], c));
     if (tab === "actual" && !hasChanges) tab = "overview"; // nothing left to compare (e.g. you erased your data)
-    const sig = JSON.stringify([eff, A.exc, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, hasChanges, [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, [...accOpen]]);
+    const sig = JSON.stringify([eff, A.exc, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, hasChanges, [...courseOpen], [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, [...accOpen]]);
     if (sig === attSig && host?.isConnected) return;
     await ensureHost();
     attSig = sig;
