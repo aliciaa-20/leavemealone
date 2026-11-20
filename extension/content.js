@@ -284,11 +284,11 @@
     });
     const note = same > 0 ? h("p", { class: "sub" }, `${plural(same, rows.length ? "other course" : "course")} ${same === 1 ? "matches" : "match"} the portal.`) : null;
 
+    const has = (...k) => items.some((x) => k.includes(x.kind));
     const notes = hasSrc ? h("div", { class: "notes" },
-      items.some((x) => x.kind === "later") ? h("p", { class: "sub" }, "Later: the portal hasn't updated that hour yet.") : null,
-      items.some((x) => x.kind === "later") ? h("p", { class: "sub" }, "It counts as present here.") : null,
-      items.some((x) => x.kind === "cc" || x.kind === "med" || x.kind === "tcc") ? h("p", { class: "sub" }, "Co-curricular and medical hours count in the overall only.") : null,
-      items.some((x) => x.kind === "cc" || x.kind === "med" || x.kind === "tcc") ? h("p", { class: "sub" }, "They never change a course's percentage.") : null) : null;
+      has("later") ? h("p", { class: "sub" }, h("b", {}, "Later: "), "attendance will be updated later.") : null,
+      has("cc", "tcc") ? h("p", { class: "sub" }, h("b", {}, "Co-curricular: "), "added to the overall at the end of the semester.") : null,
+      has("med") ? h("p", { class: "sub" }, h("b", {}, "Medical: "), "counts only if the overall is 74.5% to 84.49% at semester end.") : null) : null;
     // Order = importance: the number, then the courses it changed, then the detail behind it.
     return [hero,
       rows.length ? sc("Courses it changed") : null,
