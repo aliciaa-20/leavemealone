@@ -121,7 +121,7 @@ function draw() {
               return h("div", { class: "it2" },
                 h("div", { class: "row" }, h("b", {}, dayLabel(b.date)), chip(b.safe ? "good" : "bad", b.safe ? "safe" : "risky")),
                 h("div", { class: "sub" }, plural(b.classes, "class")),
-                b.breakDays >= 3 ? h("div", { class: "brk" }, chip("mute", `${b.breakDays}-day break`, `${b.breakDays} days off in a row if you skip this day`), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
+                UI.breakTag(b.breakDays) ? h("div", { class: "brk" }, chip("mute", ...UI.breakTag(b.breakDays)), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
             }))
           : h("div", { class: "sub" }, basis === "mse" ? "No class days left before MSE." : "No class days left this semester."),
         openBtn("Plan on CUE"));

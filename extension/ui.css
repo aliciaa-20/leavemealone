@@ -158,7 +158,7 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .btn:hover:not(:disabled) { border-color: var(--mute); }
 .btn:active:not(:disabled) { transform: scale(.97); transition-duration: var(--d-press); }
 .btn.solid { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600; }
-.btn.solid:hover:not(:disabled) { border-color: var(--ink-hi); background: var(--ink-hi); }
+.btn.solid:hover:not(:disabled) { border-color: color-mix(in srgb, var(--pick) 18%, var(--ink)); background: color-mix(in srgb, var(--pick) 18%, var(--ink)); }
 .btn.cta { width: 100%; height: 44px; padding: 0; margin-top: var(--s4); font-size: var(--t15); }
 .btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, transparent); }
 .btn.sm { height: 28px; padding: 0 12px; font-size: var(--t12); }
