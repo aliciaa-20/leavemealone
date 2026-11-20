@@ -799,7 +799,7 @@
       const p = (a, s) => Calc.percent(a, s).toFixed(1);
       preview.replaceChildren(
         h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, `${p(base.overall.attended, base.overall.scheduled)}% → `, h("b", { class: "good" }, `${p(now.overall.attended, now.overall.scheduled)}%`)))),
-        h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "This course")), h("span", {}, `${p(cb.attended, cb.scheduled)}% → `, h("b", { class: "good" }, `${p(cn.attended, cn.scheduled)}%`))))
+        h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "This course")), h("span", {}, `${p(cb.attended, cb.scheduled)}% → `, h("b", { class: "good" }, `${p(cn.attended + cn.ccHrs, cn.scheduled)}%`))))
       );
     }
 
