@@ -3,7 +3,7 @@
 //   /main/attendence    -> parse the course table, save a snapshot, show a pill + drawer,
 //                          remember which course's "View Details" you click
 //   /main/AbsentDetails -> mark each absent hour as absent / co-curricular / medical / later
-//   /main/absence       -> the all-courses absent list: only a pointer to the per-course page
+//   /main/absence       -> the all-courses absent list: a summary pill; with one course picked in the filter, the same marking panel
 //   /main/timeTable     -> save the weekly timetable for the "Plan a bunk" tab
 // All UI lives in one Shadow DOM host so the portal's CSS and ours never touch.
 (() => {
@@ -595,11 +595,12 @@
   const sigOf = (key, rows, saved) =>
     [key, ...rows.map((r) => r.k + r.portal), "|", ...saved.map((r) => `${r.k}:${r.s}:${r.gone ? 1 : 0}`)].join(",");
 
-  async function tickAbs() {
+  // forced = the course picked in the filter on /main/absence; without it the course is the one whose View Details was clicked.
+  async function tickAbs(forced) {
     const rows = parseAbsentRows();
     if (!rows.length) return;
     const d = await store.get({ lastCourse: null, snapshots: {}, excused: {}, adjust: {} });
-    const ctx = d.lastCourse;
+    const ctx = forced || d.lastCourse;
     await ensureHost();
 
     if (!ctx) {
@@ -814,6 +815,13 @@
     if (absShell) { absShell.drawer.classList.toggle("open", v); absShell.pill.setAttribute("aria-expanded", String(v)); }
   }
   async function tickAbsAll() {
+    // A single course picked in the filter ("CSEAM633 (4)"): the table is then the same 4-column layout as Absent Details, so mark it there too.
+    const code = /^([^\s(]+)\s*\(\d+\)/.exec(document.querySelector('[role="combobox"]')?.textContent.trim() || "")?.[1];
+    if (code && code.toLowerCase() !== "all") {
+      const d = await store.get({ latest: null, snapshots: {} });
+      const c = d.snapshots[d.latest]?.courses.find((x) => (x.code || x.name) === code);
+      if (c) return tickAbs({ semester: d.latest, key: code, name: c.name });
+    }
     const rows = parseAllAbsences();
     if (!rows.length) return;
     const sig = JSON.stringify(rows);
