@@ -64,8 +64,11 @@ Saved from the portal's Timetable page, one week at a time, keyed by weekday. Sa
 ## 8. Alerts (`background.js`)
 Once a day: a notification if any course (actual numbers) is below your minimum; a "data is N days old" note after 3 days; and, if a timetable is saved, a warning for courses that cannot reach 75% by MSE ("out of reach") or have no spare class left within 7 days of it. Nothing is sent after the MSE cutoff or if alerts are turned off.
 
-## 9. Not modelled / assumptions to confirm
-- **Medical threshold:** the portal text says above 74.50%; the request says "above 75%". The code uses 74.5% (which is 75% rounded). Say if it must be a strict 75%.
-- ESE courses: the planner judges ESE on the overall only; whether any course must also be at 75% to sit ESE is not modelled.
+## 9. Decisions confirmed and what is not modelled
+Confirmed by the owner (2026-11-20):
+- **Medical threshold is 74.5%** (the portal's "above 74.50%"; it is 75% after rounding). Below 74.5% medical is not considered.
+- **Only the overall matters for ESE.** No course is judged for ESE; courses are shown against the plain minimum for information only.
+
+Not modelled:
 - The portal's rounding of its own percentages is not reproduced (the extension keeps decimals).
 - Attendance before the semester's first class or outside the calendar data is not known.
