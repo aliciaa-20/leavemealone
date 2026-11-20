@@ -402,3 +402,5 @@ body.cue .hero .v { font-size: 36px; }
 .arow.nt { grid-template-columns: 28px 1fr auto; }
 .pday.tot { border-top: 1px solid var(--line); margin-top: var(--s2); padding-top: var(--s3); }
 .pday.tot b:last-child { color: var(--gold); }
+.notes { display: grid; gap: 2px; margin: var(--s3) 0; }
+.notes p { margin: 0; }

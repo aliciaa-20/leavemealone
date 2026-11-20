@@ -227,8 +227,10 @@
       h("i", { style: `width:${clamp(Math.min(pp, mp))}%;background:var(--${tn})` }),
       mp > pp ? h("s", { style: `left:${clamp(pp)}%;width:${clamp(mp) - clamp(pp)}%` }) : null,
       h("u", { style: `left:${threshold}%` }));
+    const heroNum = h("span", { class: "v", style: `color:var(--${tn})` });
+    tween(heroNum, "actual-hero", mp, (x) => `${x.toFixed(1)}%`, { animate: A.open, countUp: true });
     const hero = h("div", { class: `hero w-${tn}` },
-      h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${mp.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(mo.attended)} / ${mo.scheduled}h`)),
+      h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(mo.attended)} / ${mo.scheduled}h`)),
       abar,
       h("div", { class: "alegend" },
         h("span", {}, h("i", { style: `--c:var(--${tn})` }), "Portal ", h("b", {}, `${pp.toFixed(1)}%`), ` (${fmt(po.attended)}h)`),
@@ -283,10 +285,14 @@
     const note = same > 0 ? h("p", { class: "sub" }, `${plural(same, rows.length ? "other course" : "course")} ${same === 1 ? "matches" : "match"} the portal.`) : null;
 
     return [hero,
-      hasSrc ? acc({ title: "Where the extra hours come from", icon: "list", tone: "gold", sub: [`+${fmt(extra)}h added`, sep(), (dayList.length ? plural(dayList.length, "day") : "typed in")], open: accOpen.has("extra"), key: "acc-extra",
+      hasSrc ? acc({ title: "Where the extra hours come from", sub: [`+${fmt(extra)}h added`, sep(), (dayList.length ? plural(dayList.length, "day") : "typed in")], open: accOpen.has("extra"), key: "acc-extra",
         ontoggle: (v) => { v ? accOpen.add("extra") : accOpen.delete("extra"); rerender(); } },
         srcList, h("div", { class: "pday tot" }, h("b", {}, "Added to attended"), h("b", {}, `+${fmt(extra)}h`))) : null,
-      hasSrc ? h("p", { class: "sub" }, "Later = the portal hasn't updated that absent hour yet, so it counts as present here. Co-curricular and medical hours count in the overall only, never in a course.") : null,
+      hasSrc ? h("div", { class: "notes" },
+        items.some((x) => x.kind === "later") ? h("p", { class: "sub" }, "Later: the portal hasn't updated that hour yet.") : null,
+        items.some((x) => x.kind === "later") ? h("p", { class: "sub" }, "It counts as present here.") : null,
+        items.some((x) => x.kind === "cc" || x.kind === "med" || x.kind === "tcc") ? h("p", { class: "sub" }, "Co-curricular and medical hours count in the overall only.") : null,
+        items.some((x) => x.kind === "cc" || x.kind === "med" || x.kind === "tcc") ? h("p", { class: "sub" }, "They never change a course's percentage.") : null) : null,
       rows.length ? sc("Course by course") : null,
       rows.length ? h("div", { class: "blk" }, list) : null,
       note];
