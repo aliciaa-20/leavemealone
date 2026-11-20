@@ -48,6 +48,37 @@ const Plan = (() => {
     return { missed, known, taken, last };
   }
 
+  // The next n classes of ONE course on the timetable from `from` on: [{ date, period }]. Matched by upper-cased name.
+  function courseClasses(tt, course, from, n, limit = 400) {
+    const out = [];
+    if (!tt || !course || !(n > 0)) return out;
+    const want = norm(course.name), num = (p) => parseInt(/\d+/.exec(p || "")?.[0], 10) || 0;
+    for (let d = from, i = 0; out.length < n && i < limit; d = K.addDays(d, 1), i++) {
+      for (const c of [...classesOn(d, tt)].sort((a, b) => num(a.period) - num(b.period))) {
+        if (out.length >= n) break;
+        if (norm(c.name) === want) out.push({ date: d, period: c.period });
+      }
+    }
+    return out;
+  }
+
+  // Minutes after midnight at which a period ends: "9:00 – 10:00 AM" -> 600, "14:00:00 - 15:00:00" -> 900. NaN if unreadable.
+  function endMinutes(time) {
+    const all = [...(time || "").matchAll(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/gi)];
+    if (!all.length) return NaN;
+    const m = all[all.length - 1];
+    let h = +m[1];
+    if (m[3]) { const pm = m[3].toUpperCase() === "PM"; if (pm && h < 12) h += 12; if (!pm && h === 12) h = 0; }
+    return h * 60 + +m[2];
+  }
+
+  // Where "what is still ahead" starts: today while a class of today has not ended yet, else tomorrow.
+  function upcomingFrom(tt, now) {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const left = classesOn(today, tt).some((c) => { const e = endMinutes(c.time); return !(e <= now.getHours() * 60 + now.getMinutes()); });
+    return left ? today : K.addDays(today, 1);
+  }
+
   // Classes still to come per course key, from `from` to `to` inclusive.
   function remainingHours(tt, courses, from, to) {
     const km = keyMap(courses);
@@ -203,7 +234,7 @@ const Plan = (() => {
     return !skipped.size ? undefined : skipped.size === periods.length ? null : skipped;
   }
 
-  return { MSE_MIN, classesOn, nextClasses, missedFor, setAttend, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
+  return { MSE_MIN, classesOn, courseClasses, endMinutes, upcomingFrom, nextClasses, missedFor, setAttend, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
 })();
 
 if (typeof module !== "undefined") module.exports = Plan;
