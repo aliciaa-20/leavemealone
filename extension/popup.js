@@ -229,7 +229,7 @@ function draw() {
           : h("button", { class: "btn danger sm", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase")),
       h("div", { class: "sub", style: "margin-top:4px" }, "Removes synced attendance, your marks, adjustments and timetable from this browser. Settings stay, and the portal is untouched.")));
 
-  app.replaceChildren(...[header, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")].filter(Boolean));
+  app.replaceChildren(...[header, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, UI.TAGLINE)].filter(Boolean));
   document.documentElement.scrollTop = y;
 }
 

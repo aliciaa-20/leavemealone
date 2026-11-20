@@ -565,7 +565,7 @@
         h("button", { class: "xb", "aria-label": "Close", "data-key": "close", onclick: () => setOpen(false) }, ico("close"))),
       tabsBox,
       body,
-      h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better"));
+      h("div", { class: "tagline" }, UI.TAGLINE));
     dock.replaceChildren(drawer, pill);
     return { drawer, pill, sub, body, tabs, tabsBox };
   }
@@ -701,7 +701,7 @@
           h("div", { class: "h3" }, "Which course is this?"),
           h("p", { class: "sub" }, 'This page doesn\'t say. Go back, switch the course list to table view and open a course with its "View Details" button.'),
           h("button", { class: "btn solid cta", onclick: () => history.back() }, "Back to attendance"),
-          h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")
+          h("div", { class: "tagline" }, UI.TAGLINE)
         )
       );
       return;
@@ -878,7 +878,7 @@
         preview,
         actions,
         toastBox,
-        h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")
+        h("div", { class: "tagline" }, UI.TAGLINE)
       )
     );
     paint();
@@ -969,7 +969,7 @@
       const markBtn = h("button", { class: "btn sm", "aria-pressed": "false", "data-key": "mark-toggle", onclick: () => { absMark = !absMark; drawAbsBody(); } }, "Mark hours");
       const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Absent hours" },
         h("div", { class: "top" }, h("div", {}, h("b", {}, "Absent hours"), sub), h("span", { class: "topa" }, markBtn, h("button", { class: "xb", "aria-label": "Close", onclick: () => setAbsOpen(false) }, ico("close")))),
-        body, h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better"));
+        body, h("div", { class: "tagline" }, UI.TAGLINE));
       dock.replaceChildren(drawer, pill);
       absShell = { pill, sub, body, drawer, markBtn };
     }

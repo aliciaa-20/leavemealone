@@ -66,6 +66,7 @@ const UI = (() => {
   const mustText = (n) => (Number.isFinite(n) ? `attend next ${n}` : "out of reach");
   // The label for a run of days off around a day you could skip. n counts the skipped day too, so the break itself is n - 1.
   const breakTag = (n) => n >= 4 ? [`${n - 1}-day break`, `${n - 1} days off in a row. Skipping this day makes it ${n}.`] : n === 3 ? ["long weekend", "Skipping this day gives you 3 days off in a row."] : null;
+  const TAGLINE = "Unofficially vibecoded UI just like this website, but better."; // the footer under every drawer, panel and the popup
   const chip = (kind, text, title) => h("span", { class: `chip ${kind}`, title }, text);
   const bar = (pct, thr) =>
     h("div", { class: "bar" },
@@ -183,5 +184,5 @@ const UI = (() => {
     card.style.setProperty("--my", `${e.clientY - r.top}px`);
   });
 
-  return { h, tile, spotlight, absentSummary, absentDays, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, tile, spotlight, absentSummary, absentDays, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
 })();
