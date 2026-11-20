@@ -58,6 +58,7 @@ Issues and pull requests are welcome. The portal's markup can change, so selecto
 - Only the table view of the course list is parsed (not the grid view).
 - The wording of a co-curricular status on Absent Details is a guess; only Medical Leave has been observed.
 - Before-MSE assumes attendance counts up to the last class day before the MSE window, and the ESE target is one number for all courses.
+- The Timetable page shows one week at a time; the saved timetable is merged per weekday, so a holiday week doesn't wipe days, but a weekday that really lost all its classes keeps the old ones until you erase your data in the popup.
 - Chrome and Edge only.
 
 ## Licence

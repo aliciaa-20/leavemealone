@@ -646,9 +646,11 @@
 
   let ttSig = "";
   async function tickTt() {
-    const days = parseTimetable();
-    if (!days) return;
+    const seen = parseTimetable();
+    if (!seen) return;
     const d = await store.get({ timetable: null, snapshots: {}, latest: null });
+    // The page shows one week. A holiday week has empty days, so a weekday with no classes in view keeps what was saved before.
+    const days = { ...(d.timetable || {}), ...seen };
     if (JSON.stringify(days) !== JSON.stringify(d.timetable)) await store.set({ timetable: days, timetableSavedAt: Date.now() });
     const count = Object.values(days).reduce((n, x) => n + x.length, 0);
     const known = new Set((d.snapshots[d.latest]?.courses || []).map((c) => c.name.trim().toUpperCase()));

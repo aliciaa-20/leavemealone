@@ -23,7 +23,7 @@ chrome.alarms.onAlarm.addListener((a) => {
       const ageDays = (Date.now() - snap.syncedAt) / 86400000;
       if (low.length) {
         title = `Low attendance in ${low.length} course(s)`;
-        message = low.map((c) => `${c.code} ${((c.attended / c.scheduled) * 100).toFixed(0)}%`).join(", ");
+        message = low.map((c) => `${c.code || c.name} ${((c.attended / c.scheduled) * 100).toFixed(0)}%`).join(", ");
       } else if (ageDays > 3) {
         message = `Data is ${Math.floor(ageDays)} days old. Open the CUE attendance page to refresh.`;
       }
