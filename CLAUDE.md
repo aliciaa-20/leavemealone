@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `calc.js` (`Calc`): pure maths. `Calc.effective(snap, adj, exc)` is the core: it merges the portal snapshot with the user's adjustments and absent-hour marks into effective per-course and overall numbers. Every view (pill, drawer, popup, planner) should go through it rather than recomputing.
 - `calendar.js` (`Cal`): academic-calendar data (`YEARS`: semesters, holidays, working Saturdays) plus `dayInfo(date)`, `mseWindow(date)` and `cutoff("mse"|"ese", date)` (the last day attendance counts for an exam). Third Saturdays are off unless listed in `workingSaturdays`. Needs a new `YEARS` entry each academic year; otherwise the planner falls back to Mon–Sat minus third Saturdays.
 - `plan.js` (`Plan`): pure bunk-planning functions shared by the drawer and popup. `basis` is `now | mse | end`; `thresholdFor(basis, t, esePct)` gives the line and `horizon(basis, from)` the cutoff, and `budgets` / `mseRisks` give the per-course bunk budget. The timetable is keyed by `Date.getDay()`; courses are matched to timetable entries by upper-cased name.
-- `content.js`: runs on every portal page. The portal is a SPA, so it routes on `location.pathname`: `/main/attendence` (sic) parses the course table and saves a snapshot; `/main/AbsentDetails` handles marking; `/main/timeTable` saves the timetable. All injected UI lives in one Shadow DOM host; `ui.css` is fetched via `web_accessible_resources` and injected into it.
+- `content.js`: runs on every portal page. The portal is a SPA, so it routes on `location.pathname`: `/main/attendence` (sic) parses the course table and saves a snapshot; `/main/AbsentDetails` handles marking; `/main/timeTable` saves the timetable. All injected UI lives in one Shadow DOM host; `ui.css` is fetched via `web_accessible_resources` and injected into it; the bundled Space Grotesk font is declared in the page `<head>` (a shadow root can't load fonts). The drawer shell (`buildShell`) is built once and only its contents are swapped.
 - `popup.js`: toolbar popup, reads the same storage. `background.js`: daily alarm + notification; it loads `calc.js`, `calendar.js` and `plan.js` with `importScripts` at the top so it can warn about the MSE line (`Plan.mseRisks`).
 
 **State** is all in `chrome.storage.local`, keyed per semester label (the portal's semester combobox text):
@@ -42,5 +42,5 @@ Course key = `code || name`.
 ## Rules
 
 - **Never commit real portal pages or screenshots.** `Pages/` (gitignored) holds saved portal HTML with a real student's name and attendance; use it locally for selector work only. Anonymise or invent any fixture data.
-- The extension must make no network requests besides loading its own bundled `ui.css` (the README's privacy claim depends on it).
+- The extension must make no network requests besides loading its own bundled files (`ui.css`, `fonts/`) (the README's privacy claim depends on it).
 - Portal markup changes; selectors like `table[aria-label="coursewise attendance table"]` are the fragile part. Only the table view of the course list is parsed.

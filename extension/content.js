@@ -89,6 +89,13 @@
     if (!cssText) {
       try { cssText = await (await fetch(chrome.runtime.getURL("ui.css"))).text(); } catch { cssText = ""; }
     }
+    // A shadow root cannot load fonts, so declare the bundled Space Grotesk in the page itself (no network, own file).
+    if (!document.getElementById("cue-att-font")) {
+      const f = document.createElement("style");
+      f.id = "cue-att-font";
+      f.textContent = `@font-face{font-family:"LMA Space Grotesk";font-weight:300 700;font-style:normal;font-display:swap;src:url("${chrome.runtime.getURL("fonts/SpaceGrotesk.woff2")}") format("woff2")}`;
+      document.head.append(f);
+    }
     host = document.createElement("div");
     host.id = "cue-att-host";
     const shadow = host.attachShadow({ mode: "open" });
@@ -119,6 +126,7 @@
 
   const rerender = () => { if (A) { attSig = ""; renderAtt(A); } };
   function setOpen(v) {
+    if (!v && shell && host?.shadowRoot?.activeElement && shell.drawer.contains(host.shadowRoot.activeElement)) shell.pill.focus(); // don't strand focus in a hidden drawer
     attOpen = v;
     store.set({ panelOpen: v });
     if (A) { A.open = v; rerender(); }
@@ -386,28 +394,55 @@
     const op = Calc.percent(o.attended, o.scheduled);
     const lowN = eff.courses.filter((c) => c.scheduled > 0 && Calc.percent(c.attended, c.scheduled) < threshold).length;
 
-    const pill = h(
-      "button",
-      { class: `pill ${tone(op, threshold)}`, "aria-expanded": String(A.open), "aria-label": "Attendance summary", onclick: () => setOpen(!attOpen) },
-      h("span", { class: "dot" }),
-      `${op.toFixed(1)}%`,
-      lowN ? h("span", { class: "sub" }, `${lowN} low`) : null
-    );
+    // Persistent shell: the dock, drawer, tabs and pill are built once and only their contents change,
+    // so the open/close transition can play and keyboard focus survives a click.
+    if (!shell || !dock.contains(shell.drawer)) shell = buildShell();
+    const { drawer, pill, sub, body, tabs } = shell;
+    const focused = host.shadowRoot.activeElement;
+    const focusKey = focused && drawer.contains(focused) ? focusKeyOf(focused) : null;
 
-    const tabBtn = (id, label) => h("button", { class: `tab${tab === id ? " on" : ""}`, role: "tab", "aria-selected": String(tab === id), onclick: () => { tab = id; rerender(); } }, label);
-    const scroll = A.open ? dock.querySelector(".drawer")?.scrollTop || 0 : 0;
-    const drawer = h(
-      "div",
-      { class: `drawer${A.open ? " open" : ""}`, role: "dialog", "aria-label": "Attendance details" },
+    pill.className = `pill ${tone(op, threshold)}`;
+    pill.setAttribute("aria-expanded", String(A.open));
+    pill.replaceChildren(h("span", { class: "dot" }), `${op.toFixed(1)}%`, lowN ? h("span", { class: "sub" }, `${lowN} low`) : null);
+    sub.textContent = `${snap.semester} · minimum ${threshold}%`;
+    for (const [id, btn] of tabs) {
+      btn.classList.toggle("on", tab === id);
+      btn.setAttribute("aria-selected", String(tab === id));
+    }
+    drawer.classList.toggle("open", A.open);
+    body.replaceChildren(tab === "plan" ? planView(eff, threshold, t) : overviewView(eff, threshold, t));
+    if (focusKey) restoreFocus(focusKey);
+  }
+
+  // Drawer shell, built once per mount of the attendance page.
+  let shell = null;
+  function buildShell() {
+    const pill = h("button", { class: "pill", "aria-label": "Attendance summary", "data-key": "pill", onclick: () => setOpen(!attOpen) });
+    const sub = h("div", { class: "sub" });
+    const tabs = new Map();
+    for (const [id, label] of [["overview", "Overview"], ["plan", "Plan a bunk"]]) {
+      tabs.set(id, h("button", { class: "tab", role: "tab", "data-key": `tab-${id}`, onclick: () => { tab = id; rerender(); } }, label));
+    }
+    const body = h("div", { class: "dbody" });
+    const drawer = h("div", { class: "drawer", role: "dialog", "aria-label": "Attendance details" },
       h("div", { class: "dh" },
-        h("div", {}, h("div", { class: "title" }, "Attendance"), h("div", { class: "sub" }, `${snap.semester} · minimum ${threshold}%`)),
-        h("button", { class: "x", "aria-label": "Close", onclick: () => setOpen(false) }, "✕")),
-      h("div", { class: "tabs", role: "tablist" }, tabBtn("overview", "Overview"), tabBtn("plan", "Plan a bunk")),
-      tab === "plan" ? planView(eff, threshold, t) : overviewView(eff, threshold, t),
-      h("div", { class: "tag" }, "Vibecoded UI just like this website")
-    );
+        h("div", {}, h("div", { class: "title" }, "Attendance"), sub),
+        h("button", { class: "x", "aria-label": "Close", "data-key": "close", onclick: () => setOpen(false) }, "✕")),
+      h("div", { class: "tabs", role: "tablist" }, ...tabs.values()),
+      body,
+      h("div", { class: "tag" }, "Vibecoded UI just like this website"));
     dock.replaceChildren(drawer, pill);
-    drawer.scrollTop = scroll; // keep position while clicking around the planner
+    return { drawer, pill, sub, body, tabs };
+  }
+  // Views are rebuilt on every change, so remember the focused control by data-key, else by its position among the controls.
+  const FOCUSABLE = "button,select,input,summary,[tabindex]";
+  function focusKeyOf(el) {
+    if (el.dataset.key) return { key: el.dataset.key };
+    return { index: [...shell.drawer.querySelectorAll(FOCUSABLE)].indexOf(el), tag: el.tagName };
+  }
+  function restoreFocus(k) {
+    const el = k.key ? shell.drawer.querySelector(`[data-key="${k.key}"]`) : [...shell.drawer.querySelectorAll(FOCUSABLE)][k.index];
+    if (el && (k.key || el.tagName === k.tag)) el.focus({ preventScroll: true });
   }
 
   async function tickAtt() {

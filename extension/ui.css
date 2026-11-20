@@ -1,30 +1,54 @@
 /* Shared by the on-page UI (inside a Shadow DOM) and the popup.
-   Tokens are taken from the CUE portal's own theme. */
+   Stage 4b foundation: new tokens, isolation, motion. Old component rules below still use the
+   legacy names (--bg2, --bg3, --surface*, --primary, --text, --muted, --c-*, --radius) until 4c/4d move them over. */
+@font-face {
+  /* Used by the popup. On the portal a shadow root cannot load fonts, so content.js injects this same rule into the page <head>. */
+  font-family: "LMA Space Grotesk"; font-weight: 300 700; font-style: normal; font-display: swap;
+  src: url("fonts/SpaceGrotesk.woff2") format("woff2");
+}
 :root, :host {
-  --bg: #0b1f3a;
-  --bg2: #0F172A;
-  --bg3: #020617;
-  --surface: #1E293B;
-  --surface2: #162238;
-  --line: rgba(148, 163, 184, .18);
-  --text: #f1f5f9;
-  --muted: #94a3b8;
-  --good: #2DD4BF;
-  --warn: #FBBF24;
-  --bad: #F43F5E;
-  --primary: #8EB8FF;
-  --c-abs: #e53935;
-  --c-cc: #fdd835;
-  --c-med: #1e88e5;
-  --c-later: #fb8c00;
+  /* colour */
+  --bg: #060D20; --card: #101D3F; --card2: #1B2C5E; --ink: #F4EFE4; --mute: #9AA6C4; --line: #243566;
+  --pick: #7CC8FF; --onpick: #04203A;
+  --good: #7FD6B0; --warn: #F2B35E; --bad: #F2807A;
+  --hol: #C9A7C4; --holbg: #2A2350; --gold: #E8C77D; --blue: #8FA8FF;
+  /* type */
+  --font-head: "LMA Space Grotesk", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --t12: 12px; --t13: 13px; --t15: 15px; --t17: 17px; --t28: 28px; --t44: 44px;
+  /* radius */
+  --r-drawer: 12px; --r-card: 10px; --r-ctl: 8px; --r-chip: 6px; --r-tick: 4px; --r-bar: 3px;
+  /* spacing */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px;
+  /* motion */
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --d-press: 70ms; --d-hover: 180ms; --d-tab: 260ms; --d-acc: 320ms; --d-num: 320ms; --d-grow: 700ms;
+  /* legacy (removed as 4c/4d migrate each component) */
+  --bg2: #0F172A; --bg3: #020617; --surface: #1E293B; --surface2: #162238;
+  --text: #f1f5f9; --muted: #94a3b8; --primary: #8EB8FF;
+  --c-abs: #e53935; --c-cc: #fdd835; --c-med: #1e88e5; --c-later: #fb8c00;
   --radius: 18px;
 }
+@media (prefers-contrast: more) {
+  :root, :host { --line: #4A5F9E; --mute: #C3CCE3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root, :host { --d-press: 0ms; --d-hover: 0ms; --d-tab: 0ms; --d-acc: 0ms; --d-num: 0ms; --d-grow: 0ms; }
+  .cue *, .cue *::before, .cue *::after { animation-duration: 0ms !important; transition-duration: 0ms !important; transition-delay: 0ms !important; }
+}
+/* Stop the portal's inherited fonts, line-heights and colours leaking through the shadow boundary. */
+:host { all: initial; }
 .cue, .cue * { box-sizing: border-box; }
-.cue { font: 13px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); }
+.cue { font: var(--t13)/1.45 var(--font-body); color: var(--text); font-variant-numeric: tabular-nums; }
 .cue button { font: inherit; color: inherit; cursor: pointer; }
 .cue button:focus-visible, .cue input:focus-visible, .cue select:focus-visible, .cue summary:focus-visible {
-  outline: 2px solid var(--primary); outline-offset: 2px;
+  outline: 2px solid var(--pick); outline-offset: 2px;
 }
+/* dark scrollbars for the drawer and panels */
+.drawer, .panel { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.drawer::-webkit-scrollbar, .panel::-webkit-scrollbar { width: 8px; }
+.drawer::-webkit-scrollbar-thumb, .panel::-webkit-scrollbar-thumb { background: var(--line); border-radius: var(--r-bar); }
+.drawer::-webkit-scrollbar-track, .panel::-webkit-scrollbar-track { background: transparent; }
 .good { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
 
 /* ---- surfaces ---- */
@@ -84,8 +108,13 @@
   background: linear-gradient(180deg, var(--bg), var(--bg2)); border: 1px solid var(--line); border-radius: 22px;
   padding: 14px; box-shadow: 0 16px 48px rgba(0,0,0,.55);
 }
-.drawer { opacity: 0; transform: translateY(10px) scale(.98); pointer-events: none; transition: opacity .18s, transform .18s; display: none; }
-.drawer.open { display: block; opacity: 1; transform: none; pointer-events: auto; }
+/* The drawer stays in the DOM and grows out of the pill (bottom right). Out of flow so the pill never moves. */
+.drawer {
+  position: absolute; right: 0; bottom: calc(100% + 10px); transform-origin: 100% 100%;
+  opacity: 0; transform: translateY(8px) scale(.92); visibility: hidden; pointer-events: none;
+  transition: opacity 180ms, transform var(--d-acc) var(--ease), visibility 0s linear var(--d-acc);
+}
+.drawer.open { opacity: 1; transform: none; visibility: visible; pointer-events: auto; transition-delay: 0s; }
 .dh { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
 .x { background: none; border: 0; color: var(--muted); font-size: 16px; padding: 2px 6px; border-radius: 8px; }
 .x:hover { background: rgba(148,163,184,.15); color: var(--text); }
