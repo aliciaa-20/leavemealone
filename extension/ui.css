@@ -414,3 +414,7 @@ body.cue .hero .v { font-size: 36px; }
 .seg button:active:not(:disabled) { transform: scale(.94); transition-duration: var(--d-press); }
 .alegend { flex-wrap: wrap; row-gap: 4px; }
 .top b, .h3, .hero p { text-wrap: balance; }
+/* Fluid type lands on whole or half pixels, so text stays crisp at 1x. */
+@supports (font-size: round(1.3px, .5px)) {
+  :root, :host { --t44: round(clamp(34px, 1.6vw + 20px, 44px), .5px); --t28: round(clamp(24px, .6vw + 18px, 28px), .5px); --t17: round(clamp(16px, .2vw + 13.5px, 17px), .5px); --t15: round(clamp(14px, .2vw + 11.5px, 15px), .5px); --t13: round(clamp(13px, .1vw + 11.7px, 13.5px), .5px); --t12: round(clamp(12px, .1vw + 10.9px, 12.5px), .5px); }
+}
