@@ -297,7 +297,7 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .cal.enter.back { animation: slideB 240ms var(--ease); }
 .cal.enter .cday { animation: cellIn 260ms var(--ease) both; animation-delay: calc(var(--i, 0) * 6ms); }
 .cday.sel.pop { animation: pop 240ms var(--ease); }
-.leg { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: var(--s3); color: var(--mute); font-size: var(--t12); }
+.leg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--line); color: var(--mute); font-size: var(--t12); }
 .leg u { text-decoration: none; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 .leg u.pk { background: var(--pick); }
 .leg u.hl { background: var(--holbg); }
@@ -340,12 +340,21 @@ body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); m
   .per { grid-template-columns: 18px 24px 40px 1fr; gap: 8px; }
 }
 
-/* holidays: an icon per day, the next one lit, a countdown, and a staggered reveal when the card opens */
-.hrow { display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center; padding: 8px 0; opacity: 0; transform: translateY(6px); transition: opacity 240ms var(--ease), transform 240ms var(--ease); }
+/* holidays: a calendar-leaf badge per date, the next one lit, a countdown, and a staggered reveal when the card opens */
+.hrow { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 8px 0; opacity: 0; transform: translateY(6px); transition: opacity 240ms var(--ease), transform 240ms var(--ease); }
 .acc.open .hrow { opacity: 1; transform: none; transition-delay: calc(var(--i, 0) * 28ms + 120ms); }
 .hrow:last-child { padding-bottom: var(--s3); }
+.dbadge { width: 44px; padding: 5px 0 6px; border-radius: var(--r-card); background: var(--tb, var(--card2)); border: 1px solid var(--line); text-align: center; line-height: 1; transition: transform var(--d-hover) var(--ease); }
+.dbadge small { display: block; font: 600 10px/1 var(--font-head); letter-spacing: .08em; text-transform: uppercase; color: var(--t, var(--mute)); }
+.dbadge b { display: block; margin-top: 3px; font: 600 var(--t17)/1 var(--font-head); color: var(--ink); }
+.hrow:hover .dbadge { transform: translateY(-2px); }
 .hx b { display: block; font-weight: 500; font-size: var(--t13); }
 .hr { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
-.hrow.next { background: linear-gradient(90deg, rgba(232,199,125,.13), transparent 70%); border-radius: var(--r-ctl); margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
-.hrow.next .ai { box-shadow: 0 0 0 3px rgba(232,199,125,.18); }
-@media (prefers-reduced-motion: reduce) { .hrow { opacity: 1; transform: none; } }
+.hrow.next { background: rgba(232,199,125,.08); border-radius: var(--r-card); margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
+.hrow.next .dbadge { border-color: rgba(232,199,125,.55); animation: ping 2.4s var(--ease) infinite; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(232,199,125,.35); } 70%, 100% { box-shadow: 0 0 0 8px rgba(232,199,125,0); } }
+@media (prefers-reduced-motion: reduce) { .hrow { opacity: 1; transform: none; } .hrow.next .dbadge { animation: none; } }
+
+/* toolbar popup: a rounded card framed by a darker margin, with a dark scrollbar (Chrome draws the window itself, so the roundness is ours) */
+html { background: #040A18; scrollbar-width: thin; scrollbar-color: var(--card2) #040A18; }
+body.cue { margin: 8px; width: 364px; padding: var(--s4); border-radius: 14px; border: 1px solid var(--line); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }

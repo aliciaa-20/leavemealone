@@ -416,8 +416,8 @@
       h("div", { class: "leg" },
         h("span", {}, h("u", { class: "pk" }), "Your pick"),
         h("span", {}, h("u", { class: "hl" }), "Holiday or no classes"),
-        h("span", {}, h("u", { class: "rk" }), `Would drop you below ${linePct}%`),
-        h("span", {}, "• classes")));
+        h("span", {}, h("u", { class: "rk" }), `Drops you below ${linePct}%`),
+        h("span", {}, "• classes that day")));
   }
 
   async function renderAtt(state) {

@@ -2,7 +2,7 @@
 const CUE_URL = "https://cue.christuniversity.in/main/attendence";
 const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
 const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
-const { h, plural, fmt, tone, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays, holidayIcon, spotlight } = UI;
+const { h, plural, fmt, tone, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays, spotlight } = UI;
 const ago = (t) => {
   const m = Math.round((Date.now() - t) / 60000);
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
@@ -187,10 +187,10 @@ function draw() {
         months.map((m) => [
           h("div", { class: "pday" }, h("b", {}, m.label), h("span", { class: "sub" }, plural(m.rows.length, "date"))),
           m.rows.map((e) => {
-            const [icon, tn] = holidayIcon(e.name), br = Plan.breakLength(e.date);
+            const br = Plan.breakLength(e.date), tn = e.tag ? "blue" : e === next ? "gold" : "mute";
             return h("div", { class: `hrow${e === next ? " next" : ""}`, style: `--i:${i++}` },
-              h("span", { class: `ai t-${tn}` }, ico(icon)),
-              h("span", { class: "hx" }, h("b", {}, dayLabel(e.date)), h("span", { class: "sub" }, e.name)),
+              h("span", { class: `dbadge t-${tn}` }, h("small", {}, e.date.toLocaleDateString("en-IN", { month: "short" })), h("b", {}, String(e.date.getDate()))),
+              h("span", { class: "hx" }, h("b", {}, e.name), h("span", { class: "sub" }, e.date.toLocaleDateString("en-IN", { weekday: "long" }))),
               h("span", { class: "hr" }, e.tag ? chip("blue", e.tag) : br.n >= 3 ? chip("mute", `${br.n}-day break`) : null, h("span", { class: "sub" }, when(e.date))));
           }),
         ]));
