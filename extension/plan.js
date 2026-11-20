@@ -43,9 +43,10 @@ const Plan = (() => {
     return out;
   }
 
-  // basis "now": % right after the bunk.  basis "end": % on the last instruction day if you attend everything else.
+  // basis "now": % right after the bunk.  basis "mse" / "end": % on the cutoff day (last class day
+  // before MSE / last instruction day) if you attend everything else.
   function project(a, s, k, R, basis) {
-    return basis === "end"
+    return basis !== "now"
       ? { before: C.percent(a + R, s + R), after: C.percent(a + R - k, s + R) }
       : { before: C.percent(a, s), after: C.percent(a, s + k) };
   }
@@ -69,6 +70,63 @@ const Plan = (() => {
     return { rows, overall: { k: kAll, ...op, safe: op.after >= thr }, safe: rows.every((r) => r.safe) && op.after >= thr };
   }
 
+  const MSE_MIN = 0.75; // attendance needed to write MSE
+
+  // The percentage line (fraction) that "safe" is measured against for a basis.
+  // t = the user's minimum (fraction), esePct = their ESE target (percent).
+  function thresholdFor(basis, t, esePct) {
+    return basis === "mse" ? MSE_MIN : basis === "end" ? esePct / 100 : t;
+  }
+
+  // Last day that counts for a basis (null if unknown). "now" looks as far as semester end.
+  function horizonDate(basis, from) {
+    return K.cutoff(basis === "mse" ? "mse" : "ese", from);
+  }
+
+  // A saved "mse" basis only holds while MSE is still ahead and has class days left.
+  function resolveBasis(basis, from) {
+    if (basis === "end") return "end";
+    return basis === "mse" && K.cutoff("mse", from) ? "mse" : "now";
+  }
+
+  // Drop selected days that fall after the cutoff.
+  function clipSelection(selection, cutoff) {
+    if (!cutoff) return selection;
+    const last = K.key(cutoff);
+    return new Map([...selection].filter(([k]) => k <= last));
+  }
+
+  // Classes each course can still miss before the basis' cutoff and stay on the line t (a fraction).
+  // Null for "now", without a timetable, or when the cutoff is unknown.
+  function budgets({ eff, tt, basis, t, from }) {
+    if (basis === "now" || !tt) return null;
+    const end = horizonDate(basis, from);
+    if (!end) return null;
+    const remaining = remainingHours(tt, eff.courses, from, end);
+    const row = (key, name, code, a, s, R) => {
+      const bestCase = C.bestCase(a, s, R);
+      return { key, name, code, pct: C.percent(a, s), R, budget: C.budget(a, s, R, t), bestCase, reachable: bestCase >= t * 100 - 1e-9 };
+    };
+    const rows = eff.courses.filter((c) => c.scheduled > 0).map((c) => row(c.key, c.name, c.code, c.attended, c.scheduled, remaining[c.key] || 0));
+    const RAll = Object.values(remaining).reduce((n, x) => n + x, 0);
+    const o = eff.overall;
+    return { end, rows, overall: row("overall", "Overall", "", o.attended, o.scheduled, RAll) };
+  }
+
+  // Courses heading below the MSE line: "out" = can't reach 75% even attending everything,
+  // "zero" = exactly on it with MSE within `days` days.
+  function mseRisks({ eff, tt, from, days = 7 }) {
+    const b = budgets({ eff, tt, basis: "mse", t: MSE_MIN, from });
+    if (!b) return [];
+    const left = Math.round((b.end - from) / 86400000);
+    const out = [];
+    for (const r of b.rows) {
+      const state = !r.reachable ? "out" : r.budget === 0 && left <= days ? "zero" : null;
+      if (state) out.push({ key: r.key, code: r.code, name: r.name, state, bestCase: r.bestCase, budget: r.budget, R: r.R });
+    }
+    return out;
+  }
+
   // Consecutive days off around d if you skip d (counts d itself).
   function breakLength(d) {
     let n = 1, names = [];
@@ -88,8 +146,10 @@ const Plan = (() => {
   }
 
   // Next class days ranked for bunking: safe first, then longest break created, then fewest classes.
+  // t = the line for this basis (see thresholdFor).
   function bestDays({ eff, tt, courses, basis, t, from, horizon = 14, limit = 5 }) {
-    const end = K.semesterEnd(from);
+    const end = horizonDate(basis, from);
+    if (basis === "mse" && !end) return { days: [], remaining: {}, end: null };
     const remaining = remainingHours(tt, courses, from, end);
     const out = [];
     for (let d = from, seen = 0; seen < horizon && (!end || d <= end); d = K.addDays(d, 1)) {
@@ -109,7 +169,7 @@ const Plan = (() => {
     return { days: out.slice(0, limit), remaining, end };
   }
 
-  return { classesOn, missedFor, remainingHours, impact, bestDays, breakLength };
+  return { MSE_MIN, classesOn, missedFor, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
 })();
 
 if (typeof module !== "undefined") module.exports = Plan;
