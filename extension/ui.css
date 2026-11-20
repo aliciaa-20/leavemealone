@@ -405,7 +405,6 @@ body.cue .hero .v { font-size: 36px; }
 .notes p { margin: 0; }
 .notes b { color: var(--ink); font-weight: 600; }
 .ft { display: inline-flex; align-items: center; gap: 6px; }
-.ft .ic { width: 12px; height: 12px; color: var(--mute); }
 .dl { font: 600 var(--t12) var(--font-head); color: var(--mute); }
 .dl.good { color: var(--good); } .dl.bad { color: var(--bad); }
 .alegend .dl { margin-left: 4px; }

@@ -281,7 +281,7 @@
       return h("div", { class: "it2" },
         h("div", { class: "row" },
           h("span", {}, h("b", { class: "nm", title: m.name }, m.name || m.code), m.code ? h("div", { class: "cl" }, h("span", { class: "sub" }, m.code), m.stale ? chip("warn", "review") : null) : null),
-          h("span", { class: "ft" }, h("span", { class: "sub" }, `${a.toFixed(1)}%`), ico("right"), h("span", { class: "p", style: `color:var(--${tone(b, threshold)})` }, `${b.toFixed(1)}%`))),
+          h("span", { class: "ft" }, h("span", { class: "sub" }, `${a.toFixed(1)}% to`), h("span", { class: "p", style: `color:var(--${tone(b, threshold)})` }, `${b.toFixed(1)}%`))),
         h("div", { class: "row sub" }, h("span", {}, `${fmt(p.attended)} / ${p.scheduled}h to ${fmt(m.attended)} / ${m.scheduled}h`), deltaTxt(b - a)));
     });
     const note = same > 0 ? h("p", { class: "sub" }, `${plural(same, rows.length ? "other course" : "course")} ${same === 1 ? "matches" : "match"} the portal.`) : null;
