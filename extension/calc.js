@@ -7,6 +7,15 @@ const Calc = {
   canSkip(a, s, t) {
     return Math.max(0, Math.floor(a / t - s + 1e-9));
   },
+  // Classes you can still miss out of the R still to come (already scheduled) and stay at or
+  // above t. Not the same as canSkip, which adds extra classes on top of those held so far.
+  budget(a, s, R, t) {
+    return Math.max(0, Math.floor(a + R - t * (s + R) + 1e-9));
+  },
+  // Best possible percentage if you attend all R remaining classes.
+  bestCase(a, s, R) {
+    return Calc.percent(a + R, s + R);
+  },
   // Consecutive classes you must attend to get back to t (0 if already there).
   mustAttend(a, s, t) {
     if (a / s >= t || s === 0) return 0;
