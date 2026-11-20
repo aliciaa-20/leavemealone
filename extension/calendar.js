@@ -109,6 +109,13 @@ const Cal = (() => {
     return null;
   }
 
+  // Named holidays from `from` to `to` (inclusive), oldest first: [{ date, name }].
+  function holidays(from, to) {
+    const a = key(from), b = key(to), out = [];
+    for (const y of YEARS) for (const [k, name] of Object.entries(y.holidays)) if (k >= a && k <= b) out.push({ date: parse(k), name });
+    return out.sort((x, y) => x.date - y.date);
+  }
+
   // Like cutoff(), but it still answers after the cutoff has passed, until the exam window is over, so the planner can
   // keep showing the numbers that counted. mse: the last class day before the MSE window, through the window's last day.
   // ese: the last instruction day, through the semester's optional `ese.to` (else it ends with the instruction days).
@@ -124,7 +131,7 @@ const Cal = (() => {
     return null;
   }
 
-  return { key, parse, addDays, dayInfo, semesterEnd, mseWindow, cutoff, cutoffRef, known: (d) => !!yearOf(key(d)) };
+  return { key, parse, addDays, dayInfo, semesterEnd, mseWindow, cutoff, cutoffRef, holidays, known: (d) => !!yearOf(key(d)) };
 })();
 
 if (typeof module !== "undefined") module.exports = Cal;

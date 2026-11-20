@@ -155,6 +155,10 @@
 
   const today0 = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
 
+  // A course as "NAME / code" (students know the subject, not the code). `extra` goes after the code.
+  const nameCell = (c, ...extra) => h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
+    c.code || extra.length ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, extra) : null);
+
   // ---- Overview tab
   function overviewView(eff, threshold, t) {
     const o = eff.overall;
@@ -252,22 +256,22 @@
       h("button", { class: "btn sm", "data-key": "clear", disabled: !planSel.size, onclick: clear }, "Clear selection"));
     let hero;
     if (past && bud) {
-      const ok = bud.overall.pct >= linePct;
-      hero = h("div", { class: `hero plan ${ok ? "w-good" : "w-bad"}` },
-        h("div", { class: "v", style: `color:var(--${ok ? "good" : "bad"})` }, `${bud.overall.pct.toFixed(1)}%`),
+      const tn = tone(bud.overall.pct, linePct);
+      hero = h("div", { class: `hero plan w-${tn}` },
+        h("div", { class: "v", style: `color:var(--${tn})` }, `${bud.overall.pct.toFixed(1)}%`),
         h("p", {}, `Your attendance counted for ${examName} up to `, h("b", {}, dayLabel(end)), ", against the ", h("b", {}, `${linePct}%`), " needed."));
     } else if (planSel.size) {
       const after = res.overall.after, gap = Math.abs(after - linePct).toFixed(1);
       const failing = res.rows.filter((r) => !r.safe).length;
       const names = [...planSel.keys()].sort().map((k) => dayLabel(Cal.parse(k)));
       const list = names.length > 2 ? `${names.length} days` : names.join(" and ");
-      const lead = basis !== "now" ? ` and you reach ${examName} at ` : " and overall drops to ";
+      const lead = basis !== "now" ? `, you reach ${examName} at ` : ", overall drops to ";
       const tail = !res.overall.safe ? [lead, h("b", {}, `${after.toFixed(1)}%`), `, ${gap} points below the ${linePct}% minimum.`]
-        : failing ? [" and overall holds at ", h("b", {}, `${after.toFixed(1)}%`), `, but ${plural(failing, "course")} ${failing === 1 ? "falls" : "fall"} below ${linePct}%.`]
+        : failing ? [", overall holds at ", h("b", {}, `${after.toFixed(1)}%`), `, but ${plural(failing, "course")} ${failing === 1 ? "falls" : "fall"} below ${linePct}%.`]
         : [lead, h("b", {}, `${after.toFixed(1)}%`), `, ${gap} points above the ${linePct}% minimum.`];
       hero = h("div", { class: `hero plan ${res.safe ? "ok" : "no"}` },
         h("div", { class: "v", style: `color:var(--${res.safe ? "good" : "bad"})` }, res.safe ? "Safe to bunk" : "Not safe", h("s", {}, ".")),
-        h("p", {}, "Skip ", h("b", {}, list), tail), meta);
+        h("p", {}, "Skipping ", h("b", {}, list), tail), meta);
     } else if (bud && !bud.overall.reachable) {
       hero = h("div", { class: "hero plan w-bad" },
         h("div", { class: "v" }, "Out of reach", h("s", {}, ".")),
@@ -322,8 +326,8 @@
       out.push(h("div", { class: "blk" },
         h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, arrow(res.overall, 1)))),
         res.rows.map((r) => h("div", { class: `it2 minor${r.safe ? "" : " fail"}` }, h("div", { class: "row" },
-          h("span", {}, h("b", {}, r.code || r.name), " ", h("span", { class: "sub" }, `−${r.k}h`)),
-          h("span", {}, arrow(r, 1), " ", r.safe ? chip("good", "safe") : chip("bad", basis !== "now" ? `below ${linePct}%` : `attend next ${r.recover}`))))),
+          nameCell(r, h("span", { class: "sub" }, r.code ? [sep(), `−${r.k}h`] : `−${r.k}h`)),
+          h("span", { class: "rr" }, h("span", {}, arrow(r, 1)), r.safe ? chip("good", "safe") : chip("bad", basis !== "now" ? `below ${linePct}%` : `attend next ${r.recover}`))))),
         res.unknown.length ? h("div", { class: "it2 sub" }, `Not in your attendance table: ${res.unknown.join(", ")}.`) : null,
         basis !== "now" ? h("div", { class: "it2 sub" }, `Assumes you attend every other class until ${end ? dayLabel(end) : "the semester ends"} (${examName}).`) : null));
     }
@@ -351,10 +355,12 @@
           h("span", {}, h("b", {}, "Overall"), past ? null : h("div", { class: "sub" }, left(o))),
           h("span", { class: "stk" }, h("span", { class: "big", style: `color:var(--${tone(o.pct, linePct)})` }, `${o.pct.toFixed(1)}%`), budChip(o)))),
         ...bud.rows.map((r) => !past && !r.matched
-          ? h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, r.code || r.name)), budChip(r)))
+          ? h("div", { class: "it2 minor" }, h("div", { class: "row" }, nameCell(r), budChip(r)))
           : h("div", { class: "it2 minor" }, h("div", { class: "row" },
-              h("span", {}, h("b", {}, r.code || r.name), past ? null : h("div", { class: "sub" }, left(r)), past || r.reachable ? null : h("div", { class: "sub" }, `Best case ${Math.floor(r.bestCase)}%`)),
-              h("span", {}, h("span", { class: "p", style: `color:var(--${tone(r.pct, linePct)})` }, `${r.pct.toFixed(0)}%`), " ", budChip(r))))),
+              h("span", {}, h("b", { class: "nm", title: r.name }, r.name || r.code),
+                h("div", { class: "sub" }, r.code && !past ? [r.code, sep(), left(r)] : r.code || (past ? null : left(r))),
+                past || r.reachable ? null : h("div", { class: "sub" }, `Best case ${Math.floor(r.bestCase)}%`)),
+              h("span", { class: "rr" }, h("span", { class: "p", style: `color:var(--${tone(r.pct, linePct)})` }, `${r.pct.toFixed(0)}%`), budChip(r))))),
       ];
       if (planSel.size) {
         out.push(acc({ title: `Before ${examName} budget`, sub: o.reachable ? [`Can still skip ${o.budget} overall`, sep(), left(o).replace(" until then", "")] : "Out of reach", open: accOpen.has("budget"), key: "acc-budget",
@@ -378,8 +384,8 @@
     const lead = (first.getDay() + 6) % 7; // Monday-first grid
     const dir = calShown == null || calShown === planMonth ? "" : planMonth > calShown ? "fwd" : "back";
     calShown = planMonth;
-    const cells = [];
-    for (let i = 0; i < lead; i++) cells.push(h("span", { class: "cday empty" }));
+    const cells = []; // { el, past }: a week of only past days is dropped from the first month (nothing there can be picked)
+    for (let i = 0; i < lead; i++) cells.push({ el: h("span", { class: "cday empty" }), past: true });
     for (let n = 1; n <= daysIn; n++) {
       const d = new Date(first.getFullYear(), first.getMonth(), n);
       const k = Cal.key(d);
@@ -390,18 +396,21 @@
       const risk = usable && !sel && riskOf(k);
       const kind = !usable ? (info.holiday ? "hol" : "off") : sel ? "sel" : "open";
       const title = usable ? `${plural(cls, "class")}${risk ? `. Picking this would drop you below ${linePct}%` : ""}` : info.reason || (d < from ? "Past" : last && d > last ? "After the cutoff" : "No classes");
-      cells.push(h(usable ? "button" : "span", {
+      cells.push({ past: d < from, el: h(usable ? "button" : "span", {
         class: `cday ${kind}${risk ? " risk" : ""}${sel && k === lastPicked ? " pop" : ""}`, style: `--i:${lead + n}`, title, "aria-label": `${dayLabel(d)}: ${title}`, "aria-pressed": usable ? String(sel) : null, "data-key": usable ? `day-${k}` : null,
         onclick: usable ? () => { if (sel) planSel.delete(k); else { planSel.set(k, null); lastPicked = k; } rerender(); } : null,
-      }, String(n), usable ? h("i", {}, "•".repeat(Math.min(cls, 6))) : null));
+      }, String(n), usable ? h("i", {}, "•".repeat(Math.min(cls, 6))) : null) });
     }
+    const weeks = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    const shown = (planMonth === 0 ? weeks.filter((w) => w.some((c) => !c.past)) : weeks).flat().map((c) => c.el);
     return h("div", { class: "cardcal" },
       h("div", { class: "calh" },
         h("button", { class: "prev", "aria-label": "Previous month", "data-key": "cal-prev", disabled: planMonth <= 0, onclick: () => { planMonth--; rerender(); } }, ico("chev")),
         h("b", {}, first.toLocaleDateString("en-IN", { month: "long", year: "numeric" })),
         h("button", { class: "next", "aria-label": "Next month", "data-key": "cal-next", disabled: planMonth >= maxOff, onclick: () => { planMonth++; rerender(); } }, ico("chev"))),
       h("div", { class: "dow" }, ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((x) => h("div", {}, x))),
-      h("div", { class: `cal${dir ? ` enter ${dir}` : ""}` }, cells),
+      h("div", { class: `cal${dir ? ` enter ${dir}` : ""}` }, shown),
       h("div", { class: "leg" },
         h("span", {}, h("u", { class: "pk" }), "Your pick"),
         h("span", {}, h("u", { class: "hl" }), "Holiday or no classes"),
@@ -482,12 +491,15 @@
   async function tickAtt() {
     const snap = parseCourses();
     if (!snap) return;
-    const d = await store.get({ threshold: 75, snapshots: {}, adjust: {}, excused: {}, panelOpen: false, sortBy: "portal", timetable: null, bunkBasis: "now", eseTarget: undefined });
+    const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, panelOpen: false, sortBy: "portal", timetable: null, bunkBasis: "now", eseTarget: undefined });
+    const prev = d.snapshots[snap.semester];
+    const same = prev && JSON.stringify([prev.overall, prev.courses, prev.hasCc]) === JSON.stringify([snap.overall, snap.courses, snap.hasCc]);
+    if (same && Date.now() - prev.syncedAt < 60000) snap.syncedAt = prev.syncedAt; // unchanged: don't rewrite storage on every tick
     d.snapshots[snap.semester] = snap;
     const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
     const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
     const latest = Object.keys(d.snapshots).sort((a, b) => rank(b) - rank(a))[0];
-    await store.set({ snapshots: d.snapshots, latest });
+    if (!same || snap.syncedAt !== prev.syncedAt || d.latest !== latest) await store.set({ snapshots: d.snapshots, latest });
     renderAtt({
       snap, threshold: d.threshold, adj: d.adjust[snap.semester], exc: d.excused[snap.semester],
       open: d.panelOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis, eseTarget: d.eseTarget,
@@ -672,7 +684,7 @@
       const base = Calc.effective(snap, {}, {});
       const now = Calc.effective(snap, d.adjust[ctx.semester], exc2);
       const cb = base.courses.find((c) => c.key === ctx.key), cn = now.courses.find((c) => c.key === ctx.key);
-      const p = (a, s) => Calc.percent(a, s).toFixed(0);
+      const p = (a, s) => Calc.percent(a, s).toFixed(1);
       preview.replaceChildren(
         h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, `${p(base.overall.attended, base.overall.scheduled)}% → `, h("b", { class: "good" }, `${p(now.overall.attended, now.overall.scheduled)}%`)))),
         h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "This course")), h("span", {}, `${p(cb.attended, cb.scheduled)}% → `, h("b", { class: "good" }, `${p(cn.attended, cn.scheduled)}%`))))
@@ -839,10 +851,12 @@
     else if (r === "absall") tickAbsAll();
     else tickTt();
   }
+  // React quickly to the first change (the portal's table appearing), then at most once per 600ms while it keeps mutating.
+  let lastTick = 0;
   const mo = new MutationObserver((muts) => {
     if (muts.every((mu) => mu.target === host || host?.contains(mu.target))) return; // ignore our own DOM changes
-    clearTimeout(timer);
-    timer = setTimeout(tick, 600);
+    if (timer) return;
+    timer = setTimeout(() => { timer = 0; lastTick = Date.now(); tick(); }, Math.max(30, lastTick + 600 - Date.now()));
   });
   mo.observe(document.body, { childList: true, subtree: true });
   // The extension was reloaded under this tab: say so once and stop, instead of throwing on every page change.

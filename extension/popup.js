@@ -157,9 +157,36 @@ function draw() {
   // ---- absent hours day by day (saved when the all-courses absent list is opened on CUE)
   const al = D.absentList && D.absentList.sem === viewSem && D.absentList.rows.length ? D.absentList : null;
   const absBox = acc({
-    title: "Absent hours", sub: al ? absentSummary(al.rows) : "Open the absent list on CUE once to see it here",
+    title: "Absent hours", sub: al ? absentSummary(al.rows) : "Not saved yet",
     open: accOpen.has("abs"), ontoggle: toggleAcc("abs") },
-    al ? absentDays(al.rows) : h("div", { class: "sub", style: "padding-top:12px" }, "The list is saved the first time you open the Absent card on the CUE attendance page."));
+    al ? absentDays(al.rows) : h("div", { class: "sub", style: "padding-top:12px" }, "Open the Absent card on the CUE attendance page once and the list will appear here."));
+
+  // ---- holidays and the MSE week, month by month, from today to the end of the semester
+  let holBox = null;
+  {
+    const n = new Date(), today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    const to = Cal.semesterEnd(today) || Cal.addDays(today, 150);
+    const events = Cal.holidays(today, to).map((x) => ({ date: x.date, name: x.name }));
+    const mse = Cal.mseWindow(today);
+    if (mse && mse.from >= today) events.push({ date: mse.from, name: `MSE begins, until ${dayLabel(mse.to)}`, tag: "MSE" });
+    events.sort((a, b) => a.date - b.date);
+    if (events.length) {
+      const months = [];
+      for (const e of events) {
+        const label = e.date.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+        let m = months[months.length - 1];
+        if (!m || m.label !== label) months.push((m = { label, rows: [] }));
+        m.rows.push(e);
+      }
+      const next = events[0], away = Math.round((next.date - today) / 86400000);
+      holBox = acc({ title: "Holidays", sub: [`Next: ${dayLabel(next.date)}`, sep(), away === 0 ? "today" : `in ${plural(away, "day")}`],
+        open: accOpen.has("hol"), ontoggle: toggleAcc("hol") },
+        months.map((m) => [
+          h("div", { class: "pday" }, h("b", {}, m.label), h("span", { class: "sub" }, plural(m.rows.length, "date"))),
+          m.rows.map((e) => h("div", { class: "hrow" }, h("span", { class: "hd" }, dayLabel(e.date)), h("span", { class: "hn" }, e.name), e.tag ? chip("blue", e.tag) : null)),
+        ]));
+    }
+  }
 
   // ---- adjustments (rare path) and settings
   const num = (v, label, onchange) => stepper(v || 0, { min: 0, max: 999, label, onchange });
@@ -179,7 +206,7 @@ function draw() {
     h("div", { class: "row", style: "padding-top:12px" }, h("span", {}, "Minimum attendance %"), stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", onchange: (v) => save({ threshold: v }) })),
     h("div", { class: "row", style: "margin-top:12px" }, h("span", {}, "Daily alert if a course is low"), toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert")));
 
-  app.replaceChildren(...[header, overall, examCard, bestCard, whatIf, needs, safeBox, pending, absBox, adjBox, settings, openBtn(), h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")].filter(Boolean));
+  app.replaceChildren(...[header, overall, examCard, bestCard, whatIf, needs, safeBox, pending, absBox, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, "Vibecoded UI just like this website, but better")].filter(Boolean));
   document.documentElement.scrollTop = y;
 }
 
