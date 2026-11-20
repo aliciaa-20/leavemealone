@@ -174,7 +174,16 @@ const Plan = (() => {
     return { days: out.slice(0, limit), remaining, end };
   }
 
-  return { MSE_MIN, classesOn, missedFor, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
+  // Tick a period as attended (or untick it = skipped) on a picked day. `cur` is the day's skipped set
+  // (null = the whole day is skipped), `periods` the day's period ids. Returns the new skipped set,
+  // null when everything is skipped, or undefined when nothing is skipped any more (drop the day).
+  function setAttend(periods, cur, period, attending) {
+    const skipped = new Set(cur || periods);
+    if (attending) skipped.delete(period); else skipped.add(period);
+    return !skipped.size ? undefined : skipped.size === periods.length ? null : skipped;
+  }
+
+  return { MSE_MIN, classesOn, missedFor, setAttend, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
 })();
 
 if (typeof module !== "undefined") module.exports = Plan;

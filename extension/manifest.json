@@ -38,6 +38,7 @@
         "calc.js",
         "calendar.js",
         "plan.js",
+        "ui.js",
         "content.js"
       ],
       "run_at": "document_idle"
