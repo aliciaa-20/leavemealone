@@ -57,6 +57,9 @@ Issues and pull requests are welcome. The portal's markup can change, so selecto
 - Keep it dependency-free and buildless unless there's a clear need.
 - Check scripts with `node --check extension/*.js`; `calc.js` is also loadable from Node for quick tests.
 
+## Attendance rules
+Every rule the maths uses (minimums, MSE per course, ESE overall 85%, co-curricular, medical, calendar) is written down in [docs/attendance_rules.md](docs/attendance_rules.md).
+
 ## Known gaps
 - Only the table view of the course list is parsed (not the grid view).
 - The wording of a co-curricular status on Absent Details is a guess; only Medical Leave has been observed.

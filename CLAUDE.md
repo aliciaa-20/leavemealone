@@ -39,6 +39,8 @@ Course key = `code || name`.
 
 ## Attendance rules (easy to break)
 
+The full, current list lives in `docs/attendance_rules.md`; keep it in step with the code. Summary: MSE = every course at 75% (no overall); ESE = overall at 85% (medical helps the overall); "now" = both.
+
 - **Reconciliation:** `baseSch`/`baseAbsent` record the portal's counts at the time of an adjustment. If the portal's count changes, the adjustment is flagged `stale`. Rows the portal itself labels (`p`) are locked; rows it stops listing (`gone`) are already in its numbers and are not counted, pending "Confirm present". Excused hours are scaled so they never exceed the portal's own absent count.
 - **Co-curricular** adds to the overall aggregate only, never to per-course numbers. When the snapshot has a Co-curricular column (`snap.hasCc`, semester end), the portal has already included it, so the extension adds none.
 - **Medical** follows the portal's policy text. It's computed on the aggregate *with* co-curricular: below 74.5% it's not considered, from 74.5% to under 85% it's added to overall attended, and at 85% or more it's not needed. It is not capped at 85%.
