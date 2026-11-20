@@ -420,7 +420,7 @@ body.cue .hero .v { font-size: 36px; }
 }
 /* Overview rows open to show what a course needs. */
 .it2.cx { cursor: pointer; }
-.cl .chev { margin-left: auto; width: 12px; height: 12px; color: var(--mute); transition: transform var(--d-acc) var(--ease), color var(--d-hover) var(--ease); }
+.cbar .chev { flex: none; width: 12px; height: 12px; color: var(--mute); transition: transform var(--d-acc) var(--ease), color var(--d-hover) var(--ease); }
 .it2.cx:hover .chev { color: var(--ink); }
 .it2.cx.open .chev { transform: rotate(90deg); }
 .cdet { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--d-acc) var(--ease); }
@@ -463,3 +463,5 @@ body.cue .hero .v { font-size: 36px; }
 .trow .ac small { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .trow .chip { min-width: 80px; }
 .today { padding-top: var(--s4); padding-bottom: var(--s4); }
+.cbar { display: flex; align-items: center; gap: var(--s3); }
+.cbar .bar { flex: 1; }
