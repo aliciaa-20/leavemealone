@@ -277,15 +277,17 @@
 
     // 4. Course by course, only the ones that differ. For reference, co-curricular hours you marked also count in their own course here.
     const act = (m) => ({ ...m, attended: m.attended + m.ccHrs });
-    const rows = effMarks.courses.map((m, i) => [effPortal.courses[i], act(m)]).filter(([p, m]) => differs(p, m) && m.scheduled > 0);
+    const shift = (p, m) => Math.abs(Calc.percent(m.attended, m.scheduled) - Calc.percent(p.attended, p.scheduled)) >= 0.05; // same % before and after is not a change worth a row
+    const rows = effMarks.courses.map((m, i) => [effPortal.courses[i], act(m)]).filter(([p, m]) => differs(p, m) && shift(p, m) && m.scheduled > 0);
     const same = effMarks.courses.filter((c) => c.scheduled > 0).length - rows.length;
     const list = rows.map(([p, m]) => {
       const a = Calc.percent(p.attended, p.scheduled), b = Calc.percent(m.attended, m.scheduled);
       return h("div", { class: "it2" },
         h("div", { class: "row" },
           h("span", {}, h("b", { class: "nm", title: m.name }, m.name || m.code), m.code ? h("div", { class: "cl" }, h("span", { class: "sub" }, m.code), m.stale ? chip("warn", "review") : null) : null),
-          h("span", { class: "ft" }, h("span", { class: "sub" }, `${a.toFixed(1)}% to`), h("span", { class: "p", style: `color:var(--${tone(b, threshold)})` }, `${b.toFixed(1)}%`))),
-        h("div", { class: "row sub" }, h("span", {}, `${fmt(p.attended)} / ${p.scheduled}h to ${fmt(m.attended)} / ${m.scheduled}h`), deltaTxt(b - a)));
+          h("span", { class: "ftc" },
+            h("span", { class: "ft" }, h("span", { class: "sub" }, `${a.toFixed(1)}%`), ico("right"), h("span", { class: "p", style: `color:var(--${tone(b, threshold)})` }, `${b.toFixed(1)}%`)),
+            deltaTxt(b - a))));
     });
     const note = same > 0 ? h("p", { class: "sub" }, `${plural(same, rows.length ? "other course" : "course")} ${same === 1 ? "matches" : "match"} the portal.`) : null;
 

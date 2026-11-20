@@ -408,4 +408,5 @@ body.cue .hero .v { font-size: 36px; }
 .dl { font: 600 var(--t12) var(--font-head); color: var(--mute); }
 .dl.good { color: var(--good); } .dl.bad { color: var(--bad); }
 .alegend .dl { margin-left: 4px; }
-.row.sub { margin-top: 2px; }
+.ft .ic { width: 12px; height: 12px; color: var(--mute); }
+.ftc { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
