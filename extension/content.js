@@ -222,19 +222,50 @@
         h("button", { class: "btn solid", onclick: () => location.assign("/main/timeTable") }, "Open timetable"))];
     }
     const from = Cal.addDays(today0(), 1);
-    const end = Cal.semesterEnd(from);
+    // A saved "mse" basis only holds while MSE is still ahead; "line" is the % that counts as safe.
+    const basis = Plan.resolveBasis(A.basis, from);
+    const esePct = Math.min(100, Math.max(1, A.eseTarget ?? threshold));
+    const line = Plan.thresholdFor(basis, t, esePct);
+    const end = Plan.horizon(basis, from);
+    const examName = basis === "mse" ? "MSE" : "ESE";
+    planSel = Plan.clipSelection(planSel, end);
+    if (planOpenDay && !planSel.has(planOpenDay)) planOpenDay = null;
     const courses = eff.courses;
     const out = [];
 
     out.push(h("div", { class: "row", style: "margin-bottom:8px" },
       h("span", { class: "sub" }, "Safe means"),
       h("select", { class: "sort", "aria-label": "Safe means", onchange: (e) => { A.basis = e.target.value; store.set({ bunkBasis: A.basis }); rerender(); } },
-        h("option", { value: "now", selected: A.basis !== "end" }, "Right after the bunk"),
-        h("option", { value: "end", selected: A.basis === "end" }, "End of semester (attend the rest)"))));
+        h("option", { value: "now", selected: basis === "now" }, "Right after the bunk"),
+        Plan.resolveBasis("mse", from) === "mse" ? h("option", { value: "mse", selected: basis === "mse" }, "Before MSE (75% needed)") : null,
+        h("option", { value: "end", selected: basis === "end" }, "Before ESE (my target)"))));
+    if (basis === "end") {
+      out.push(h("div", { class: "row", style: "margin-bottom:8px" },
+        h("span", { class: "sub" }, "My ESE target (%)"),
+        h("input", { type: "number", min: 1, max: 100, value: esePct, "aria-label": "ESE target percentage", onchange: (e) => {
+          A.eseTarget = Math.min(100, Math.max(1, parseFloat(e.target.value) || threshold));
+          store.set({ eseTarget: A.eseTarget });
+          rerender();
+        } })));
+    }
+    if (A.basis === "mse" && basis === "now") out.push(h("div", { class: "note warn" }, "MSE has started or isn't in the calendar, so these are right-now numbers."));
     if (!Cal.known(from)) out.push(h("div", { class: "note warn" }, "This year's academic calendar isn't in the extension yet, so holidays aren't known."));
 
+    // Bunk budget: classes each course can still miss before the cutoff
+    const bud = Plan.budgets({ eff, tt: A.tt, basis, t: line, from });
+    if (bud) {
+      const chip = (r) => !r.reachable ? h("span", { class: "chip bad" }, `best case ${Math.floor(r.bestCase)}%, out of reach`)
+        : r.budget === 0 ? h("span", { class: "chip warn" }, "no spare classes")
+        : h("span", { class: "chip good" }, `can still miss ${r.budget}`);
+      out.push(h("div", { class: "sec" }, `Before ${examName} · ${dayLabel(bud.end)}`));
+      out.push(h("div", { class: "card" }, [bud.overall, ...bud.rows].map((r) => h("div", { class: "course" },
+        h("div", { class: "row" },
+          h("div", { class: "name" }, h("span", { class: "code" }, r.code || r.name), h("div", { class: "sub" }, `${r.R} class${r.R === 1 ? "" : "es"} left until then`)),
+          h("div", { style: "text-align:right" }, chip(r)))))));
+    }
+
     // Best days to bunk
-    const best = Plan.bestDays({ eff, tt: A.tt, courses, basis: A.basis, t, from });
+    const best = Plan.bestDays({ eff, tt: A.tt, courses, basis, t: line, from });
     out.push(h("div", { class: "sec" }, "Best days to bunk"));
     out.push(h("div", { class: "card" },
       best.days.length
@@ -273,9 +304,9 @@
 
     // Result
     if (planSel.size) {
-      const remaining = A.basis === "end" ? best.remaining : {};
+      const remaining = basis !== "now" ? best.remaining : {};
       const { missed, unknown } = Plan.missedFor(planSel, A.tt, courses);
-      const imp = Plan.impact(eff, missed, A.basis, remaining, t);
+      const imp = Plan.impact(eff, missed, basis, remaining, line);
       const arrow = (r) => [`${r.before.toFixed(1)}% → `, h("b", { class: r.safe ? "good" : "bad" }, `${r.after.toFixed(1)}%`)];
       out.push(h("div", { class: "sec" }, "If you bunk"));
       out.push(h("div", { class: "card", style: `border-color:${imp.safe ? "var(--good)" : "var(--bad)"}` },
@@ -288,9 +319,9 @@
             h("div", { class: "name" }, h("span", { class: "code" }, r.code || r.name), h("span", { class: "sub" }, `  −${r.k} h`)),
             h("div", { style: "text-align:right" }, arrow(r), " ",
               r.safe ? h("span", { class: "chip good" }, "safe")
-                : h("span", { class: "chip bad" }, A.basis === "end" ? `below ${threshold}%` : `attend next ${r.recover}`))))),
+                : h("span", { class: "chip bad" }, basis !== "now" ? `below ${Math.round(line * 100)}%` : `attend next ${r.recover}`))))),
         unknown.length ? h("div", { class: "note muted" }, `Not in your attendance table: ${unknown.join(", ")}`) : null,
-        A.basis === "end" ? h("div", { class: "note muted" }, `Assumes you attend every other class until ${end ? dayLabel(end) : "the semester ends"}.`) : null,
+        basis !== "now" ? h("div", { class: "note muted" }, `Assumes you attend every other class until ${end ? dayLabel(end) : "the semester ends"} (${examName}).`) : null,
         h("div", { class: "actions" }, h("button", { class: "btn small", onclick: () => { planSel = new Map(); planOpenDay = null; rerender(); } }, "Clear selection"))));
     }
     return out;
@@ -340,7 +371,7 @@
     attOpen = A.open;
     const { snap, threshold } = A;
     const eff = Calc.effective(snap, A.adj, A.exc);
-    const sig = JSON.stringify([eff, threshold, A.open, snap.semester, A.sortBy, A.basis, A.tt, tab, [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, planOpenDay]);
+    const sig = JSON.stringify([eff, threshold, A.open, snap.semester, A.sortBy, A.basis, A.eseTarget, A.tt, tab, [...planSel].map(([k, v]) => [k, v && [...v]]), planMonth, planOpenDay]);
     if (sig === attSig && host?.isConnected) return;
     await ensureHost();
     attSig = sig;
@@ -376,7 +407,7 @@
   async function tickAtt() {
     const snap = parseCourses();
     if (!snap) return;
-    const d = await store.get({ threshold: 75, snapshots: {}, adjust: {}, excused: {}, panelOpen: false, sortBy: "portal", timetable: null, bunkBasis: "now" });
+    const d = await store.get({ threshold: 75, snapshots: {}, adjust: {}, excused: {}, panelOpen: false, sortBy: "portal", timetable: null, bunkBasis: "now", eseTarget: undefined });
     d.snapshots[snap.semester] = snap;
     const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
     const rank = (n) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(n.toUpperCase())?.[1]] || 0;
@@ -384,7 +415,7 @@
     await store.set({ snapshots: d.snapshots, latest });
     renderAtt({
       snap, threshold: d.threshold, adj: d.adjust[snap.semester], exc: d.excused[snap.semester],
-      open: d.panelOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis,
+      open: d.panelOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis, eseTarget: d.eseTarget,
     });
   }
 
