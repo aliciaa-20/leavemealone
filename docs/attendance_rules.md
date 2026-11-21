@@ -1,6 +1,6 @@
 # Attendance rules used by leavemealone
 
-Every rule the extension applies, where it lives in the code, and what is assumed. If a number on screen looks wrong, check it against this file first. Percentages shown on screen have one decimal; all maths is done unrounded.
+Every rule the extension applies, where it lives in the code, and what is assumed. If a number on screen looks wrong, check it against this file first. The **overall** percentage is shown to two decimals, like the portal (a rounded figure could hide a miss at a line); per-course percentages in lists are whole numbers or one decimal. All maths is done unrounded.
 
 Code references: `extension/calc.js` (`Calc`), `extension/plan.js` (`Plan`), `extension/calendar.js` (`Cal`).
 
@@ -63,7 +63,12 @@ This is what the Overview, the pill, the planner, the toolbar popup and the dail
 Saved from the portal's Timetable page, one week at a time, keyed by weekday. Saving **merges per weekday**: a weekday with no classes in the visible week keeps what was saved before, so a holiday week does not wipe days.
 
 ## 8. Alerts (`background.js`)
-Once a day: a notification if any course (actual numbers) is below your minimum; a "data is N days old" note after 3 days; and, if a timetable is saved, a warning for courses that cannot reach 75% by MSE ("out of reach") or have no spare class left within 7 days of it. Nothing is sent after the MSE cutoff or if alerts are turned off.
+Once a day: a notification if any course (actual numbers) is below your minimum; a "data is N days old" note after 3 days (also added when a course is low); and, if a timetable is saved, a warning for courses that cannot reach 75% by MSE ("out of reach") or have no spare class left within 7 days of it. Nothing is sent after the MSE cutoff or if alerts are turned off.
+
+**Stale data in the popup:** more than 3 days since the last sync (`STALE_DAYS` in `popup.js`, the same limit as the alert) turns the "synced ... ago" text amber and shows a banner with a Refresh button. The pill never shows it: it only exists on the attendance page, which re-reads the data every tick.
+
+## 8b. The jokes ("pakka detain", "susegad")
+Fixed lines, not tied to your minimum: **below 75% = pakka detain, 85% and up = susegad** (`UI.DETAIN`, `UI.SUSEGAD`). Course rows tag each course on its own %. The **pill and the Overview headline judge the overall only**: a single low course gives the pill "N low", never "pakka detain" (ESE is an overall criterion). Never styled as a chip.
 
 ## 9. Decisions confirmed and what is not modelled
 Confirmed by the owner (2026-11-20):

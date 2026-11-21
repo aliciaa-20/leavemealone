@@ -242,13 +242,14 @@ const UI = (() => {
     let i = -1, target = null, live = true, busy = false;
     const hole = h("div", { class: "tour-hole" });
     const count = h("span", { class: "tour-n", "aria-live": "polite" });
+    const prog = h("div", { class: "tour-prog", "aria-hidden": "true" }, ...steps.map(() => h("i")));
     const title = h("div", { class: "h3" });
     const text = h("p", { class: "sub" });
     const back = h("button", { class: "btn sm", onclick: () => go(-1) }, "Back");
     const advance = () => { const a = steps[i]?.next; if (a) { end(true); a.run(); } else go(1); };
     const next = h("button", { class: "btn solid sm", onclick: advance }, "Next");
     const card = h("div", { class: "tour-card", role: "dialog", "aria-modal": "true", "aria-label": "Quick tour" },
-      count, title, text,
+      count, prog, title, text,
       h("div", { class: "tour-act" }, h("button", { class: "link", onclick: () => end(false) }, "Skip tour"), h("span", { class: "tour-btns" }, back, next)));
     const root = h("div", { class: "tour cue" }, h("div", { class: "tour-block" }), hole, card);
     const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -271,6 +272,14 @@ const UI = (() => {
       card.style.top = `${Math.round(Math.max(edge, top))}px`;
     }
 
+    // Re-place every frame for ~1s after a step starts, so a drawer or dock that is still animating can't leave the box offset.
+    let followId = 0;
+    function follow() {
+      const id = ++followId, until = performance.now() + 1000;
+      const tick = () => { if (!live || id !== followId) return; place(); if (performance.now() < until) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    }
+
     async function go(d) {
       if (busy || !live) return;
       busy = true;
@@ -291,13 +300,14 @@ const UI = (() => {
       i = j;
       const s = steps[i];
       count.textContent = `${i + 1} of ${steps.length}`;
+      [...prog.children].forEach((e, k) => e.classList.toggle("on", k <= i));
       title.textContent = s.title;
       text.replaceChildren(...[s.text].flat());
       back.disabled = i === 0;
       next.textContent = s.next?.label || (i === steps.length - 1 ? "Done" : "Next");
       target?.scrollIntoView({ block: "nearest" });
       place();
-      setTimeout(place, 360); // again once an accordion or drawer has finished opening
+      follow(); // the drawer, dock and scrolling may still be moving: keep the box on the target until they settle
       next.focus({ preventScroll: true });
     }
 

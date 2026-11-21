@@ -194,7 +194,7 @@
     else {
       const im = impactOf(picked), bad = im.rows.filter((r) => !r.safe);
       result = h("div", { class: "tres" },
-        h("div", { class: "row" }, h("span", {}, `Bunk ${plural(picked.length, "class")}`), h("span", {}, h("span", { class: "sub" }, `${im.overall.before.toFixed(1)}% to `), h("b", { class: bad.length ? "bad" : "good" }, `${im.overall.after.toFixed(1)}%`))),
+        h("div", { class: "row" }, h("span", {}, `Bunk ${plural(picked.length, "class")}`), h("span", {}, h("span", { class: "sub" }, `${im.overall.before.toFixed(2)}% to `), h("b", { class: bad.length ? "bad" : "good" }, `${im.overall.after.toFixed(2)}%`))),
         h("p", { class: "sub" }, bad.length ? `${bad.map((r) => `${r.code || r.name} drops to ${r.after.toFixed(0)}%`).join(", ")}: below ${threshold}%.` : `Every course stays at ${threshold}% or more.`));
     }
     const canPlan = +date > +t0;
@@ -248,14 +248,14 @@
     const po = effPortal.overall, pp = Calc.percent(po.attended, po.scheduled);
     const added = o.attended - po.attended;
     const heroNum = h("span", { class: "v", style: `color:var(--${tn})` });
-    tween(heroNum, "hero", op, (x) => `${x.toFixed(1)}%`, { animate: A.open, countUp: true });
+    tween(heroNum, "hero", op, (x) => `${x.toFixed(2)}%`, { animate: A.open, countUp: true });
     const hero = h("div", { class: `hero w-${tn}` },
       h("div", { class: "row" }, heroNum, h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
       bar(op, threshold),
-      h("p", { class: "sub" }, UI.vibeLead(op), op >= threshold ? h("b", {}, `${(op - threshold).toFixed(1)} points above`) : h("b", {}, `${(threshold - op).toFixed(1)} points below`), ` your ${threshold}% minimum`),
+      h("p", { class: "sub" }, UI.vibeLead(op), op >= threshold ? h("b", {}, `${(op - threshold).toFixed(2)} points above`) : h("b", {}, `${(threshold - op).toFixed(2)} points below`), ` your ${threshold}% minimum`),
       h("p", { class: "sub" }, op < threshold ? (Number.isFinite(Calc.mustAttend(o.attended, o.scheduled, t)) ? `Attend the next ${plural(Calc.mustAttend(o.attended, o.scheduled, t), "class")} to get back to ${threshold}%` : `${threshold}% is out of reach now: a missed class stays missed`)
         : Calc.canSkip(o.attended, o.scheduled, t) ? `You can bunk ${plural(Calc.canSkip(o.attended, o.scheduled, t), "class")} and stay above it` : "No bunks left: one more would put you below it"),
-      Math.abs(added) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(added))}h you added. The portal shows ${pp.toFixed(1)}%.`) : null,
+      Math.abs(added) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(added))}h you added. The portal shows ${pp.toFixed(2)}%.`) : null,
       o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
       o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.") : null);
 
@@ -353,18 +353,18 @@
       const judged = bud.rows.filter((r) => r.matched), lowest = !cr.overall && judged.length ? judged.reduce((m, r) => (r.pct < m.pct ? r : m)) : null;
       const shown = lowest ? lowest.pct : bud.overall.pct, need = lowest ? cLinePct : linePct, tn = tone(shown, need);
       hero = h("div", { class: `hero plan w-${tn}` },
-        h("div", { class: "v", style: `color:var(--${tn})` }, `${shown.toFixed(1)}%`),
+        h("div", { class: "v", style: `color:var(--${tn})` }, `${shown.toFixed(2)}%`),
         h("p", {}, lowest ? `Your lowest course (${lowest.code || lowest.name}) counted for ${examName} up to ` : `Your attendance counted for ${examName} up to `, h("b", {}, dayLabel(end)), ", against the ", h("b", {}, `${need}%`), lowest ? " every course needs." : " needed."));
     } else if (planSel.size) {
-      const after = res.overall.after, gap = Math.abs(after - linePct).toFixed(1);
+      const after = res.overall.after, gap = Math.abs(after - linePct).toFixed(2);
       const failing = res.rows.filter((r) => !r.safe).length;
       const names = [...planSel.keys()].sort().map((k) => dayLabel(Cal.parse(k)));
       const list = names.length > 2 ? `${names.length} days` : names.join(" and ");
       const lead = basis !== "now" ? `, you reach ${examName} at ` : ", overall drops to ";
-      const tail = cr.overall && !res.overall.safe ? [lead, h("b", {}, `${after.toFixed(1)}%`), `, ${gap} points below the ${linePct}% ${basis === "end" ? "needed" : "minimum"}.`]
-        : cr.course && failing ? (cr.overall ? [", overall holds at ", h("b", {}, `${after.toFixed(1)}%`), `, but ${plural(failing, "course")} ${failing === 1 ? "falls" : "fall"} below ${cLinePct}%.`]
+      const tail = cr.overall && !res.overall.safe ? [lead, h("b", {}, `${after.toFixed(2)}%`), `, ${gap} points below the ${linePct}% ${basis === "end" ? "needed" : "minimum"}.`]
+        : cr.course && failing ? (cr.overall ? [", overall holds at ", h("b", {}, `${after.toFixed(2)}%`), `, but ${plural(failing, "course")} ${failing === 1 ? "falls" : "fall"} below ${cLinePct}%.`]
             : [`, ${plural(failing, "course")} ${failing === 1 ? "falls" : "fall"} below ${cLinePct}% at ${examName}.`])
-        : cr.overall ? [lead, h("b", {}, `${after.toFixed(1)}%`), `, ${gap} points above the ${linePct}% ${basis === "end" ? "needed" : "minimum"}.`]
+        : cr.overall ? [lead, h("b", {}, `${after.toFixed(2)}%`), `, ${gap} points above the ${linePct}% ${basis === "end" ? "needed" : "minimum"}.`]
         : [", every course stays at or above ", h("b", {}, `${cLinePct}%`), ` at ${examName}.`];
       hero = h("div", { class: `hero plan ${res.safe ? "ok" : "no"}` },
         h("div", { class: "v", style: `color:var(--${res.safe ? "good" : "bad"})` }, res.safe ? "Safe to bunk" : "Not safe", h("s", {}, ".")),
@@ -451,7 +451,7 @@
       const rows = [
         !cr.overall ? null : h("div", { class: "it2 main" }, h("div", { class: "row" },
           h("span", {}, h("b", {}, "Overall"), past ? null : h("div", { class: "sub" }, left(o))),
-          h("span", { class: "stk" }, h("span", { class: "big", style: `color:var(--${tone(o.pct, linePct)})` }, `${o.pct.toFixed(1)}%`), budChip(o)))),
+          h("span", { class: "stk" }, h("span", { class: "big", style: `color:var(--${tone(o.pct, linePct)})` }, `${o.pct.toFixed(2)}%`), budChip(o)))),
         ...(cr.course ? bud.rows : []).map((r) => !past && !r.matched
           ? h("div", { class: "it2 minor" }, h("div", { class: "row" }, nameCell(r), budChip(r, cLinePct)))
           : h("div", { class: "it2 minor" }, h("div", { class: "row" },
@@ -531,7 +531,6 @@
     const o = eff.overall;
     const op = Calc.percent(o.attended, o.scheduled);
     const lowN = eff.courses.filter((c) => c.scheduled > 0 && Calc.percent(c.attended, c.scheduled) < threshold).length;
-    const detainN = eff.courses.filter((c) => c.scheduled > 0 && UI.detain(Calc.percent(c.attended, c.scheduled))).length;
 
     // Persistent shell: the dock, drawer, tabs and pill are built once and only their contents change,
     // so the open/close transition can play and keyboard focus survives a click.
@@ -542,7 +541,7 @@
 
     pill.className = `pill ${tone(op, threshold)}${pill.classList.contains("clicked") ? " clicked" : ""}`;
     pill.setAttribute("aria-expanded", String(A.open));
-    pill.replaceChildren(...[h("i"), `${op.toFixed(1)}%`, detainN ? h("span", { class: "sub vibe bad" }, "pakka detain") : lowN ? h("span", { class: "sub" }, `${lowN} low`) : UI.susegad(op) ? h("span", { class: "sub vibe good" }, "susegad") : null].filter(Boolean)); // a null child would print "null"
+    pill.replaceChildren(...[h("i"), `${op.toFixed(2)}%`, UI.detain(op) ? h("span", { class: "sub vibe bad" }, "pakka detain") : lowN ? h("span", { class: "sub" }, `${lowN} low`) : UI.susegad(op) ? h("span", { class: "sub vibe good" }, "susegad") : null].filter(Boolean)); // a null child would print "null"
     sub.replaceChildren(snap.semester, sep(), `minimum ${threshold}%`);
     for (const [id, btn] of tabs) {
       btn.classList.toggle("on", tab === id);
@@ -559,24 +558,40 @@
     else if (!tourChecked) maybeTour();
   }
 
+  // ---- first-run setup: the timetable and the all-courses absent list only reach the extension when their pages are opened.
+  // `setup` in storage says which page we are on the way to; each page's tick calls setupStep() once it has saved its data,
+  // which moves to the next page in this same tab and finally returns to Attendance.
+  const runSetup = async (needTt) => { await store.set({ setup: { s: needTt ? "tt" : "abs", at: Date.now() } }); location.assign(needTt ? "/main/timeTable" : "/main/absence"); };
+  async function setupStep(expect, nextUrl, nextState) {
+    const { setup } = await store.get({ setup: null });
+    if (setup?.s !== expect || Date.now() - setup.at > 10 * 60 * 1000) return; // a half-finished setup from long ago must not redirect later
+    await store.set({ setup: nextState && { s: nextState, at: Date.now() } });
+    setTimeout(() => location.assign(nextUrl), 900); // long enough to see the page load
+  }
+  let absEmptyAt = 0;
+
   // ---- guided tour of the pill and drawer: the first time the attendance page shows data (once; the popup can replay it)
   let drawerTour = null, tourChecked = false;
   async function maybeTour() {
     tourChecked = true;
-    const { tour } = await store.get({ tour: {} });
+    const { tour, absentList } = await store.get({ tour: {}, absentList: null });
     if (tour.drawer || !shell || drawerTour) return;
+    // Two portal pages feed the extension and only show their data once opened: the timetable and the all-courses absent list.
+    const needTt = !A?.tt, needAbs = !(absentList && absentList.rows?.length);
     const q = (k) => host?.shadowRoot?.querySelector(`[data-tour="${k}"]`);
     const show = (id) => () => { tab = id; if (!attOpen) setOpen(true); else rerender(); };
+    // The portal's own first "View Details" button (page DOM, outside our shadow root), or null: the step then shows as a centred card.
+    const viewDetailsBtn = () => [...document.querySelectorAll("button,a")].find((e) => e.textContent.trim().toLowerCase() === "view details" && e.getClientRects().length) || null;
     drawerTour = UI.tour({
       mount: host.shadowRoot,
       steps: [
-        { before: () => { if (attOpen) setOpen(false); }, target: () => shell?.pill, title: "Your attendance, on every visit", text: "This pill shows your overall %. Click it any time to open the details." },
-        { before: show("overview"), target: () => q("hero"), title: "Where you stand", text: "Your actual overall: the portal plus the hours you've marked, how far you are from your minimum, and how many classes you can bunk or must attend." },
-        { before: show("overview"), target: () => q("course"), title: "Every course", text: "Tap a course to see what it needs and when its next classes are." },
-        { before: show("plan"), target: () => shell?.tabs.get("plan"), title: "Put a bunk", text: "Pick days on a calendar and see every course before and after. 'Safe means' switches between right after the bunk, before MSE and before ESE." },
-        { before: show("overview"), title: "Marking absent hours", text: ["Got an absent hour that was really co-curricular or medical? Open that course's ", h("span", { class: "tour-em" }, "View Details and mark it"), "; your numbers update straight away."] },
-        A?.tt ? null : { title: "Last step: your timetable", text: "Open your CUE timetable once. The extension saves your weekly classes, so the Today card and Put a bunk can pick your best days. Then come back to Attendance.",
-          next: { label: "Open timetable", run: () => location.assign("/main/timeTable") } },
+        { before: () => { if (attOpen) setOpen(false); }, target: () => shell?.pill, title: "Your attendance", text: "This pill shows your overall %. Click it to open the full breakdown." },
+        { before: show("overview"), target: () => q("hero"), title: "Where you stand", text: "Your overall %, with the hours you've marked added in. Below it: how many classes you can bunk, or need to attend." },
+        { before: show("overview"), target: () => q("course"), title: "Every course", text: "Each course shows its own % and how many classes you can bunk. Tap one to see what it needs." },
+        { before: show("plan"), target: () => shell?.tabs.get("plan"), title: "Put a bunk", text: "Pick days on the calendar to see where each course would land. 'Safe means' sets the line: right after the bunk, before MSE, or before ESE." },
+        { before: () => { if (attOpen) setOpen(false); }, target: viewDetailsBtn, title: "Fix an absent hour", text: ["Was an absent hour really co-curricular or medical? Click ", h("span", { class: "tour-em" }, "View Details"), " on that course and mark it. Your numbers update at once."] },
+        needTt || needAbs ? { title: "Last step: finish setting up", text: `I'll open ${needTt ? "your Timetable, then " : ""}Absence Details for a moment so the extension can read them, then bring you back here.`,
+          next: { label: "Start setup", run: () => runSetup(needTt) } } : null,
       ].filter(Boolean),
       onEnd: async () => {
         drawerTour = null;
@@ -676,6 +691,7 @@
     const days = { ...(same ? d.timetable : {}), ...seen };
     if (JSON.stringify(days) !== JSON.stringify(d.timetable) || d.timetableSem !== d.latest) await store.set({ timetable: days, timetableSem: d.latest });
     const count = Object.values(days).reduce((n, x) => n + x.length, 0);
+    if (count) setupStep("tt", "/main/absence", "abs");
     const courses = d.snapshots[d.latest]?.courses || [], ofName = Plan.courseOf(courses);
     const unknown = courses.length ? [...new Set(Object.values(days).flat().map((c) => c.name))].filter((n) => !ofName(n)) : [];
     const sig = JSON.stringify([count, unknown]);
@@ -835,7 +851,7 @@
       const base = Calc.effective(snap, {}, {});
       const now = Calc.actual(snap, d.adjust[ctx.semester], exc2, { medInCourse: Plan.medInCourse(d.medBeforeMse) }); // the same numbers as the drawer
       const cb = base.courses.find((c) => c.key === ctx.key), cn = now.courses.find((c) => c.key === ctx.key);
-      const p = (a, s) => Calc.percent(a, s).toFixed(1);
+      const p = (a, s) => Calc.percent(a, s).toFixed(2);
       preview.replaceChildren(
         h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "Overall")), h("span", { class: "big" }, `${p(base.overall.attended, base.overall.scheduled)}% → `, h("b", { class: "good" }, `${p(now.overall.attended, now.overall.scheduled)}%`)))),
         h("div", { class: "it2 minor" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "This course")), h("span", {}, `${p(cb.attended, cb.scheduled)}% → `, h("b", { class: "good" }, `${p(cn.attended, cn.scheduled)}%`))))
@@ -1030,7 +1046,7 @@
     if (absMark && snap) {
       const base = Calc.effective(snap, {}, {}), now = Calc.effective(snap, absData.adjust, absData.excused);
       const bp = Calc.percent(base.overall.attended, base.overall.scheduled), np = Calc.percent(now.overall.attended, now.overall.scheduled);
-      preview = h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "With your marks")), h("span", { class: "big" }, `${bp.toFixed(1)}% to `, h("b", { class: np > bp ? "good" : "" }, `${np.toFixed(1)}%`))),
+      preview = h("div", { class: "it2 main" }, h("div", { class: "row" }, h("span", {}, h("b", {}, "With your marks")), h("span", { class: "big" }, `${bp.toFixed(2)}% to `, h("b", { class: np > bp ? "good" : "" }, `${np.toFixed(2)}%`))),
         h("p", { class: "sub" }, "Each mark saves straight away. Tap A to undo one. Whole day marks every hour of that day."), legendEl(true));
     }
     absShell.body.replaceChildren(...[preview, absentDays(absRows, opts)].flat(Infinity).filter(Boolean));
@@ -1049,7 +1065,11 @@
       if (c) return tickAbs({ semester: d.latest, key: code, name: c.name });
     }
     const rows = parseAllAbsences();
-    if (!rows.length) return;
+    if (!rows.length) { // no absences at all (or not drawn yet): during setup, give the table a few seconds, then carry on
+      absEmptyAt ||= Date.now();
+      if (Date.now() - absEmptyAt > 5000) setupStep("abs", "/main/attendence", null);
+      return;
+    }
     const sig = JSON.stringify(rows);
     if (absSig === sig && host?.isConnected && absShell && dock.contains(absShell.drawer)) return;
     absSig = sig;
@@ -1058,6 +1078,7 @@
       const d = await store.get({ latest: null });
       await store.set({ absentList: { sem: d.latest, at: Date.now(), rows } });
       await syncMarksFromList(rows);
+      setupStep("abs", "/main/attendence", null);
     }
     await ensureHost();
     if (!absShell || !dock.contains(absShell.drawer)) {

@@ -151,9 +151,9 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .chip.gold { background: var(--gold-bg); color: var(--gold); }
 .chip.blue { background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--blue); }
 /* "pakka detain" / "susegad": a joke aside, deliberately quieter than the status chips (no fill, no caps, no icon) */
-.vibe { font: italic 500 var(--t12)/1.4 var(--font-body); letter-spacing: .01em; white-space: nowrap; }
-.vibe.bad { color: color-mix(in srgb, var(--bad) 70%, var(--mute)); text-decoration: underline wavy color-mix(in srgb, var(--bad) 45%, transparent); text-underline-offset: 3px; } /* a teacher's red-pen squiggle */
-.vibe.good { color: color-mix(in srgb, var(--good) 70%, var(--mute)); display: inline-block; transform: rotate(-3deg); } /* leaning back, relaxed */
+.vibe { font: italic 600 var(--t13)/1.4 var(--font-body); letter-spacing: .01em; white-space: nowrap; }
+.vibe.bad { color: color-mix(in srgb, var(--bad) 88%, var(--ink)); text-decoration: underline wavy color-mix(in srgb, var(--bad) 70%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 4px; } /* a teacher's red-pen squiggle */
+.vibe.good { color: color-mix(in srgb, var(--good) 90%, var(--ink)); display: inline-block; transform: rotate(-3deg); } /* leaning back, relaxed */
 .pill .vibe.bad { text-decoration: none; }
 .cl .vibe { margin-left: 8px; }
 .cl .vibe:first-child { margin-left: 0; }
@@ -465,16 +465,27 @@ body.cue .hero .v { font-size: 36px; }
 /* ---- guided tour (UI.tour): everything dims except the hole over one element; the card explains it ---- */
 .tour { position: fixed; inset: 0; z-index: 2147483600; }
 .tour-block { position: absolute; inset: 0; }
-.tour-hole { position: fixed; border-radius: var(--r-card); box-shadow: 0 0 0 9999px color-mix(in srgb, var(--bg-deep) 78%, transparent); outline: 2px solid var(--gold-line); outline-offset: 0; pointer-events: none;
+.tour-hole { position: fixed; border-radius: var(--r-card); box-shadow: 0 0 0 9999px color-mix(in srgb, var(--bg-deep) 78%, transparent); outline: 2px solid var(--gold); outline-offset: 0; pointer-events: none;
   transition: left var(--d-acc) var(--ease), top var(--d-acc) var(--ease), width var(--d-acc) var(--ease), height var(--d-acc) var(--ease); }
 .tour-hole.none { outline-color: transparent; }
-.tour-card { position: fixed; width: min(300px, calc(100vw - 32px)); padding: var(--s4); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: 0 12px 32px color-mix(in srgb, var(--black) 45%, transparent);
+.tour-card { position: fixed; width: min(340px, calc(100vw - 32px)); padding: var(--s5) var(--s5) var(--s4); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: 0 12px 32px color-mix(in srgb, var(--black) 45%, transparent);
   transition: left var(--d-acc) var(--ease), top var(--d-acc) var(--ease); animation: tourIn var(--d-acc) var(--ease) both; }
-.tour-card .h3 { margin-top: 4px; }
-.tour-card > .sub { margin: 6px 0 0; font-size: var(--t13); }
+.tour-card .h3 { margin-top: 6px; font-size: 19px; }
+.tour-card > .sub { margin: 10px 0 0; font-size: var(--t15); line-height: 1.55; color: var(--ink); opacity: .9; }
 .tour-em { color: var(--bad); text-decoration: underline; text-underline-offset: 3px; }
-.tour-n { font: 600 var(--t12) var(--font-head); color: var(--gold); letter-spacing: .02em; }
-.tour-act { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin-top: var(--s4); }
+.tour-prog { display: flex; gap: 4px; margin: var(--s2) 0 var(--s1); }
+.tour-prog i { flex: 1; height: 3px; border-radius: 2px; background: var(--line); transition: background-color var(--d-acc) var(--ease); }
+.tour-prog i.on { background: var(--gold); }
+.tour-n { font: 600 var(--t13) var(--font-head); color: var(--gold); letter-spacing: .02em; }
+.tour-act { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin-top: var(--s5); }
+.tour-act .btn { height: 36px; font-size: var(--t13); }
 .tour-act .link { color: var(--mute); font-weight: 500; }
 .tour-btns { display: inline-flex; gap: var(--s2); }
 @keyframes tourIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ---- popup settings: grouped so it reads as short blocks, not one long list ---- */
+.setgrp-t { font: 600 var(--t12) var(--font-head); letter-spacing: .08em; text-transform: uppercase; color: var(--gold); padding: var(--s4) 0 0; }
+.setgrp-t + .it2 { border-top: 0; padding-top: var(--s2); }
+.setnote { padding: 0 0 var(--s2); }
+.stale { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s3); padding: var(--s3); border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent); border-radius: var(--r-card); background: color-mix(in srgb, var(--warn) 10%, transparent); font-size: var(--t13); line-height: 1.4; }
+.stale .btn { flex: none; }
