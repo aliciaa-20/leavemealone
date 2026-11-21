@@ -23,7 +23,7 @@
   };
   const semester = () => document.querySelector('[role="combobox"]')?.textContent.trim() || "unknown";
   const COURSE_TABLE = 'table[aria-label="coursewise attendance table"]';
-  const { h, plural, fmt, tone, mustText, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, daySeg, hrsOf, spotlight } = UI;
+  const { h, plural, fmt, tone, mustText, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, daySeg, hrsOf } = UI;
 
   // ---------------------------------------------------------------- parsing
   function parseRow(tr) {
@@ -95,7 +95,6 @@
     const style = document.createElement("style");
     style.textContent = cssText;
     shadow.append(style, dock);
-    spotlight(dock);
     document.body.append(host);
     syncGutter();
   }
