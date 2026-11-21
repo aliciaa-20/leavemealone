@@ -4,7 +4,13 @@ A Chrome / Edge extension for the CUE student portal. It reads your attendance p
 
 > **Unofficial.** This project is not affiliated with, endorsed by, or connected to CHRIST (Deemed to be University) or the ESPro / CUE portal. Numbers shown here are estimates; the portal is always the source of truth.
 
+Developed by **Alicia & Antony Co.** Free and open source.
+
 ## Get it (for students)
+
+**Chrome Web Store:** coming soon. Installing from the store is one click and updates itself.
+
+Until then, or for Edge, install it from the ZIP:
 
 **[Download the extension (ZIP)](https://github.com/antiiiiny/leavemealone/releases/latest/download/leavemealone.zip)**
 
@@ -34,7 +40,13 @@ To update, download the ZIP again, replace the old folder, and press the reload 
 
 Every rule used in the maths is in [docs/attendance_rules.md](docs/attendance_rules.md).
 
+## Contribute
+It's free and stays free. If it saved your attendance:
+- **Chip in by UPI:** the QR is on the extension's welcome page (popup → Settings → About & chip in).
+- **Build it with us:** star the repo, [report a bug](https://github.com/antiiiiny/leavemealone/issues), or send a fix. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Privacy
+Full policy: [PRIVACY.md](PRIVACY.md).
 - Everything stays in your browser (`chrome.storage.local`).
 - If more than one student logs in on CUE in the same browser, each gets their own profile, picked by the name the portal shows. Only the first name is kept, as the profile's label.
 - No requests to any server (it only loads its own bundled stylesheet and font); nothing is sent anywhere.

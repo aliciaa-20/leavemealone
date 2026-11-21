@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>leavemealone</title>
+  <link rel="stylesheet" href="ui.css">
+</head>
+<!-- Opened once on install (background.js), and from the popup (Settings → About, the support card).
+     Bundled with the extension: no network requests. The pay section stays hidden until UI.ABOUT.upi is set. -->
+<body class="cue welcome">
+  <main>
+    <header class="wl-head">
+      <img src="icons/icon-128.png" width="56" height="56" alt="">
+      <div>
+        <h1>leavemealone</h1>
+        <p class="sub">Bunk calculator for the CUE portal · by <span data-by></span></p>
+      </div>
+    </header>
+
+    <section class="blk free">
+      <h2 class="h3">You're in. Now open your attendance.</h2>
+      <ol class="wl-steps">
+        <li>Log in to CUE and open <b>Attendance</b> in <b>table view</b>.</li>
+        <li>Click the small pill at the bottom right. A short tour shows you around.</li>
+        <li>Let the tour open your <b>Timetable</b> and <b>Absence</b> pages once, so "Put a bunk" and the marks work.</li>
+      </ol>
+      <a class="btn solid cta" href="https://cue.christuniversity.in/main/attendence">Open CUE attendance</a>
+      <p class="sub wl-note">Everything stays in this browser. Nothing is sent anywhere. The portal is always the source of truth.</p>
+    </section>
+
+    <section class="blk free" id="support">
+      <h2 class="h3">Saved your bunks? Chip in.</h2>
+      <p class="sub">Totally optional. Two students build this in their free time; it stays free either way.</p>
+      <div class="wl-ways">
+        <div class="wl-way" data-pay hidden>
+          <b>Contribute by UPI</b>
+          <img class="wl-qr" src="support-qr.png" width="180" height="180" alt="UPI QR code to contribute">
+          <span class="sub">Scan with any UPI app. Any amount is a big help.</span>
+          <span class="wl-upi"><code data-upi></code> <button class="btn sm" type="button" data-copy>Copy</button></span>
+        </div>
+        <div class="wl-way">
+          <b>Build it with us</b>
+          <span class="sub">It's open source. Star it, report a bug, or send a fix: every bit counts as much as money.</span>
+          <a class="btn sm" data-repo href="#">Open on GitHub</a>
+          <a class="link" data-issues href="#">Report a bug</a>
+        </div>
+      </div>
+    </section>
+
+    <footer class="sub wl-foot"><span data-na></span> Developed by <span data-by></span>.</footer>
+  </main>
+  <script src="ui.js"></script>
+  <script src="welcome.js"></script>
+</body>
+</html>

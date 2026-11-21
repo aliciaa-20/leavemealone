@@ -7,6 +7,8 @@ const ago = (t) => {
 };
 
 const STALE_DAYS = 3; // the daily alert uses the same limit (background.js)
+const SUPPORT_DAYS = 14; // the one-time "chip in" card shows after this many days of use (installedAt, background.js)
+const WELCOME = chrome.runtime.getURL("welcome.html");
 let D = null;        // storage
 let viewSem = null;  // semester shown (defaults to the highest one)
 let skip = 0;        // what-if: classes skipped
@@ -23,7 +25,7 @@ const save = (patch) => chrome.storage.local.set(patch).then(load);
 
 function load() {
   return chrome.storage.local
-    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: null, absentList: null, tour: {}, medBeforeMse: true, profile: null, profiles: {} })
+    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: null, absentList: null, tour: {}, medBeforeMse: true, profile: null, profiles: {}, installedAt: 0, supportAsk: null })
     .then((d) => {
       D = d;
       if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
@@ -196,6 +198,13 @@ function drawAll() {
   const staleBox = stale ? h("div", { class: "stale", role: "status" },
     h("span", {}, h("b", {}, `These numbers are ${Math.floor((Date.now() - snap.syncedAt) / 86400000)} days old.`), " Open CUE attendance to refresh them."),
     h("button", { class: "btn sm", onclick: () => chrome.tabs.create({ url: CUE_URL }) }, "Refresh")) : null;
+  // Once, after SUPPORT_DAYS of use and never over the stale warning: a quiet ask to chip in. Either button ends it for good.
+  const showSupport = !stale && !D.supportAsk && D.installedAt && Date.now() - D.installedAt > SUPPORT_DAYS * 86400000;
+  const supportBox = showSupport ? h("div", { class: "support", role: "status" },
+    h("span", {}, h("b", {}, "Glad it's saving your bunks?"), " Chip in, or star it on GitHub."),
+    h("span", { class: "row" },
+      h("button", { class: "btn sm", onclick: () => save({ supportAsk: "done" }).then(() => chrome.tabs.create({ url: `${WELCOME}#support` })) }, "Chip in"),
+      h("button", { class: "link", onclick: () => save({ supportAsk: "done" }) }, "No thanks"))) : null;
   // what-if: with a timetable the next `skip` classes are charged to their own courses; without one only the overall is known
   const wiFrom = Cal.addDays(Cal.day0(), 1);
   wi = skip && D.timetable ? Plan.nextClasses(D.timetable, eff.courses, wiFrom, skip) : null;
@@ -379,6 +388,8 @@ function drawAll() {
             : h("button", { class: "btn danger sm", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase")),
         profilesRow()),
       group("Help",
+        setRow("About & chip in", `${UI.ABOUT.notAffiliated} Made by ${UI.ABOUT.by}. Open source; contributions by UPI or on GitHub.`,
+          h("button", { class: "btn sm", onclick: () => chrome.tabs.create({ url: WELCOME }) }, "Open")),
         setRow("Quick tour", "Replays the popup tour now, and the pill tour next time you open CUE attendance.", h("button", { class: "btn sm", onclick: () => chrome.storage.local.set({ tour: {} }).then(() => { D.tour = {}; startTour(); }) }, "Replay")))));
 
   // anchors for the guided tour
@@ -388,7 +399,7 @@ function drawAll() {
   if (examTiles) examTiles.dataset.tour = "exam";
   if (bestCard) bestCard.dataset.tour = "best";
 
-  app.replaceChildren(...[header, staleBox, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, UI.TAGLINE)].filter(Boolean));
+  app.replaceChildren(...[header, staleBox, supportBox, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, UI.TAGLINE)].filter(Boolean));
   document.documentElement.scrollTop = y;
 }
 

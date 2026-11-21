@@ -1,0 +1,45 @@
+# Uploads extension/ to the Chrome Web Store and submits it for review. Users then update on their own.
+# Run it by hand (Actions → "Publish to Chrome Web Store" → Run workflow) or by pushing a tag like v1.0.1.
+# Not on every push: each upload starts a store review, and the store refuses a version it already has,
+# so bump "version" in extension/manifest.json first.
+# Needs five repo secrets (Settings → Secrets and variables → Actions), never written into any file:
+#   CWS_EXTENSION_ID, CWS_PUBLISHER_ID, CWS_CLIENT_ID, CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN
+name: Publish to Chrome Web Store
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check the version
+        run: |
+          VERSION=$(jq -r .version extension/manifest.json)
+          echo "Publishing $VERSION"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v$VERSION" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} doesn't match manifest version $VERSION"; exit 1
+          fi
+
+      - name: Build leavemealone.zip
+        run: cd extension && zip -r -q ../leavemealone.zip .
+
+      - name: Upload and submit for review
+        env:
+          EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: npx --yes chrome-webstore-upload-cli@4.0.2 --source leavemealone.zip

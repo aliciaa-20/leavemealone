@@ -85,6 +85,9 @@ const UI = (() => {
   // The label for a run of days off around a day you could skip. n counts the skipped day too, so the break itself is n - 1.
   const breakTag = (n) => n >= 4 ? [`${n - 1}-day break`, `${n - 1} days off in a row. Bunking this day makes it ${n}.`] : n === 3 ? ["long weekend", "Bunking this day gives you 3 days off in a row."] : null;
   const TAGLINE = "Unofficially vibecoded UI just like this website, but better."; // the footer under every drawer, panel and the popup
+  // Who makes it and how to chip in (welcome page, popup Settings, the later support card).
+  // UPI is the public Paytm ID shown with support-qr.png; empty = the pay section stays hidden until it is set.
+  const ABOUT = { by: "Alicia & Antony Co.", repo: "https://github.com/antiiiiny/leavemealone", upi: "", notAffiliated: "Unofficial. Not affiliated with CHRIST (Deemed to be University)." };
   const chip = (kind, text, title) => h("span", { class: `chip ${kind}`, title }, text);
   const bar = (pct, thr) =>
     h("div", { class: "bar" },
@@ -344,5 +347,5 @@ const UI = (() => {
     return { refresh: place, end: () => end(false), get active() { return live; } };
   };
 
-  return { h, eseFlag, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, spotlight, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, eseFlag, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, spotlight, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, ABOUT, placeThumb, tween, pills, stepper, toggle, acc };
 })();

@@ -1,5 +1,5 @@
 # Handoff
-Last updated: 2026-11-21 · branch main · 0.7.1 (release zip built by the GitHub Action on push)
+Last updated: 2026-11-21 · branch main · 1.0.0 (first Chrome Web Store version; not submitted yet)
 
 ## State in one paragraph
 leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at version 0.7.1 (`extension/manifest.json`). 0.5.0 brought the guided tour, backup export/import, the Bangalorean copy and a cleanup pass. 0.6.0 adds: medical leave counting per course until the MSE is over (a setting, on by default), whole-day marking on both absent pages, and per-student profiles on a shared browser. Pushing a change under `extension/` runs `.github/workflows/release.yml`, which attaches `leavemealone.zip` to release `v<version>`; the README links to `releases/latest/download/leavemealone.zip`. How everything works: `CLAUDE.md`; rules for the maths: `docs/attendance_rules.md`.
@@ -17,6 +17,13 @@ leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at
 - Release Action for v0.6.0: not checked (no `gh` CLI on this laptop). Check the Actions tab / releases on github.com.
 - Still unverified from 0.5.0: tour end to end, Import file picker on Windows, `.vibe` styling.
 
+## Publishing (1.0.0, in progress)
+Built: welcome page (opens on install), popup support card after 14 days, Settings → About & chip in, `PRIVACY.md`, `CONTRIBUTING.md`, `docs/store-listing.md` (paste-ready store copy), `.github/workflows/store.yml`. Waiting on Antony:
+1. A **non-phone** Paytm UPI ID → set `UI.ABOUT.upi` and generate `extension/support-qr.png` from `upi://pay?pa=<id>&pn=Alicia%20%26%20Antony%20Co.&tn=leavemealone` (Python `qrcode`, not installed yet; run it in a scratch folder). Until then the pay block is hidden.
+2. First upload by hand in the dashboard: a zip with `manifest.json` at its root (zip the *contents* of `extension/`; the GitHub release zip has a top folder and won't do). Listing text from `docs/store-listing.md`; screenshots with invented data only.
+3. Google Cloud OAuth client + refresh token → repo secrets `CWS_EXTENSION_ID`, `CWS_PUBLISHER_ID`, `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`.
+4. Once approved: put the store link in the README's "Get it" section.
+
 ## Next steps (ordered, concrete)
 1. Confirm the v0.6.0 release zip exists and installs (Load unpacked on the unzipped `leavemealone` folder).
 2. Antony tests the three features in Chrome and reports what looks off.
@@ -28,7 +35,9 @@ leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at
 ## User decisions and preferences to respect
 - "Bunk", not "skip", in all copy; the tab is "Put a bunk".
 - "pakka detain" is tied to 75% and "susegad" to 85%, not to the user's Minimum. Jokes stay quieter than the can-bunk / attend chips.
-- Onboarding lives inside the extension (tour), never a separate welcome tab.
+- Onboarding is the in-extension tour. The one exception (decided 2026-11-21): a welcome/about tab opens once on install, mainly for the disclaimer and how to contribute.
+- Publisher name: **Alicia & Antony Co.** Always say "Unofficial, not affiliated with CHRIST (Deemed to be University)".
+- Contributions: Antony's unused Paytm UPI (payout to Antony), or open-source help on GitHub; both offered side by side.
 - Medical counts per course in full (not limited by the band) until the MSE window ends; the overall always uses the band.
 - Profiles are automatic from the portal login; settings are shared; the popup has no profile switch (to avoid saving one person's portal data into another's profile).
 - Commit when asked; **push only when Antony says "push"**.
