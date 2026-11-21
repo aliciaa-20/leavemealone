@@ -187,7 +187,7 @@ const UI = (() => {
   // Absent hours from the all-courses list (rows saved by content.js), shown day by day with the kind of absence.
   const KIND = { abs: ["bad", "absent"], cc: ["gold", "co-curricular"], med: ["blue", "medical"] };
   const hrsOf = (rows, k) => rows.filter((r) => r.kind === k).reduce((n, r) => n + r.h, 0);
-  const absentSummary = (rows) => [`${fmt(hrsOf(rows, "abs"))}h absent`, hrsOf(rows, "cc") ? [sep(), `${fmt(hrsOf(rows, "cc"))}h co-curricular`] : null, hrsOf(rows, "med") ? [sep(), `${fmt(hrsOf(rows, "med"))}h medical`] : null];
+  const absentSummary = (rows) => { const si = (t) => h("span", { class: "si" }, t); return [si(`${fmt(hrsOf(rows, "abs"))}h absent`), hrsOf(rows, "cc") ? [sep(), si(`${fmt(hrsOf(rows, "cc"))}h co-curricular`)] : null, hrsOf(rows, "med") ? [sep(), si(`${fmt(hrsOf(rows, "med"))}h medical`)] : null]; };
   // opts (optional) turns the plain-absent rows into A / C / M / L controls: { on, choices, selOf(r), canMark(r), pick(r, choice) }.
   const MARKED = { later: ["mute", "later"], cc: ["gold", "co-curricular"], med: ["blue", "medical"] };
   // Whole-day A / C / M / L: one pick for every markable hour of a day. cur = the choice all of them share (lit), else null.

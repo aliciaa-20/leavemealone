@@ -491,3 +491,12 @@ body.cue .hero .v { font-size: 44px; }
 .stale { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s3); padding: var(--s3); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); border-radius: var(--r-card); background: color-mix(in srgb, var(--warn) 8%, transparent); font-size: var(--t13); line-height: 1.4; }
 .stale .btn { flex: none; }
 .eseflag { margin: 2px 0 6px; font-weight: 600; font-size: var(--t13); text-decoration: underline wavy color-mix(in srgb, var(--bad) 70%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 4px; } /* the red line under a below-85 ESE target */
+
+/* header summary of the absent drawer: items wrap whole (no dangling separator), and long labels beside a number wrap above it */
+.sumline { display: flex; flex-wrap: wrap; gap: 0 var(--s3); }
+.sumline .sep { display: none; }
+.nw { white-space: nowrap; }
+.sub .lockg { display: block; } /* "Set by portal" always sits on its own line under type and hours */
+.it2.main > .row { flex-wrap: wrap; row-gap: var(--s1); }
+.it2.main > .row > :first-child { flex: none; white-space: nowrap; }
+.it2.main > .row > :last-child { margin-left: auto; }

@@ -927,7 +927,7 @@
 
     const hourEls = rows.map((r) => {
       const when = `${niceDate(`${r.date} ${r.day}`)}, ${nicePeriod(r.period)}`;
-      const left = (locked) => h("span", {}, h("b", {}, when), h("div", { class: "sub wrap" }, r.type, sep(), `${fmt(r.h)}h`, locked ? [sep(), ico("lock", "ic lk"), " Set by portal"] : null));
+      const left = (locked) => h("span", {}, h("b", {}, when), h("div", { class: "sub wrap" }, r.type, sep(), `${fmt(r.h)}h`, locked ? [h("span", { class: "nw lockg" }, ico("lock", "ic lk"), " Set by portal")] : null));
       if (r.portal !== "abs") { // the portal already labelled it: same control, its mark lit, the rest disabled
         return h("div", { class: "it2" }, h("div", { class: "row" }, left(true),
           h("span", { class: "seg lockd", role: "group", title: "The portal already shows this", "aria-label": `${when}: set by the portal` },
@@ -1119,7 +1119,7 @@
     if (!absShell || !dock.contains(absShell.drawer)) {
       const pill = h("button", { class: "pill", "aria-label": "Absent hours summary", "aria-expanded": "false", onclick: () => { setAbsOpen(!absOpen); ping(pill); } });
       pill.addEventListener("animationend", (e) => { if (e.animationName === "dotOrbit") pill.classList.remove("clicked"); });
-      const sub = h("div", { class: "sub" });
+      const sub = h("div", { class: "sub sumline" });
       const body = h("div", { class: "blk" });
       // A real on/off switch: the label and track change colour when marking is on.
       const markBtn = h("button", { class: "mkt", role: "switch", "aria-checked": "false", "data-key": "mark-toggle", onclick: () => { absMark = !absMark; drawAbsBody(); } }, h("span", {}, "Mark hours"), h("span", { class: "trk" }));
