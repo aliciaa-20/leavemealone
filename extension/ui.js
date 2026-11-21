@@ -181,16 +181,26 @@ const UI = (() => {
   // Accordion row: title + one-line explanation + chevron that turns when open. The caller keeps `open` state.
   // An icon tile on the left says what the card is at a glance (`icon` is a PATHS name, `tone` a colour name).
   const tile = (icon, tone = "mute") => h("span", { class: `ai t-${tone}` }, ico(icon));
-  const acc = ({ title, sub, open, ontoggle, key, icon, tone }, ...body) =>
-    h("div", { class: `acc${open ? " open" : ""}` },
-      h("button", { class: "ah", "aria-expanded": String(!!open), "data-key": key, onclick: () => ontoggle(!open) },
-        h("span", { class: "ahl" }, icon ? tile(icon, tone) : null, h("span", {}, h("b", {}, title), sub ? h("small", {}, sub) : null)), ico("chev", "ic chev")),
-      h("div", { class: "ab-wrap", inert: open ? null : "" }, h("div", { class: "ab" }, h("div", { class: "abp" }, body))));
+  // The accordion flips in place (class, aria-expanded, inert) so its height transition plays; callers only record the state and must not rebuild the screen.
+  const acc = ({ title, sub, open, ontoggle, key, icon, tone }, ...body) => {
+    const btn = h("button", { class: "ah", "aria-expanded": String(!!open), "data-key": key, onclick: () => flip() },
+      h("span", { class: "ahl" }, icon ? tile(icon, tone) : null, h("span", {}, h("b", {}, title), sub ? h("small", {}, sub) : null)), ico("chev", "ic chev"));
+    const wrap = h("div", { class: "ab-wrap", inert: open ? null : "" }, h("div", { class: "ab" }, h("div", { class: "abp" }, body)));
+    const root = h("div", { class: `acc${open ? " open" : ""}` }, btn, wrap);
+    const flip = () => {
+      const now = !root.classList.contains("open");
+      root.classList.toggle("open", now);
+      btn.setAttribute("aria-expanded", String(now));
+      wrap.toggleAttribute("inert", !now);
+      ontoggle(now);
+    };
+    return root;
+  };
 
   // Absent hours from the all-courses list (rows saved by content.js), shown day by day with the kind of absence.
   const KIND = { abs: ["bad", "absent"], cc: ["gold", "co-curricular"], med: ["blue", "medical"] };
   const hrsOf = (rows, k) => rows.filter((r) => r.kind === k).reduce((n, r) => n + r.h, 0);
-  const absentSummary = (rows) => [`${fmt(hrsOf(rows, "abs"))}h absent`, hrsOf(rows, "cc") ? [sep(), `${fmt(hrsOf(rows, "cc"))}h co-curricular`] : null, hrsOf(rows, "med") ? [sep(), `${fmt(hrsOf(rows, "med"))}h medical`] : null];
+  const absentSummary = (rows) => { const si = (t) => h("span", { class: "si" }, t); return [si(`${fmt(hrsOf(rows, "abs"))}h absent`), hrsOf(rows, "cc") ? [sep(), si(`${fmt(hrsOf(rows, "cc"))}h co-curricular`)] : null, hrsOf(rows, "med") ? [sep(), si(`${fmt(hrsOf(rows, "med"))}h medical`)] : null]; };
   // opts (optional) turns the plain-absent rows into A / C / M / L controls: { on, choices, selOf(r), canMark(r), pick(r, choice) }.
   const MARKED = { later: ["mute", "later"], cc: ["gold", "co-curricular"], med: ["blue", "medical"] };
   // Whole-day A / C / M / L: one pick for every markable hour of a day. cur = the choice all of them share (lit), else null.
