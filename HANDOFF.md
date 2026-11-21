@@ -16,12 +16,11 @@ leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at
 - In Chrome: the medical setting row, the whole-day controls, and profiles with a real second login. If a second student sees the first one's numbers, the header name probably isn't on the page (e.g. only in a menu): check `Profile.who()` in the console.
 - Release Action for v0.6.0: not checked (no `gh` CLI on this laptop). Check the Actions tab / releases on github.com.
 - Still unverified from 0.5.0: tour end to end, Import file picker on Windows, `.vibe` styling.
-- Other working Saturdays (Dec-Mar) not checked against the official 2026-27 calendar PDF: Antony needs to send it.
 
 ## Next steps (ordered, concrete)
 1. Confirm the v0.6.0 release zip exists and installs (Load unpacked on the unzipped `leavemealone` folder).
 2. Antony tests the three features in Chrome and reports what looks off.
-3. Check the calendar's working Saturdays once the PDF is shared.
+3. Calendar checked against the official 2026-27 PDF (2026-11-21): holidays and student working Saturdays match; ESE start fixed to 9 Mar. The PDF's per-month instructional-day table does not reconcile with its own listing, so it is ignored.
 4. Open copy ideas, footer tagline, "Plan on CUE" rename, Web Store listing: unchanged from the last handoff (see git history of this file, commit a9b28f8).
 
 ## User decisions and preferences to respect

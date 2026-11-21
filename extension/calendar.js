@@ -9,7 +9,7 @@ const Cal = (() => {
       to: "2027-05-31",
       semesters: [
         { name: "Odd", start: "2026-06-01", end: "2026-09-26", mse: { from: "2026-08-03", to: "2026-08-08" } }, // end = last instruction day
-        { name: "Even", start: "2026-10-27", end: "2027-03-05", mse: { from: "2027-01-04", to: "2027-01-09" }, ese: { from: "2027-03-13", to: "2027-03-24" } }, // ESE exams 13-24 Mar; the ESE planner stays open until ese.to
+        { name: "Even", start: "2026-10-27", end: "2027-03-05", mse: { from: "2027-01-04", to: "2027-01-09" }, ese: { from: "2027-03-09", to: "2027-03-24" } }, // ESE exams 9-24 Mar (UG and PG; 13-24 is MBA Executive); the ESE planner stays open until ese.to
       ],
       holidays: {
         "2026-06-26": "Muharram",

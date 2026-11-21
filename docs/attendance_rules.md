@@ -55,7 +55,7 @@ This is what the Overview, the pill, the planner, the toolbar popup and the dail
 - Sundays are off. Third Saturdays are off unless listed as working (17 Oct, 21 Nov, 19 Dec 2026). A compensatory holiday replaces a working Saturday (28 Nov for 21 Nov).
 - Holidays and vacations are listed in `calendar.js`; days with no regular classes (MSE weeks, Christmas vacation) are `noClass` ranges.
 - Odd semester: 1 Jun to 26 Sep 2026 (last instruction day), MSE 3 to 8 Aug.
-- Even semester: 27 Oct 2026 to 5 Mar 2027 (last instruction day), MSE 4 to 9 Jan 2027 (counts up to 22 Dec 2026), **ESE 13 to 24 Mar 2027**.
+- Even semester: 27 Oct 2026 to 5 Mar 2027 (last instruction day), MSE 4 to 9 Jan 2027 (counts up to 22 Dec 2026), **ESE 9 to 24 Mar 2027** (UG and PG; 13 to 24 Mar is MBA Executive). Working Saturdays and the compensatory holiday were checked against the official calendar PDF on 2026-11-21.
 - After a cutoff the planner stays as a read-only reference until the exam window ends (MSE: 9 Jan; ESE: 24 Mar); alerts stop at the cutoff.
 - A new academic year needs a new block in `YEARS`; without one the planner falls back to Monday to Saturday minus third Saturdays.
 
