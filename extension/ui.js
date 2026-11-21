@@ -87,7 +87,7 @@ const UI = (() => {
   const TAGLINE = "Unofficially vibecoded UI just like this website, but better."; // the footer under every drawer, panel and the popup
   // Who makes it and how to chip in (welcome page, popup Settings, the later support card).
   // UPI is the public Paytm ID shown with support-qr.png; empty = the pay section stays hidden until it is set.
-  const ABOUT = { by: "Alicia & Antony Co.", repo: "https://github.com/antiiiiny/leavemealone", upi: "", notAffiliated: "Unofficial. Not affiliated with CHRIST (Deemed to be University)." };
+  const ABOUT = { by: "Alicia & Antony Co.", repo: "https://github.com/antiiiiny/leavemealone", upi: "antonyjoyukken@ptyes", notAffiliated: "Unofficial. Not affiliated with CHRIST (Deemed to be University)." };
   const chip = (kind, text, title) => h("span", { class: `chip ${kind}`, title }, text);
   const bar = (pct, thr) =>
     h("div", { class: "bar" },
