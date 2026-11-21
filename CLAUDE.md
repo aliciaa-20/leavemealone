@@ -63,6 +63,7 @@ The full, current list lives in `docs/attendance_rules.md`; keep it in step with
 
 - The voice is Bangalore college slang: "bunk", never "skip" ("Put a bunk" tab, "can bunk 3", "no bunks left").
 - Jokes are tied to fixed lines, not the user's minimum: `UI.DETAIN` (75, "pakka detain") and `UI.SUSEGAD` (85, "susegad", Goan). The pill and Overview headline judge the **overall** (`UI.detain(op)`); a single low course shows "N low" on the pill, never "pakka detain". Render them only through `UI.vibeTag` / `UI.vibeLead` (`.vibe`: quiet italic aside, no fill or icon). The can-bunk / attend chips (`.chip`) must stay the loudest element; never style a joke as a chip.
+- One-sentence captions, help lines and toasts end without a period; multi-sentence paragraphs keep theirs. No exclamation marks. The footer `UI.TAGLINE` keeps its period on purpose.
 - Tour steps take `text` as a string or an array with nodes; `.tour-em` (red, underlined) highlights the one action to take.
 
 ## Look (unslop pass)

@@ -170,7 +170,7 @@
 
   // "Put a bunk today?": the next class day's classes, which of them you can skip, and what ticking some would cost.
   function todayCard(eff, threshold, t) {
-    if (!A.tt) return h("div", { class: "blk today" }, h("div", { class: "thead" }, h("b", { class: "h3" }, "Put a bunk today?")), h("p", { class: "sub" }, "Open your timetable once and this will tell you which classes you can bunk."));
+    if (!A.tt) return h("div", { class: "blk today" }, h("div", { class: "thead" }, h("b", { class: "h3" }, "Put a bunk today?")), h("p", { class: "sub" }, "Open your timetable once and this will tell you which classes you can bunk"));
     const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes(), t0 = today0();
     let date = Plan.upcomingFrom(A.tt, now), cls = [];
     for (let i = 0; i < 30; i++, date = Cal.addDays(date, 1)) {
@@ -221,18 +221,18 @@
     const need = Calc.mustAttend(c.attended, c.scheduled, t);
     const low = pct < threshold;
     const head = low ? (Number.isFinite(need) ? `Attend the next ${plural(need, "class")} to get back to ${threshold}%.` : `${threshold}% is out of reach for this course now.`)
-      : skip ? `You can bunk ${plural(skip, "class")} and stay at ${threshold}% or more.` : "No bunks left: attend every class to stay at the minimum.";
+      : skip ? `You can bunk ${plural(skip, "class")} and stay at ${threshold}% or more` : "No bunks left: attend every class to stay at the minimum";
     const lines = [h("p", {}, head)];
     const pc = effPortal.courses.find((x) => x.key === c.key), pa = pc ? Calc.percent(pc.attended, pc.scheduled) : pct;
     if (Math.abs(pct - pa) >= 0.05) {
       const parts = [c.adj.att && `${fmt(c.adj.att)}h you typed in`, c.laterHrs && `${fmt(c.laterHrs)}h marked Later`, c.ccHrs && `${fmt(c.ccHrs)}h co-curricular`, c.medInCourse && `${fmt(c.medHrs)}h medical (until MSE)`].filter(Boolean);
       lines.unshift(h("p", { class: "sub" }, `Portal shows ${pa.toFixed(1)}%.${parts.length ? ` Counted here: ${parts.join(", ")}.` : ""}`));
     }
-    if (!A.tt) lines.push(h("p", { class: "sub" }, "Open your timetable once to see the dates."));
+    if (!A.tt) lines.push(h("p", { class: "sub" }, "Open your timetable once to see the dates"));
     else {
       const n = low ? (Number.isFinite(need) ? need : 0) : 1;
       const dates = n ? Plan.courseClasses(A.tt, c, Plan.upcomingFrom(A.tt, new Date()), Math.min(n, 12)) : [];
-      if (!dates.length && n) lines.push(h("p", { class: "sub" }, "This course isn't on your timetable, so there are no dates to show."));
+      if (!dates.length && n) lines.push(h("p", { class: "sub" }, "This course isn't on your timetable, so there are no dates to show"));
       else if (dates.length) lines.push(h("div", { class: "cdates" }, low ? "" : h("span", { class: "sub" }, "Next class"), dates.map((x) => h("span", { class: "dt" }, day(x))), low && need > dates.length ? h("span", { class: "dt more" }, `+${need - dates.length} more`) : null));
     }
     return lines;
@@ -257,7 +257,7 @@
         : Calc.canSkip(o.attended, o.scheduled, t) ? `You can bunk ${plural(Calc.canSkip(o.attended, o.scheduled, t), "class")} and stay above it` : "No bunks left: one more would put you below it"),
       Math.abs(added) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(added))}h you added. The portal shows ${pp.toFixed(2)}%.`) : null,
       o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
-      o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.") : null);
+      o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal") : null);
 
     const review = effMarks.courses.filter((c) => c.stale || c.goneHrs);
     const reviewBox = review.length
@@ -338,7 +338,7 @@
       pills(opts, basis, (v) => { A.basis = v; store.set({ bunkBasis: v }); rerender(); }, { label: "Safe means", keyPrefix: "basis" }),
       basis === "end" ? h("div", { class: "opt" },
         h("span", { class: "lab" }, "ESE target, overall (%)"),
-        h("div", { class: "help" }, UI.eseFlag(esePct, Plan.ESE_OVERALL), `The overall % you need to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Courses only need your ${threshold}% minimum.`),
+        h("div", { class: "help" }, UI.eseFlag(esePct, Plan.ESE_OVERALL), `Overall % to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Each course still needs your ${threshold}% minimum.`),
         h("div", { class: "ctl-r" }, stepper(esePct, { min: Plan.ESE_MIN, max: 100, decimals: 1, label: "ESE target", key: "ese", onchange: (v) => { A.eseTarget = v; store.set({ eseTarget: v }); rerender(); } }))) : null));
     if (A.basis === "mse" && basis === "now") out.push(h("div", { class: "warnbox top" }, h("div", { class: "sub" }, "MSE isn't open for planning (no class days left before it, or it isn't in the calendar), so these are right-now numbers.")));
     if (dropped) out.push(h("div", { class: "sub note" }, `${plural(dropped, "selected day")} after the ${examName} cutoff ${dropped > 1 ? "were" : "was"} removed.`));
@@ -385,7 +385,7 @@
     } else {
       hero = h("div", { class: "hero plan" },
         h("div", { class: "v" }, "Pick a day", h("s", {}, ".")),
-        h("p", {}, "Pick days below to see what bunking them costs."));
+        h("p", {}, "Pick days below to see what bunking them costs"));
     }
     out.push(hero);
 
@@ -413,7 +413,7 @@
         ];
       });
       out.push(acc({ title: "Classes you will still attend", icon: "checks", tone: "pick", sub: [`${plural(K, "class")} bunked`, sep(), "tick to attend some"], open: accOpen.has("per"), key: "acc-per",
-        ontoggle: (v) => { v ? accOpen.add("per") : accOpen.delete("per"); rerender(); } }, days));
+        ontoggle: (v) => { v ? accOpen.add("per") : accOpen.delete("per"); } }, days));
 
       // ---- result
       const arrow = (r, dp, key) => {
@@ -442,7 +442,7 @@
             h("div", { class: "sub" }, plural(b.classes, "class")),
             UI.breakTag(b.breakDays) ? h("div", { class: "brk" }, chip("mute", ...UI.breakTag(b.breakDays)), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
         }))
-      : h("div", { class: "sub" }, "No class days left this semester."));
+      : h("div", { class: "sub" }, "No class days left this semester"));
 
     // ---- bunk budget: what each course can still skip before the cutoff
     if (bud) {
@@ -463,7 +463,7 @@
       ].filter(Boolean);
       if (planSel.size) {
         out.push(acc({ title: `Before ${examName} budget`, icon: "gauge", tone: "warn", sub: !bud.reachable ? "Out of reach" : cr.course ? [`Tightest course can bunk ${bud.spare.n}`, sep(), bud.spare.row ? (bud.spare.row.code || bud.spare.row.name) : "none matched"] : [`Can still bunk ${o.budget} overall`, sep(), left(o).replace(" until then", "")], open: accOpen.has("budget"), key: "acc-budget",
-          ontoggle: (v) => { v ? accOpen.add("budget") : accOpen.delete("budget"); rerender(); } }, rows));
+          ontoggle: (v) => { v ? accOpen.add("budget") : accOpen.delete("budget"); } }, rows));
       } else {
         out.push(h("div", { class: "sec" }, h("span", {}, past ? `At the ${examName} cutoff` : `Before ${examName}`), h("span", { class: "sub" }, dayLabel(bud.end))));
         out.push(h("div", { class: "blk" }, rows));
@@ -914,12 +914,12 @@
       if (confirming) {
         actions.replaceChildren(
           h("span", { class: "bad" }, "Reset every hour to absent?"),
-          h("button", { class: "btn danger sm", onclick: () => { drawActions(false); change(free.map((r) => r.k), "abs", "All hours reset to absent."); } }, "Yes, reset"),
+          h("button", { class: "btn danger sm", onclick: () => { drawActions(false); change(free.map((r) => r.k), "abs", "All hours reset to absent"); } }, "Yes, reset"),
           h("button", { class: "btn sm", onclick: () => drawActions(false) }, "Cancel")
         );
       } else {
         actions.replaceChildren(
-          h("button", { class: "btn sm", onclick: () => change(free.map((r) => r.k), "later", "All hours marked Later.") }, "Mark all later"),
+          h("button", { class: "btn sm", onclick: () => change(free.map((r) => r.k), "later", "All hours marked Later") }, "Mark all later"),
           h("button", { class: "btn danger sm", onclick: () => drawActions(true) }, "Reset all")
         );
       }
@@ -1206,7 +1206,7 @@
     if (!dock?.isConnected) { host?.remove(); return; }
     dock.replaceChildren(h("div", { class: "panel" },
       h("div", { class: "h3" }, "leavemealone was updated"),
-      h("p", { class: "sub" }, "Reload this page to keep using it."),
+      h("p", { class: "sub" }, "Reload this page to keep using it"),
       h("button", { class: "btn solid cta", onclick: () => location.reload() }, "Reload page")));
   }
   tick();

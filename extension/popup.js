@@ -91,7 +91,7 @@ async function exportData() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
-  dataMsg = ["good", "Backup saved to your downloads."];
+  dataMsg = ["good", "Backup saved to your downloads"];
   draw();
 }
 // Pure check of a parsed file: the known keys it carries, or null if it isn't a leavemealone backup.
@@ -109,7 +109,7 @@ function pickBackup() {
     if (!f) return;
     let b = null;
     try { b = readBackup(JSON.parse(await f.text())); } catch { b = null; }
-    if (b) { importing = b; dataMsg = null; } else { importing = null; dataMsg = ["bad", "That file isn't a leavemealone backup."]; }
+    if (b) { importing = b; dataMsg = null; } else { importing = null; dataMsg = ["bad", "That file isn't a leavemealone backup"]; }
     draw();
   } });
   document.body.append(input);
@@ -122,7 +122,7 @@ async function applyBackup() {
   await chrome.storage.local.set(data);
   viewSem = null;
   tourTried = true; // don't start the tour over an import (an imported tour flag decides next time)
-  dataMsg = ["good", "Backup imported."];
+  dataMsg = ["good", "Backup imported"];
   load();
 }
 
@@ -134,7 +134,7 @@ function dataRows() {
       ? h("div", { class: "sub", style: "margin-top:6px" },
           h("span", { class: "warn" }, `Replace your data with this backup (${plural(importing.sems, "semester")}${importing.at ? `, saved ${dayLabel(importing.at)}` : ""})? `),
           h("button", { class: "link", onclick: applyBackup }, "yes"), sep(), h("button", { class: "link", onclick: () => { importing = null; draw(); } }, "no"))
-      : h("div", { class: "sub", style: "margin-top:4px" }, "Export saves everything to a file. Import replaces what's here with a file you exported."),
+      : h("div", { class: "sub", style: "margin-top:4px" }, "Export saves a file. Import replaces your data with one"),
     dataMsg ? h("div", { class: `sub ${dataMsg[0]}`, style: "margin-top:4px" }, dataMsg[1]) : null);
 }
 
@@ -183,7 +183,7 @@ function drawAll() {
   const detained = courses.filter((c) => UI.detain(pc(c)));
   const sems = Object.keys(D.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a));
   const tn = tone(op, thr);
-  const toggleAcc = (id) => (v) => { v ? accOpen.add(id) : accOpen.delete(id); draw(); };
+  const toggleAcc = (id) => (v) => { v ? accOpen.add(id) : accOpen.delete(id); }; // the accordion flips itself in place (UI.acc); a redraw would skip its animation
 
   // ---- 1. overall
   const stale = Date.now() - snap.syncedAt > STALE_DAYS * 86400000;
@@ -212,7 +212,7 @@ function drawAll() {
       : low.length ? h("p", {}, h("b", {}, plural(low.length, "course")), ` ${low.length > 1 ? "are" : "is"} below ${thr}%.`) : h("p", {}, UI.susegad(op) ? UI.vibeLead(op) : null, `All courses are at or above ${thr}%.`),
     Math.abs(o.attended - effP.overall.attended) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(o.attended - effP.overall.attended))}h you added. The portal shows ${portalPct.toFixed(2)}%.`) : null,
     o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
-    o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.") : null,
+    o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal") : null,
     whatIf);
 
   // ---- exam countdown, best days to bunk (top 3; the full planner lives in the drawer on CUE)
@@ -243,7 +243,7 @@ function drawAll() {
     if (tiles.length || notes.length) examCard = h("div", {}, tiles.length ? h("div", { class: "exam" }, tiles) : null, notes.map((x) => h("div", { class: "sub note" }, x)));
 
     if (!D.timetable) {
-      bestCard = h("div", {}, h("div", { class: "sec" }, "Best days to bunk"), h("div", { class: "sub" }, "Open your CUE timetable once to unlock bunk planning."));
+      bestCard = h("div", {}, h("div", { class: "sec" }, "Best days to bunk"), h("div", { class: "sub" }, "Open your CUE timetable once to unlock bunk planning"));
     } else if (basis !== "now") { // before an exam any safe day is as good as another, so no list: just the planner
       bestCard = openBtn("Plan on CUE");
     } else {
@@ -257,7 +257,7 @@ function drawAll() {
                 h("div", { class: "sub" }, plural(b.classes, "class")),
                 UI.breakTag(b.breakDays) ? h("div", { class: "brk" }, chip("mute", ...UI.breakTag(b.breakDays)), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
             }))
-          : h("div", { class: "sub" }, basis === "mse" ? "No class days left before MSE." : "No class days left this semester."),
+          : h("div", { class: "sub" }, basis === "mse" ? "No class days left before MSE" : "No class days left this semester"),
         openBtn("Plan on CUE"));
     }
   }
@@ -269,7 +269,7 @@ function drawAll() {
   const safe = courses.filter((c) => pc(c) >= thr).map((c) => ({ c, n: Calc.canSkip(c.attended, c.scheduled, t) })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3);
   const safeBox = h("div", {},
     h("div", { class: "sec" }, "Safe to bunk"),
-    safe.length ? h("div", { class: "blk" }, safe.map(({ c }) => courseRow(c, thr, t, false))) : h("div", { class: "sub" }, "No bunks left right now."),
+    safe.length ? h("div", { class: "blk" }, safe.map(({ c }) => courseRow(c, thr, t, false))) : h("div", { class: "sub" }, "No bunks left right now"),
     acc({ title: "All courses", icon: "list", tone: "pick", sub: skip && wi ? "Arrows show the courses those classes belong to" : `${plural(courses.length, "course")}, including the ones above`, open: accOpen.has("all"), ontoggle: toggleAcc("all") }, courses.map((c) => courseRow(c, thr, t, true))));
 
   // ---- your marks (pending on the portal)
@@ -342,7 +342,7 @@ function drawAll() {
   const num = (v, label, onchange) => stepper(v || 0, { min: 0, max: 999, label, key: `adj-${label}`, live: true, onchange });
   const adjBox = acc({ title: "Add hours the portal is missing", icon: "clock", tone: "good", sub: "For a class the portal has not counted", open: accOpen.has("adj"), ontoggle: toggleAcc("adj") },
     D.snapshots[viewSem].hasCc
-      ? h("div", { class: "sub", style: "padding-top:12px" }, "Co-curricular claims aren't needed: the portal already includes them.")
+      ? h("div", { class: "sub", style: "padding-top:12px" }, "Co-curricular claims aren't needed: the portal already includes them")
       : h("div", { class: "row", style: "padding-top:12px" }, h("span", { class: "lbl" }, "Co-curricular hours pending"), num(adj.cocurricular, "co-curricular hours", (v) => {
           const adjust = D.adjust; (adjust[viewSem] = adjust[viewSem] || { cocurricular: 0, courses: {} }).cocurricular = v;
           save({ adjust });
@@ -359,27 +359,27 @@ function drawAll() {
   const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Minimum, ESE target, medical, alert, profiles, backup", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
     h("div", { "data-tour": "settings" },
       group("Targets",
-        setRow("Minimum %", "Used for 'can bunk', 'attend next', the colours and the alert.",
+        setRow("Minimum %", "Drives can bunk, attend next, the colours and the alert",
           stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", key: "set-min", live: true, onchange: (v) => save({ threshold: v }) })),
-        setRow("ESE target %", [UI.eseFlag(Plan.eseOf(D.eseTarget), Plan.ESE_OVERALL), `Overall % needed to sit end-sem exams (${Plan.ESE_OVERALL}% officially, ${Plan.ESE_MIN}% to 100% allowed). `,
+        setRow("ESE target %", [UI.eseFlag(Plan.eseOf(D.eseTarget), Plan.ESE_OVERALL), `Overall % to sit end-sem exams. Official ${Plan.ESE_OVERALL}%, you can set ${Plan.ESE_MIN}% to 100%. `,
           D.eseTarget != null && D.eseTarget !== Plan.ESE_OVERALL ? h("button", { class: "link", onclick: () => chrome.storage.local.remove("eseTarget").then(load) }, `Reset to ${Plan.ESE_OVERALL}%`) : null],
           stepper(Plan.eseOf(D.eseTarget), { min: Plan.ESE_MIN, max: 100, decimals: 1, label: "ESE target", key: "set-ese", onchange: (v) => save({ eseTarget: v }) })), // saved on blur/Enter or +/-: typing "8" on the way to "85" must not save 8
-        h("div", { class: "sub setnote" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course, so it isn't a setting. 'pakka detain' (below ${UI.DETAIN}%) and 'susegad' (${UI.SUSEGAD}% and up) are fixed too.`)),
+        h("div", { class: "sub setnote" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course. 'pakka detain' (below ${UI.DETAIN}%) and 'susegad' (${UI.SUSEGAD}% and up) are fixed too.`)),
       group("Counting",
-        setRow("Medical per course until MSE", "Medical hours you mark count in their own course until the MSE is over. After that they only help the overall, at 74.5% to 84.49%.",
+        setRow("Medical per course until MSE", "Marked medical hours count in their own course until MSE, then only in the overall (74.5% to 84.49%)",
           toggle(D.medBeforeMse !== false, (v) => save({ medBeforeMse: v }), "Medical per course until MSE", "set-med"))),
       group("Alerts",
-        setRow("Daily alert", "A notification once a day if a course is low.", toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert", "set-alert"))),
+        setRow("Daily alert", "A notification once a day if a course is low", toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert", "set-alert"))),
       group("Your data",
         dataRows(),
         setRow("Erase saved data",
-          "Clears synced attendance, marks, adjustments and timetables from this browser, for every profile. The portal is untouched.",
+          "Clears attendance, marks, adjustments and timetables here, for every profile. The portal is untouched.",
           confirming.has("wipe")
             ? h("span", {}, h("span", { class: "bad" }, "Erase? "), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); viewSem = null; chrome.storage.local.remove([...Profile.DATA, "profile", "profiles"]).then(load); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); draw(); } }, "no"))
             : h("button", { class: "btn danger sm", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase")),
         profilesRow()),
       group("Help",
-        setRow("Quick tour", "Replays the popup tour now, and the pill tour next time you open CUE attendance.", h("button", { class: "btn sm", onclick: () => chrome.storage.local.set({ tour: {} }).then(() => { D.tour = {}; startTour(); }) }, "Replay")))));
+        setRow("Quick tour", "Replays this tour now and the pill tour on your next CUE visit", h("button", { class: "btn sm", onclick: () => chrome.storage.local.set({ tour: {} }).then(() => { D.tour = {}; startTour(); }) }, "Replay")))));
 
   // anchors for the guided tour
   overall.dataset.tour = "hero";
