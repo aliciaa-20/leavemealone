@@ -4,116 +4,102 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>leavemealone</title>
-  <meta name="description" content="How to start with leavemealone, how to chip in, and how to report a bug.">
+  <meta name="description" content="Getting started with leavemealone, chipping in, and reporting a bug.">
   <link rel="icon" href="icons/icon-32.png">
   <link rel="stylesheet" href="welcome.css">
 </head>
 <!-- The welcome / about page. Opened once on install (background.js) and from the popup's Help & support block.
-     Its own light design (welcome.css), not the extension's navy theme. Bundled: no network requests;
+     Its own light design (welcome.css), not the extension's dark theme. Bundled: no network requests;
      links open in new tabs. Filled in by welcome.js from UI.ABOUT (ui.js). -->
 <body>
-  <a class="skip" href="#start">Skip to content</a>
-  <header class="bar wrap">
-    <span class="brand"><img src="icons/icon-32.png" width="24" height="24" alt=""> leavemealone</span>
-    <nav aria-label="Page">
-      <a class="ul" href="#start">Start</a>
-      <a class="ul" href="#support">Chip in</a>
-      <a class="ul" href="#report">Report a bug</a>
-    </nav>
-  </header>
+  <div class="page">
+    <header class="top">
+      <span class="brand"><img src="icons/icon-32.png" width="22" height="22" alt=""> leavemealone <small data-ver></small></span>
+      <a class="ul" data-repo href="#">GitHub</a>
+    </header>
 
-  <main id="start">
-    <section class="hero wrap">
-      <div data-enter>
-        <p class="eyebrow">Attendance calculator for the CUE portal</p>
-        <h1>Know exactly how many classes you can bunk.</h1>
-        <p class="lead">Per course and overall, for MSE and ESE, worked out from your own CUE attendance page. Nothing leaves this browser.</p>
-        <div class="actions">
-          <a class="btn primary" href="https://cue.christuniversity.in/main/attendence">Open CUE attendance</a>
-          <a class="btn" href="#support">Chip in</a>
-        </div>
+    <!-- 1. Hello + how to start, with a peek at what it shows (invented numbers, never a real student's) -->
+    <section class="hello" id="start">
+      <div class="hello-text">
+        <p class="kicker">Installed. Nice.</p>
+        <h1>Your bunk maths, sorted.</h1>
+        <ol class="steps">
+          <li><i>1</i><span>Open <b>Attendance</b> on CUE, in table view.</span></li>
+          <li><i>2</i><span>Click the small pill at the bottom right.</span></li>
+          <li><i>3</i><span>Follow the short tour. It grabs your timetable once.</span></li>
+        </ol>
+        <a class="btn gold" href="https://cue.christuniversity.in/main/attendence">Open CUE attendance</a>
       </div>
-      <!-- What the drawer shows, with invented numbers (never a real student's). -->
-      <div class="demo" aria-label="Example of what leavemealone shows" role="img" data-enter>
-        <div class="demo-top"><span>Overall</span><b>82.41%</b></div>
-        <div class="demo-bar"><i style="width:82%"></i><u style="left:75%"></u></div>
+      <div class="peek" role="img" aria-label="Example of what leavemealone shows">
+        <div class="peek-top"><span>Overall</span><b>82.41%</b></div>
+        <div class="peek-bar"><i style="width:82%"></i><u style="left:75%"></u></div>
         <ul>
-          <li><span>Data Structures</span><em>88%</em><mark class="ok">can bunk 4</mark></li>
-          <li><span>Computer Networks</span><em>79%</em><mark class="ok">can bunk 1</mark></li>
-          <li><span>Operating Systems</span><em>73%</em><mark class="no">attend next 3</mark></li>
+          <li><span>Data Structures</span><mark class="ok">can bunk 4</mark></li>
+          <li><span>Computer Networks</span><mark class="ok">can bunk 1</mark></li>
+          <li><span>Operating Systems</span><mark class="no">attend next 3</mark></li>
         </ul>
       </div>
     </section>
 
-    <section class="wrap block" aria-labelledby="steps-h">
-      <h2 id="steps-h">Three steps to your first number</h2>
-      <ol class="steps">
-        <li><b>Open Attendance</b><span>Log in to CUE and open Attendance in table view.</span></li>
-        <li><b>Click the pill</b><span>A small pill appears at the bottom right. A short tour shows you around.</span></li>
-        <li><b>Let the tour finish</b><span>It opens your Timetable and Absence pages once, so planning and marking work.</span></li>
-      </ol>
+    <!-- 2. Chip in: UPI and GitHub side by side -->
+    <section class="grid" id="chip">
+      <article class="card pay" data-pay hidden>
+        <div>
+          <h2>Chip in</h2>
+          <p>Free, made by two students. If it saved your attendance, a chai's worth keeps it going.</p>
+          <div class="upi"><code data-upi></code><button class="btn small" type="button" data-copy>Copy</button></div>
+        </div>
+        <button class="qr-thumb" type="button" data-qr-open aria-label="Show the UPI QR code larger">
+          <img src="support-qr.png" width="104" height="104" alt="">
+          <span>Tap to scan</span>
+        </button>
+      </article>
+      <article class="card">
+        <h2>Build it with us</h2>
+        <p>It's open source. A star, an idea or a fix counts as much as money.</p>
+        <div class="row">
+          <a class="btn small" data-repo href="#">Star on GitHub</a>
+          <a class="ul" data-contrib href="#">How to contribute</a>
+        </div>
+      </article>
     </section>
 
-    <section class="wrap block" id="support" aria-labelledby="support-h">
-      <h2 id="support-h">Saved your attendance? Chip in.</h2>
-      <p class="lead">Two students build this in their free time. It stays free whether you pay or not.</p>
-      <div class="ways">
-        <article class="card" data-pay hidden>
-          <h3>Pay by UPI</h3>
-          <img class="qr" src="support-qr.png" width="168" height="168" alt="UPI QR code for leavemealone">
-          <p>Scan with GPay, PhonePe, Paytm or any UPI app. Any amount helps.</p>
-          <div class="upi"><code data-upi></code><button class="btn small" type="button" data-copy>Copy UPI ID</button></div>
-        </article>
-        <article class="card">
-          <h3>Build it with us</h3>
-          <p>It's open source. A star, a bug report or a fix helps as much as money.</p>
-          <div class="actions">
-            <a class="btn" data-repo href="#">Star on GitHub</a>
-            <a class="ul" data-contrib href="#">How to contribute</a>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section class="wrap block" id="report" aria-labelledby="report-h">
-      <h2 id="report-h">Report a bug or ask for a feature</h2>
-      <p class="lead">Fill this in and GitHub opens with your issue written out. Sign in (free) and press Submit. Leave out your name and attendance numbers.</p>
-      <form class="card form" data-report novalidate>
+    <!-- 3. Report: opens a pre-filled GitHub issue; the extension itself sends nothing -->
+    <section class="card" id="report">
+      <h2>Something off?</h2>
+      <p>Tell us here and GitHub opens with it written out. Sign in and press Submit. Skip your name and real numbers.</p>
+      <form class="form" data-report novalidate>
         <label>Type
-          <select name="kind">
-            <option>Bug</option>
-            <option>Feature idea</option>
-            <option>Wrong number</option>
-          </select>
+          <select name="kind"><option>Bug</option><option>Feature idea</option><option>Wrong number</option></select>
         </label>
         <label>Where
           <select name="where">
-            <option>Attendance page (pill or drawer)</option>
-            <option>Absent details / Absence list</option>
-            <option>Put a bunk</option>
-            <option>Toolbar popup</option>
-            <option>Timetable</option>
-            <option>Something else</option>
+            <option>Attendance page</option><option>Absent details</option><option>Put a bunk</option>
+            <option>Toolbar popup</option><option>Timetable</option><option>Somewhere else</option>
           </select>
         </label>
-        <label class="full">Short title
-          <input name="title" required maxlength="120" placeholder="e.g. Pill shows 0% after switching semester">
+        <label class="full">Title
+          <input name="title" required maxlength="120" placeholder="Pill shows 0% after switching semester">
           <span class="err" data-err hidden>Add a short title.</span>
         </label>
-        <label class="full">What happened, and what did you expect?
-          <textarea name="details" rows="5"></textarea>
+        <label class="full">What happened?
+          <textarea name="details" rows="3" placeholder="What you did, what you saw, what you expected"></textarea>
         </label>
-        <div class="full actions">
-          <button class="btn primary" type="submit">Continue on GitHub</button>
-        </div>
+        <div class="full"><button class="btn navy" type="submit">Continue on GitHub</button></div>
       </form>
     </section>
-  </main>
 
-  <footer class="wrap foot">
-    <p><span data-na></span></p>
-    <p>Developed by <span data-by></span> · <a class="ul" data-repo href="#">GitHub</a> · <a class="ul" data-privacy href="#">Privacy</a></p>
-  </footer>
+    <footer class="foot"><span data-na></span> Made by <span data-by></span> · <a class="ul" data-privacy href="#">Privacy</a></footer>
+  </div>
+
+  <!-- The QR, centre stage -->
+  <dialog class="qr-big" data-qr aria-label="UPI QR code">
+    <img src="support-qr.png" width="280" height="280" alt="UPI QR code for leavemealone">
+    <p>Scan with GPay, PhonePe, Paytm or any UPI app</p>
+    <code data-upi></code>
+    <button class="btn small" type="button" data-qr-close>Done</button>
+  </dialog>
+
   <script src="ui.js"></script>
   <script src="welcome.js"></script>
 </body>
