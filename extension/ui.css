@@ -180,6 +180,9 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .ctl { margin-bottom: var(--s4); }
 .ctl > .sub { margin-bottom: 6px; }
 .ctl .row { margin-top: var(--s3); }
+.ctl .row + .sub, .ctl .row + .eseflag { margin-top: var(--s2); } /* the help text no longer hugs the stepper */
+.ctl > .sub:last-child { margin-bottom: 0; line-height: 1.5; }
+.ctl > .eseflag + .sub { margin-top: 0; }
 
 /* segmented pills (tabs and "Safe means") */
 .pills { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: var(--r-ctl); margin-bottom: var(--s4); }
@@ -489,3 +492,4 @@ body.cue .hero .v { font-size: 36px; }
 .setnote { padding: 0 0 var(--s2); }
 .stale { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s3); padding: var(--s3); border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent); border-radius: var(--r-card); background: color-mix(in srgb, var(--warn) 10%, transparent); font-size: var(--t13); line-height: 1.4; }
 .stale .btn { flex: none; }
+.eseflag { margin: 2px 0 6px; font-weight: 600; font-size: var(--t13); text-decoration: underline wavy color-mix(in srgb, var(--bad) 70%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 4px; } /* the red line under a below-85 ESE target */

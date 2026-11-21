@@ -23,7 +23,7 @@ const save = (patch) => chrome.storage.local.set(patch).then(load);
 
 function load() {
   return chrome.storage.local
-    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: undefined, absentList: null, tour: {}, medBeforeMse: true, profile: null, profiles: {} })
+    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: null, absentList: null, tour: {}, medBeforeMse: true, profile: null, profiles: {} })
     .then((d) => {
       D = d;
       if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
@@ -80,7 +80,7 @@ function profilesRow() {
 chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && "profile" in ch && D && ch.profile.newValue !== D.profile) { viewSem = null; load(); } });
 
 // ---- backup: export / import everything the extension keeps
-const KEYS = ["snapshots", "latest", "adjust", "excused", "lastCourse", "timetable", "timetableSem", "absentList", "profile", "profiles", "threshold", "alerts", "sortBy", "bunkBasis", "eseTarget", "medBeforeMse", "tour"];
+const KEYS = ["snapshots", "latest", "adjust", "excused", "lastCourse", "timetable", "timetableSem", "absentList", "bunkPlan", "profile", "profiles", "threshold", "alerts", "sortBy", "bunkBasis", "eseTarget", "medBeforeMse", "tour"];
 async function exportData() {
   const data = await chrome.storage.local.get(KEYS);
   const n = new Date(), ymd = Cal.key(n);
@@ -221,7 +221,7 @@ function drawAll() {
     const today = Cal.day0();
     const from = Cal.addDays(today, 1);
     const basis = Plan.resolveBasis(D.bunkBasis, from);
-    const esePct = Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL));
+    const esePct = Plan.eseOf(D.eseTarget);
     const line = Plan.thresholdFor(basis, t, esePct);
 
     const days = (d) => plural(Math.round((d - today) / 86400000), "day");
@@ -229,9 +229,9 @@ function drawAll() {
     const tiles = [];
     if (mse && mse.from > today) tiles.push(h("div", {}, h("b", {}, days(mse.from)), h("span", {}, "to MSE", sep(), `need ${Math.round(Plan.MSE_MIN * 100)}%`)));
     const eseStart = eseWin && eseWin.from > today ? eseWin.from : eseEnd; // the exams start after the last class day
-    if (eseStart) tiles.push(h("div", {}, h("b", {}, days(eseStart)), h("span", {}, "to ESE", sep(), `target ${esePct}%`)));
+    if (eseStart) tiles.push(h("div", {}, h("b", {}, days(eseStart)), h("span", {}, "to ESE", sep(), h("span", { class: esePct < Plan.ESE_OVERALL ? "bad" : null }, `target ${esePct}%`))));
     const notes = [];
-    if (eseStart) { const gap = op - esePct; notes.push(`ESE: your overall is ${Math.abs(gap).toFixed(2)} points ${gap >= 0 ? "above" : "below"} the ${esePct}% target.`); }
+    if (eseStart) { const gap = op - esePct; notes.push(`ESE: your overall is ${Math.abs(gap).toFixed(2)} points ${gap >= 0 ? "above" : "below"} the ${esePct}% target${esePct < Plan.ESE_OVERALL ? `, which is under the official ${Plan.ESE_OVERALL}%` : ""}.`); }
     if (mse && mse.from > today && mseCut) notes.push(`MSE starts ${dayLabel(mse.from)}, attendance counts till ${dayLabel(mseCut)}.`);
     const mb = D.timetable && mseCut ? Plan.budgets({ eff, tt: D.timetable, basis: "mse", t: Plan.MSE_MIN, from }) : null;
     if (mb) {
@@ -361,9 +361,9 @@ function drawAll() {
       group("Targets",
         setRow("Minimum %", "Used for 'can bunk', 'attend next', the colours and the alert.",
           stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", key: "set-min", live: true, onchange: (v) => save({ threshold: v }) })),
-        setRow("ESE target %", [`Overall % needed to sit end-sem exams (${Plan.ESE_OVERALL}% officially). Change it if your department says otherwise. `,
+        setRow("ESE target %", [UI.eseFlag(Plan.eseOf(D.eseTarget), Plan.ESE_OVERALL), `Overall % needed to sit end-sem exams (${Plan.ESE_OVERALL}% officially, ${Plan.ESE_MIN}% to 100% allowed). `,
           D.eseTarget != null && D.eseTarget !== Plan.ESE_OVERALL ? h("button", { class: "link", onclick: () => chrome.storage.local.remove("eseTarget").then(load) }, `Reset to ${Plan.ESE_OVERALL}%`) : null],
-          stepper(Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL)), { min: 50, max: 100, label: "ESE target", key: "set-ese", onchange: (v) => save({ eseTarget: v }) })), // saved on blur/Enter or +/-: typing "8" on the way to "85" must not save 8
+          stepper(Plan.eseOf(D.eseTarget), { min: Plan.ESE_MIN, max: 100, decimals: 1, label: "ESE target", key: "set-ese", onchange: (v) => save({ eseTarget: v }) })), // saved on blur/Enter or +/-: typing "8" on the way to "85" must not save 8
         h("div", { class: "sub setnote" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course, so it isn't a setting. 'pakka detain' (below ${UI.DETAIN}%) and 'susegad' (${UI.SUSEGAD}% and up) are fixed too.`)),
       group("Counting",
         setRow("Medical per course until MSE", "Medical hours you mark count in their own course until the MSE is over. After that they only help the overall, at 74.5% to 84.49%.",

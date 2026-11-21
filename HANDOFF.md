@@ -1,8 +1,8 @@
 # Handoff
-Last updated: 2026-11-21 · branch main · 0.7.0 (release zip built by the GitHub Action on push)
+Last updated: 2026-11-21 · branch main · 0.7.1 (release zip built by the GitHub Action on push)
 
 ## State in one paragraph
-leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at version 0.7.0 (`extension/manifest.json`). 0.5.0 brought the guided tour, backup export/import, the Bangalorean copy and a cleanup pass. 0.6.0 adds: medical leave counting per course until the MSE is over (a setting, on by default), whole-day marking on both absent pages, and per-student profiles on a shared browser. Pushing a change under `extension/` runs `.github/workflows/release.yml`, which attaches `leavemealone.zip` to release `v<version>`; the README links to `releases/latest/download/leavemealone.zip`. How everything works: `CLAUDE.md`; rules for the maths: `docs/attendance_rules.md`.
+leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at version 0.7.1 (`extension/manifest.json`). 0.5.0 brought the guided tour, backup export/import, the Bangalorean copy and a cleanup pass. 0.6.0 adds: medical leave counting per course until the MSE is over (a setting, on by default), whole-day marking on both absent pages, and per-student profiles on a shared browser. Pushing a change under `extension/` runs `.github/workflows/release.yml`, which attaches `leavemealone.zip` to release `v<version>`; the README links to `releases/latest/download/leavemealone.zip`. How everything works: `CLAUDE.md`; rules for the maths: `docs/attendance_rules.md`.
 
 ## Done this session (and how it was verified)
 - **Medical per course until MSE** (`Calc.actual(..., { medInCourse })`, `Plan.medInCourse(setting)`, storage `medBeforeMse`). Node test: course 30/40 + 3h medical shows 33/40 through 9 Jan 2027 and 30/40 from 10 Jan, and 30/40 with the setting off; the overall's 74.5-85% band is unchanged.

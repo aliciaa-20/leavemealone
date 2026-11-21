@@ -47,6 +47,7 @@ This is what the Overview, the pill, the planner, the toolbar popup and the dail
 - **Cutoff:** MSE counts up to the last class day before the MSE window. ESE counts up to the last instruction day.
 - **Courses vs timetable:** a course is matched to the timetable by upper-cased name. A course that never matches has no known classes left, so it is flagged "not in timetable" instead of being judged.
 - **Budgets** (before MSE / ESE): MSE shows what each course can still skip (the tightest course sets the headline); ESE shows the overall. "Out of reach" = even attending everything cannot reach the line.
+- **Saved plan:** the days you pick are autosaved per semester (past days are dropped) and only used by the planner. They are a what-if: your attendance, the Overview, the popup and the alert never include them.
 - **Best days:** safe days first, then longer breaks, then days with fewer classes.
 - **Skip today?:** the next class day that still has a class (a class that has ended today is not offered). Each class is "can skip" when skipping that one class alone keeps its course at or above your minimum.
 - **Break length:** the run of days off (holidays, Sundays, non-working Saturdays) around a day. The label counts the break itself; skipping the day makes it one longer ("3-day break", skipping makes 4). A plain weekend plus a skipped day is a "long weekend".
@@ -65,7 +66,7 @@ Saved from the portal's Timetable page, one week at a time, keyed by weekday. Sa
 ## 8. Alerts (`background.js`)
 Once a day: a notification if any course (actual numbers) is below your minimum; a "data is N days old" note after 3 days (also added when a course is low); and, if a timetable is saved, a warning for courses that cannot reach 75% by MSE ("out of reach") or have no spare class left within 7 days of it. Nothing is sent after the MSE cutoff or if alerts are turned off.
 
-**ESE target:** 85% overall officially (`Plan.ESE_OVERALL`); the user may set 50 to 100. The popup's exam card says how many points the overall is above or below it.
+**ESE target:** 85% overall officially (`Plan.ESE_OVERALL`); the user may set 74.5 to 100 (the medical-leave floor); anything under 85 is flagged in red ("fine you will pay uh?"). The popup's exam card says how many points the overall is above or below it.
 
 **Stale data in the popup:** more than 3 days since the last sync (`STALE_DAYS` in `popup.js`, the same limit as the alert) turns the "synced ... ago" text amber and shows a banner with a Refresh button. The pill never shows it: it only exists on the attendance page, which re-reads the data every tick.
 

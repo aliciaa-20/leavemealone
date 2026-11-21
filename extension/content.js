@@ -121,6 +121,7 @@
   let effPortal = null;          // what the portal itself shows (nothing of yours added), for the Overview's "Portal" line
   let effMarks = null;           // your actual numbers (same object as `eff` in renderAtt), used by the review notice and the extras block
   let tab = "overview";          // "overview" | "plan"
+  let planKey = null, planSaved = ""; // which semester's saved bunk plan planSel holds, and what was last written for it
   let planSel = new Map();       // dayKey -> Set(periods SKIPPED) | null (whole day skipped). The view shows ticked = attending.
   let planMonth = 0;             // months after the first plannable month
   let todayPick = new Set();     // periods ticked on the "skip today?" card
@@ -308,10 +309,10 @@
     const from = Cal.addDays(today0(), 1);
     // A saved "mse" basis only holds while MSE is still ahead; `line` is the fraction that counts as safe.
     const basis = Plan.resolveBasis(A.basis, from);
-    const esePct = Math.min(100, Math.max(1, A.eseTarget ?? Plan.ESE_OVERALL)); // ESE: the overall target, 85% unless you change it
+    const esePct = Plan.eseOf(A.eseTarget); // ESE: the overall target, 85% unless you change it
     const line = Plan.thresholdFor(basis, t, esePct);
-    const linePct = Math.round(line * 100);
-    const cr = Plan.criteria(basis), cLinePct = Math.round(Plan.courseLine(basis, line) * 100); // MSE: every course at the line, no overall; ESE: the overall at the line, courses at the plain minimum
+    const linePct = +(line * 100).toFixed(1);
+    const cr = Plan.criteria(basis), cLinePct = +(Plan.courseLine(basis, line) * 100).toFixed(1); // MSE: every course at the line, no overall; ESE: the overall at the line, courses at the plain minimum
     const end = Plan.horizon(basis, from);
     const examName = basis === "mse" ? "MSE" : "ESE";
     const past = basis !== "now" && !!end && end < from; // the cutoff has gone by (exam window still on): a reference, nothing left to plan
@@ -337,7 +338,8 @@
       h("div", { class: "sub" }, "Safe means"),
       pills(opts, basis, (v) => { A.basis = v; store.set({ bunkBasis: v }); rerender(); }, { label: "Safe means", keyPrefix: "basis" }),
       basis === "end" ? [h("div", { class: "row" }, h("span", { class: "sub" }, "My ESE target, overall (%)"),
-        stepper(esePct, { min: 50, max: 100, label: "ESE target", key: "ese", onchange: (v) => { A.eseTarget = v; store.set({ eseTarget: v }); rerender(); } })),
+        stepper(esePct, { min: Plan.ESE_MIN, max: 100, decimals: 1, label: "ESE target", key: "ese", onchange: (v) => { A.eseTarget = v; store.set({ eseTarget: v }); rerender(); } })),
+        UI.eseFlag(esePct, Plan.ESE_OVERALL),
         h("div", { class: "sub" }, `The overall % you need to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Courses only need your ${threshold}% minimum.`)] : null));
     if (A.basis === "mse" && basis === "now") out.push(h("div", { class: "warnbox top" }, h("div", { class: "sub" }, "MSE isn't open for planning (no class days left before it, or it isn't in the calendar), so these are right-now numbers.")));
     if (dropped) out.push(h("div", { class: "sub note" }, `${plural(dropped, "selected day")} after the ${examName} cutoff ${dropped > 1 ? "were" : "was"} removed.`));
@@ -516,10 +518,26 @@
         h("span", {}, "• classes that day")));
   }
 
+  // The plan only feeds the Put a bunk tab: nothing here touches your attendance numbers, the Overview or the popup.
+  const planOut = () => JSON.stringify([...planSel].sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => [k, v && [...v].sort()]));
+  function persistPlan() {
+    const out = planOut();
+    if (out === planSaved || !planKey) return;
+    planSaved = out;
+    const sem = planKey;
+    store.get({ bunkPlan: {} }).then((d) => { const all = { ...d.bunkPlan }; if (out === "[]") delete all[sem]; else all[sem] = JSON.parse(out); return store.set({ bunkPlan: all }); });
+  }
   async function renderAtt(state) {
     A = state;
     attOpen = A.open;
     const { snap, threshold } = A;
+    // The Put a bunk selection is a saved plan: first render for a semester (or after switching student) brings it back; past days are dropped.
+    if (planKey !== snap.semester) {
+      planKey = snap.semester;
+      const today = Cal.key(today0());
+      planSel = new Map((A.bunkPlan?.[planKey] || []).filter(([k]) => k >= today).map(([k, v]) => [k, v && new Set(v)]));
+      planSaved = planOut();
+    }
     const eff = Calc.actual(snap, A.adj, A.exc, { medInCourse: Plan.medInCourse(A.medBeforeMse) }); // your actual attendance: everything in the drawer uses it
     effMarks = eff;
     effPortal = Calc.effective(snap, {}, {}); // what the portal itself shows, for the "portal" line
@@ -552,6 +570,7 @@
     if (A.open) growBars = false;
     body.replaceChildren(...[tab === "plan" ? planView(eff, threshold, t) : overviewView(eff, threshold, t)].flat(Infinity).filter((x) => x != null && x !== false)); // views return arrays
     lastPicked = null;
+    persistPlan(); // after planView has clipped the selection
     placeThumb(shell.tabsBox, "tabs");
     if (focusKey) restoreFocus(focusKey);
     if (drawerTour?.active) drawerTour.refresh();
@@ -654,7 +673,7 @@
     const snap = parseCourses();
     if (!snap) { noteUnread(); return; }
     unreadSince = 0; unreadShown = false;
-    const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, sortBy: "portal", timetable: null, bunkBasis: "now", eseTarget: undefined, medBeforeMse: true });
+    const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, sortBy: "portal", timetable: null, bunkBasis: "now", eseTarget: null, medBeforeMse: true, bunkPlan: {} });
     const prev = d.snapshots[snap.semester];
     const same = prev && JSON.stringify([prev.overall, prev.courses, prev.hasCc]) === JSON.stringify([snap.overall, snap.courses, snap.hasCc]);
     if (same && Date.now() - prev.syncedAt < 60000) snap.syncedAt = prev.syncedAt; // unchanged: don't rewrite storage on every tick
@@ -663,7 +682,7 @@
     if (!same || snap.syncedAt !== prev.syncedAt || d.latest !== latest) await store.set({ snapshots: d.snapshots, latest });
     renderAtt({
       snap, threshold: d.threshold, adj: d.adjust[snap.semester], exc: d.excused[snap.semester],
-      open: attOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis, eseTarget: d.eseTarget, medBeforeMse: d.medBeforeMse,
+      open: attOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis, eseTarget: d.eseTarget, medBeforeMse: d.medBeforeMse, bunkPlan: d.bunkPlan,
     });
   }
 
@@ -1136,7 +1155,7 @@
         profileId = id;
         switching = false;
         if (swapped) { // another student's data: drop what this tab was showing for the last one
-          planSel = new Map(); todayPick = new Set(); courseOpen.clear(); planMonth = 0;
+          planSel = new Map(); planKey = null; todayPick = new Set(); courseOpen.clear(); planMonth = 0;
           attSig = ""; absSig = ""; ttSig = ""; absData = null;
         }
         tick();

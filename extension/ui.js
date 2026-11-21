@@ -31,6 +31,8 @@ const UI = (() => {
     : susegad(pct) ? h("span", { class: "vibe good", title: `${SUSEGAD}% or more: relax` }, "susegad") : null;
   // The same aside as a lead-in for a headline ("pakka detain · ..."), or null. The real message stays the main text.
   const vibeLead = (pct) => { const t = vibeTag(pct); return t ? [t, " "] : null; };
+  // Below the official ESE overall the user can still choose their own target, but it is flagged in red.
+  const eseFlag = (pct, official) => (pct < official ? h("div", { class: "sub bad eseflag", role: "status" }, "fine you will pay uh?") : null);
   const tone = (pct, thr) => (pct < thr ? "bad" : pct < thr + 10 ? "warn" : "good");
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -139,10 +141,11 @@ const UI = (() => {
   // The number can be typed too: digits only, clamped to min..max. It commits on Enter or blur and, with `live`,
   // also 400ms after typing stops (the popup uses that, so a typed value survives the popup closing).
   // Escape puts the last committed value back.
-  const stepper = (value, { min = 0, max = 999, onchange, label, key, live = false }) => {
+  const stepper = (value, { min = 0, max = 999, onchange, label, key, live = false, decimals = 0 }) => {
+    const rnd = (n) => (decimals ? Math.round(n * 10 ** decimals) / 10 ** decimals : Math.round(n)); // decimals: 1 allows 74.5
     let cur = value, timer = 0;
-    const dec = h("button", { "aria-label": `Decrease ${label || ""}`.trim(), "data-key": key ? `${key}-dec` : null, onclick: () => set(cur - 1) }, "−");
-    const inc = h("button", { "aria-label": `Increase ${label || ""}`.trim(), "data-key": key ? `${key}-inc` : null, onclick: () => set(cur + 1) }, "+");
+    const dec = h("button", { "aria-label": `Decrease ${label || ""}`.trim(), "data-key": key ? `${key}-dec` : null, onclick: () => set(rnd(cur - 1)) }, "−");
+    const inc = h("button", { "aria-label": `Increase ${label || ""}`.trim(), "data-key": key ? `${key}-inc` : null, onclick: () => set(rnd(cur + 1)) }, "+");
     const sync = () => { input.value = String(cur); dec.disabled = cur <= min; inc.disabled = cur >= max; };
     function set(n) {
       const v = Math.min(max, Math.max(min, n));
@@ -151,16 +154,16 @@ const UI = (() => {
     }
     const commitTyped = (fromBlur) => {
       clearTimeout(timer);
-      const n = parseInt(input.value, 10);
+      const n = decimals ? parseFloat(input.value) : parseInt(input.value, 10);
       if (Number.isNaN(n)) { if (fromBlur) sync(); return; }
-      const v = Math.min(max, Math.max(min, n));
+      const v = Math.min(max, Math.max(min, rnd(n)));
       if (fromBlur) input.value = String(v); // while typing, leave the text alone: "8" on the way to "85" must not jump
       if (v !== cur) { cur = v; dec.disabled = cur <= min; inc.disabled = cur >= max; onchange(v); }
     };
     const input = h("input", { class: "stv", type: "text", inputmode: "numeric", autocomplete: "off", "aria-label": label || "value", "data-key": key ? `${key}-val` : null, value: String(value),
       onfocus: (e) => e.target.select(),
       oninput: (e) => {
-        e.target.value = e.target.value.replace(/\D/g, "").slice(0, 3);
+        e.target.value = decimals ? e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 5) : e.target.value.replace(/\D/g, "").slice(0, 3);
         if (live) { clearTimeout(timer); timer = setTimeout(() => commitTyped(false), 400); }
       },
       onkeydown: (e) => { if (e.key === "Enter") e.target.blur(); else if (e.key === "Escape") { clearTimeout(timer); sync(); e.target.blur(); } e.stopPropagation(); },
@@ -341,5 +344,5 @@ const UI = (() => {
     return { refresh: place, end: () => end(false), get active() { return live; } };
   };
 
-  return { h, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, spotlight, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, eseFlag, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, spotlight, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
 })();

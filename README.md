@@ -21,7 +21,7 @@ To update, download the ZIP again, replace the old folder, and press the reload 
 - Tells you per course and overall: **can skip N** or **attend next N**.
 - **Skip today?** lists the next class day's classes and which you can skip.
 - Tap a course to see **what it needs**, with the real dates of its next classes.
-- **Put a bunk:** pick days on a calendar, see the cost, get best days to bunk.
+- **Put a bunk:** pick days on a calendar, see the cost, get best days to bunk. Your picks are saved automatically, so you can close the drawer and come back to the same plan; they never change your real numbers.
 - Plans for **MSE** (every course at 75%) and **ESE** (overall at 85%).
 - **Mark absent hours** as Absent, Co-curricular, Medical or Later, one course at a time or from the all-courses list.
 - Counts co-curricular hours in the overall and in their course; medical in the overall only (74.5% to 84.49%).

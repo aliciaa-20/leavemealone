@@ -4,7 +4,7 @@
 // Settings (minimum, ESE target, alerts, medical, tour) are shared by everyone on the browser.
 const Profile = (() => {
   // The per-person keys. A new per-person storage key goes here too.
-  const DATA = ["snapshots", "latest", "adjust", "excused", "lastCourse", "timetable", "timetableSem", "timetableSavedAt", "absentList"];
+  const DATA = ["snapshots", "latest", "adjust", "excused", "lastCourse", "timetable", "timetableSem", "timetableSavedAt", "absentList", "bunkPlan"];
 
   // FNV-1a of the normalised name: a stable id that doesn't spell the name out.
   const idOf = (name) => {
