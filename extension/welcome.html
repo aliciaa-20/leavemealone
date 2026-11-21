@@ -6,20 +6,22 @@
   <title>leavemealone</title>
   <meta name="description" content="Getting started with leavemealone, chipping in, and reporting a bug.">
   <link rel="icon" href="icons/icon-32.png">
+  <link rel="stylesheet" href="ui.css">
   <link rel="stylesheet" href="welcome.css">
 </head>
 <!-- The welcome / about page. Opened once on install (background.js) and from the popup's Help & support block.
-     Its own light design (welcome.css), not the extension's dark theme. Bundled: no network requests;
-     links open in new tabs. Filled in by welcome.js from UI.ABOUT (ui.js). -->
+     Same look as the extension: ui.css tokens and components (bar, chip, seg, btn), page layout in welcome.css.
+     Navy and gold only; green and red appear only inside the demo, where they mean what they mean in the extension.
+     Bundled: no network requests; links open in new tabs. Filled in by welcome.js from UI.ABOUT (ui.js). -->
 <body>
-  <div class="page">
-    <header class="top">
+  <div class="cue page">
+    <header class="w-top">
       <span class="brand"><img src="icons/icon-32.png" width="22" height="22" alt=""> leavemealone <small data-ver></small></span>
-      <a class="ul" data-repo href="#">GitHub</a>
+      <a class="link" data-repo href="#">GitHub</a>
     </header>
 
-    <!-- 1. Hello + how to start, with a peek at what it shows (invented numbers, never a real student's) -->
-    <section class="hello" id="start">
+    <!-- 1. Hello + how to start, beside a looping demo (invented numbers, never a real student's) -->
+    <section class="hello panel-card" id="start">
       <div class="hello-text">
         <p class="kicker">Installed. Nice.</p>
         <h1>Your bunk maths, sorted.</h1>
@@ -30,42 +32,58 @@
         </ol>
         <a class="btn gold" href="https://cue.christuniversity.in/main/attendence">Open CUE attendance</a>
       </div>
-      <div class="peek" role="img" aria-label="Example of what leavemealone shows">
-        <div class="peek-top"><span>Overall</span><b>82.41%</b></div>
-        <div class="peek-bar"><i style="width:82%"></i><u style="left:75%"></u></div>
-        <ul>
-          <li><span>Data Structures</span><mark class="ok">can bunk 4</mark></li>
-          <li><span>Computer Networks</span><mark class="ok">can bunk 1</mark></li>
-          <li><span>Operating Systems</span><mark class="no">attend next 3</mark></li>
-        </ul>
-      </div>
+
+      <figure class="demo" data-demo aria-label="Demo: marking a day you were at a college event as co-curricular raises your overall from 74.12% to 76.47%">
+        <div class="demo-hero" aria-hidden="true">
+          <div class="row"><span class="sub">Overall</span><span class="chip bad" data-d-chip>attend next 3</span></div>
+          <div class="v" data-d-num>74.12%</div>
+          <div class="bar"><i data-d-fill></i><u style="left:75%"></u></div>
+          <p class="sub" data-d-line>63 of 85 hours</p>
+        </div>
+        <div class="demo-day" aria-hidden="true">
+          <div class="row">
+            <div class="dbadge"><small>Mon</small><b>17</b></div>
+            <div class="hx"><b>College fest</b><span class="sub">2 hours absent</span></div>
+            <div class="seg"><button class="a on" tabindex="-1">A</button><button class="c" tabindex="-1" data-d-c>C</button><button class="m" tabindex="-1">M</button><button class="l" tabindex="-1">L</button></div>
+          </div>
+          <ul>
+            <li><span>Hour 3 · Computer Networks</span><span class="chip mute" data-d-tag>absent</span></li>
+            <li><span>Hour 4 · Data Structures</span><span class="chip mute" data-d-tag>absent</span></li>
+          </ul>
+        </div>
+        <svg class="cursor" data-d-cursor viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 8-6 1.6L10 19z"/></svg>
+        <figcaption class="sub">Mark the day you were at an event as <b>C</b>, co-curricular. The number updates on the spot.</figcaption>
+      </figure>
     </section>
 
     <!-- 2. Chip in: UPI and GitHub side by side -->
     <section class="grid" id="chip">
-      <article class="card pay" data-pay hidden>
+      <article class="panel-card pay" data-pay hidden>
         <div>
+          <p class="kicker">Support</p>
           <h2>Chip in</h2>
           <p>Free, made by two students. If it saved your attendance, a chai's worth keeps it going.</p>
-          <div class="upi"><code data-upi></code><button class="btn small" type="button" data-copy>Copy</button></div>
+          <div class="upi"><code data-upi></code><button class="btn sm" type="button" data-copy>Copy</button></div>
         </div>
         <button class="qr-thumb" type="button" data-qr-open aria-label="Show the UPI QR code larger">
-          <img src="support-qr.png" width="104" height="104" alt="">
+          <img src="support-qr.png" width="96" height="96" alt="">
           <span>Tap to scan</span>
         </button>
       </article>
-      <article class="card">
+      <article class="panel-card">
+        <p class="kicker">Open source</p>
         <h2>Build it with us</h2>
         <p>It's open source. A star, an idea or a fix counts as much as money.</p>
-        <div class="row">
-          <a class="btn small" data-repo href="#">Star on GitHub</a>
-          <a class="ul" data-contrib href="#">How to contribute</a>
+        <div class="w-actions">
+          <a class="btn" data-repo href="#">Star on GitHub</a>
+          <a class="link" data-contrib href="#">How to contribute</a>
         </div>
       </article>
     </section>
 
     <!-- 3. Report: opens a pre-filled GitHub issue; the extension itself sends nothing -->
-    <section class="card" id="report">
+    <section class="panel-card" id="report">
+      <p class="kicker">Feedback</p>
       <h2>Something off?</h2>
       <p>Tell us here and GitHub opens with it written out. Sign in and press Submit. Skip your name and real numbers.</p>
       <form class="form" data-report novalidate>
@@ -85,19 +103,19 @@
         <label class="full">What happened?
           <textarea name="details" rows="3" placeholder="What you did, what you saw, what you expected"></textarea>
         </label>
-        <div class="full"><button class="btn navy" type="submit">Continue on GitHub</button></div>
+        <div class="full"><button class="btn gold" type="submit">Continue on GitHub</button></div>
       </form>
     </section>
 
-    <footer class="foot"><span data-na></span> Made by <span data-by></span> · <a class="ul" data-privacy href="#">Privacy</a></footer>
+    <footer class="foot"><span data-na></span> Made by <span data-by></span> · <a class="link" data-privacy href="#">Privacy</a></footer>
   </div>
 
   <!-- The QR, centre stage -->
-  <dialog class="qr-big" data-qr aria-label="UPI QR code">
+  <dialog class="cue qr-big" data-qr aria-label="UPI QR code">
     <img src="support-qr.png" width="280" height="280" alt="UPI QR code for leavemealone">
     <p>Scan with GPay, PhonePe, Paytm or any UPI app</p>
     <code data-upi></code>
-    <button class="btn small" type="button" data-qr-close>Done</button>
+    <button class="btn" type="button" data-qr-close>Done</button>
   </dialog>
 
   <script src="ui.js"></script>
