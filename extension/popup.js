@@ -1,6 +1,6 @@
 // Toolbar popup: overall status first, then what needs attention, what-if, pending items, settings.
 const CUE_URL = "https://cue.christuniversity.in/main/attendence";
-const { h, plural, fmt, tone, mustText, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays, spotlight } = UI;
+const { h, plural, fmt, tone, mustText, bar, dayLabel, ico, sep, chip, stepper, toggle, acc, absentSummary, absentDays } = UI;
 const ago = (t) => {
   const m = Math.round((Date.now() - t) / 60000);
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
@@ -413,5 +413,4 @@ function openBtn(text = "Open CUE") {
   return h("button", { class: "btn solid cta", onclick: () => chrome.tabs.create({ url: CUE_URL }) }, text, ico("out"));
 }
 
-spotlight(document.body);
 load();

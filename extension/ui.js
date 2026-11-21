@@ -226,14 +226,6 @@ const UI = (() => {
     });
   };
 
-  // A cursor-following glow on cards (.blk, .acc, .cardcal, the popup tiles): a soft spotlight where the pointer is.
-  const spotlight = (root) => root.addEventListener("pointermove", (e) => {
-    const card = e.target.closest?.(".blk, .acc, .cardcal, .exam > div");
-    if (!card) return;
-    const r = card.getBoundingClientRect();
-    card.style.setProperty("--mx", `${e.clientX - r.left}px`);
-    card.style.setProperty("--my", `${e.clientY - r.top}px`);
-  });
 
   // Guided tour: dims everything but one element per step, with a card saying what it is (Back / Next / Skip, Done at the end).
   // steps: [{ target?: () => Element|null, title, text, before?: () => void|Promise }]. `text` is a string or an array of strings and nodes. No `target` = a centred card.
@@ -344,5 +336,5 @@ const UI = (() => {
     return { refresh: place, end: () => end(false), get active() { return live; } };
   };
 
-  return { h, eseFlag, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, spotlight, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, eseFlag, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
 })();
