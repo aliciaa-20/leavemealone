@@ -353,8 +353,8 @@ function drawAll() {
     h("div", { class: "sub", style: "margin-top:8px" }, "Went to an extra class the portal hasn't counted? Add 1 under Attended and 1 under Held."));
 
   // Settings are grouped (Targets / Alerts / Your data / Help); each row has one short line saying what it changes.
-  const setRow = (label, help, control) => h("div", { class: "it2 set" },
-    h("div", { class: "row" }, h("span", {}, label), control), help ? h("div", { class: "sub", style: "margin-top:4px" }, help) : null);
+  const setRow = (label, help, control) => h("div", { class: "it2 set opt" },
+    h("span", { class: "lab" }, label), help ? h("div", { class: "help" }, help) : null, h("div", { class: "ctl-r" }, control));
   const group = (title, ...rows) => h("div", { class: "setgrp" }, h("div", { class: "setgrp-t" }, title), ...rows.filter(Boolean));
   const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Minimum, ESE target, medical, alert, profiles, backup", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
     h("div", { "data-tour": "settings" },

@@ -72,7 +72,7 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 
 /* ---- cards ---- */
-.blk, .acc, .hero.plan, .cardcal, .exam > div { background-color: var(--card-base); background-image: var(--layer); border: 1px solid var(--edge); border-radius: var(--r-card); box-shadow: var(--hi), var(--sh-sm); }
+.blk, .acc, .cardcal, .exam > div { background-color: var(--card-base); background-image: var(--layer); border: 1px solid var(--edge); border-radius: var(--r-card); box-shadow: var(--hi), var(--sh-sm); }
 .blk { padding: 0 var(--s4); }
 .blk.free { padding: var(--s4); }
 .blk.free > .sub { margin: 6px 0 0; }
@@ -113,11 +113,8 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .brk .sub { padding-top: 1px; }
 
 /* ---- hero (the answer first) ---- */
-.hero { padding: var(--s1) var(--s1) var(--s2); position: relative; overflow: hidden; }
-.hero.plan { padding: var(--s4); transition: border-color 200ms var(--ease); }
+.hero { padding: var(--s1) 0 var(--s2); position: relative; overflow: hidden; } /* flush with the drawer's own edge, like every other block */
 .hero > * { position: relative; }
-.hero.plan.ok { border-color: color-mix(in srgb, var(--good) 45%, transparent); }
-.hero.plan.no { border-color: color-mix(in srgb, var(--bad) 50%, transparent); }
 .hero .v { font: 500 var(--t56)/1 var(--font-head); letter-spacing: -.02em; transition: color 200ms var(--ease); }
 .hero .v s { text-decoration: none; color: var(--gold); }
 .hero .row { margin-bottom: var(--s3); }
@@ -126,7 +123,8 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .hero .v + p { margin-top: var(--s2); }
 .hero p + p { margin-top: 6px; }
 .hero .meta { display: flex; justify-content: space-between; align-items: center; margin-top: var(--s3); }
-.hero.plan .v { font-size: 32px; }
+.hero.plan .v { font-size: 36px; }
+.hero.plan .meta { padding-top: var(--s3); border-top: 1px solid var(--edge); }
 .hero:not(.plan) .bar { height: 8px; }
 .hero .bar { margin: 0 0 14px; }
 .hero .bar:last-child { margin-bottom: 0; }
@@ -197,12 +195,12 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .pills button.on { background: var(--card2); color: var(--ink); box-shadow: var(--hi); }
 /* stepper and switch */
 .stp { display: inline-flex; align-items: center; border: 1px solid var(--edge); border-radius: var(--r-ctl); background: var(--well); }
-.stp button { width: 32px; height: 26px; border: 0; background: transparent; color: var(--mute); font: 500 16px var(--font-body); padding: 0; transition: color var(--d-hover) var(--ease), transform var(--d-hover) var(--ease); }
+.stp button { width: 32px; height: 28px; border: 0; background: transparent; color: var(--mute); font: 500 16px var(--font-body); padding: 0; transition: color var(--d-hover) var(--ease), transform var(--d-hover) var(--ease); }
 .stp button:hover:not(:disabled) { color: var(--ink); }
 .stp button:active:not(:disabled) { transform: scale(.9); transition-duration: var(--d-press); }
 .stp button:disabled { opacity: .35; }
 .stp b { min-width: 28px; text-align: center; font-weight: 500; }
-.stp .stv { width: 36px; height: 26px; padding: 0; border: 0; border-radius: var(--r-tick); background: transparent; color: var(--ink); text-align: center; font-weight: 500; font-size: inherit; font-family: inherit; font-variant-numeric: tabular-nums; transition: background-color var(--d-hover) var(--ease); }
+.stp .stv { width: 36px; height: 28px; padding: 0; border: 0; border-radius: var(--r-tick); background: transparent; color: var(--ink); text-align: center; font-weight: 500; font-size: inherit; font-family: inherit; font-variant-numeric: tabular-nums; transition: background-color var(--d-hover) var(--ease); }
 .stp .stv:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
 .stp .stv:focus-visible { outline-offset: -2px; background: color-mix(in srgb, var(--pick) 10%, transparent); }
 .sw { display: inline-block; width: 36px; height: 20px; border-radius: 10px; border: 0; padding: 0; background: var(--well); box-shadow: var(--in-well); position: relative; transition: background-color 200ms var(--ease); flex: none; }
@@ -338,7 +336,7 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .pday.mk { align-items: center; gap: var(--s2); }
 .pday + .it2 { border-top: 0; }
 .dayseg { display: inline-flex; align-items: center; gap: var(--s2); flex: none; }
-.per { display: grid; grid-template-columns: 18px 24px 44px 1fr; gap: 10px; align-items: center; padding: 7px 0; cursor: pointer; width: 100%; background: transparent; border: 0; text-align: left; }
+.per { display: grid; grid-template-columns: 18px 24px 44px 1fr; gap: 10px; align-items: center; padding: 8px 0; cursor: pointer; width: 100%; background: transparent; border: 0; text-align: left; }
 .per .bx { width: 18px; height: 18px; border-radius: var(--r-tick); border: 1.5px solid var(--mute); display: grid; place-items: center; transition: background-color 150ms var(--ease), border-color 150ms var(--ease); }
 .per .bx.on { background: var(--pick); border-color: var(--pick); }
 .per .bx.on::after { content: ""; width: 5px; height: 9px; border: solid var(--onpick); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
@@ -500,3 +498,15 @@ body.cue .hero .v { font-size: 44px; }
 .it2.main > .row { flex-wrap: wrap; row-gap: var(--s1); }
 .it2.main > .row > :first-child { flex: none; white-space: nowrap; }
 .it2.main > .row > :last-child { margin-left: auto; }
+
+/* option rows (Settings, planner ESE target): label, then its description, with the control on the right */
+.opt { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s4); row-gap: var(--s1); align-items: start; }
+.opt > .lab { grid-column: 1; font: 500 var(--t13)/1.3 var(--font-body); color: var(--ink); }
+.opt > .help { grid-column: 1; font-size: var(--t12); line-height: 1.45; color: var(--mute); text-wrap: pretty; }
+.opt > .help .eseflag { display: block; }
+.opt > .ctl-r { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.opt > .lab:only-of-type + .ctl-r { grid-row: 1; }
+.ctl .opt { margin-top: var(--s4); padding-top: var(--s4); border-top: 1px solid var(--edge); }
+.set > .row > :first-child { font: 500 var(--t13)/1.3 var(--font-body); }
+.set > .sub { font-size: var(--t12); line-height: 1.45; text-wrap: pretty; }
+.setgrp + .setgrp { margin-top: var(--s2); }

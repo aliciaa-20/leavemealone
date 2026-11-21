@@ -336,10 +336,10 @@
     if (opts.length > 1) out.push(h("div", { class: "ctl" },
       h("div", { class: "sub" }, "Safe means"),
       pills(opts, basis, (v) => { A.basis = v; store.set({ bunkBasis: v }); rerender(); }, { label: "Safe means", keyPrefix: "basis" }),
-      basis === "end" ? [h("div", { class: "row" }, h("span", { class: "sub" }, "My ESE target, overall (%)"),
-        stepper(esePct, { min: Plan.ESE_MIN, max: 100, decimals: 1, label: "ESE target", key: "ese", onchange: (v) => { A.eseTarget = v; store.set({ eseTarget: v }); rerender(); } })),
-        UI.eseFlag(esePct, Plan.ESE_OVERALL),
-        h("div", { class: "sub" }, `The overall % you need to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Courses only need your ${threshold}% minimum.`)] : null));
+      basis === "end" ? h("div", { class: "opt" },
+        h("span", { class: "lab" }, "ESE target, overall (%)"),
+        h("div", { class: "help" }, UI.eseFlag(esePct, Plan.ESE_OVERALL), `The overall % you need to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Courses only need your ${threshold}% minimum.`),
+        h("div", { class: "ctl-r" }, stepper(esePct, { min: Plan.ESE_MIN, max: 100, decimals: 1, label: "ESE target", key: "ese", onchange: (v) => { A.eseTarget = v; store.set({ eseTarget: v }); rerender(); } }))) : null));
     if (A.basis === "mse" && basis === "now") out.push(h("div", { class: "warnbox top" }, h("div", { class: "sub" }, "MSE isn't open for planning (no class days left before it, or it isn't in the calendar), so these are right-now numbers.")));
     if (dropped) out.push(h("div", { class: "sub note" }, `${plural(dropped, "selected day")} after the ${examName} cutoff ${dropped > 1 ? "were" : "was"} removed.`));
     if (!Cal.known(from)) out.push(h("div", { class: "warnbox top" }, h("div", { class: "sub" }, "This year's academic calendar isn't in the extension yet, so holidays aren't known.")));
