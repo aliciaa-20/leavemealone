@@ -208,7 +208,7 @@ function drawAll() {
   const overall = h("div", { class: `hero w-${tn}` },
     h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${op.toFixed(2)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
     bar(op, thr),
-    detained.length ? h("p", {}, UI.vibeLead(0), h("b", {}, plural(detained.length, "course")), ` below ${UI.DETAIN}%.`)
+    detained.length ? h("p", {}, UI.detain(op) ? UI.vibeLead(op) : null, h("b", {}, plural(detained.length, "course")), ` below ${UI.DETAIN}%.`)
       : low.length ? h("p", {}, h("b", {}, plural(low.length, "course")), ` ${low.length > 1 ? "are" : "is"} below ${thr}%.`) : h("p", {}, UI.susegad(op) ? UI.vibeLead(op) : null, `All courses are at or above ${thr}%.`),
     Math.abs(o.attended - effP.overall.attended) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(o.attended - effP.overall.attended))}h you added. The portal shows ${portalPct.toFixed(2)}%.`) : null,
     o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
@@ -231,6 +231,7 @@ function drawAll() {
     const eseStart = eseWin && eseWin.from > today ? eseWin.from : eseEnd; // the exams start after the last class day
     if (eseStart) tiles.push(h("div", {}, h("b", {}, days(eseStart)), h("span", {}, "to ESE", sep(), `target ${esePct}%`)));
     const notes = [];
+    if (eseStart) { const gap = op - esePct; notes.push(`ESE: your overall is ${Math.abs(gap).toFixed(2)} points ${gap >= 0 ? "above" : "below"} the ${esePct}% target.`); }
     if (mse && mse.from > today && mseCut) notes.push(`MSE starts ${dayLabel(mse.from)}, attendance counts till ${dayLabel(mseCut)}.`);
     const mb = D.timetable && mseCut ? Plan.budgets({ eff, tt: D.timetable, basis: "mse", t: Plan.MSE_MIN, from }) : null;
     if (mb) {
@@ -360,8 +361,9 @@ function drawAll() {
       group("Targets",
         setRow("Minimum %", "Used for 'can bunk', 'attend next', the colours and the alert.",
           stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", key: "set-min", live: true, onchange: (v) => save({ threshold: v }) })),
-        setRow("ESE target %", `Overall % needed to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules).`,
-          stepper(Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL)), { min: 1, max: 100, label: "ESE target", key: "set-ese", live: true, onchange: (v) => save({ eseTarget: v }) })),
+        setRow("ESE target %", [`Overall % needed to sit end-sem exams (${Plan.ESE_OVERALL}% officially). Change it if your department says otherwise. `,
+          D.eseTarget != null && D.eseTarget !== Plan.ESE_OVERALL ? h("button", { class: "link", onclick: () => chrome.storage.local.remove("eseTarget").then(load) }, `Reset to ${Plan.ESE_OVERALL}%`) : null],
+          stepper(Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL)), { min: 50, max: 100, label: "ESE target", key: "set-ese", onchange: (v) => save({ eseTarget: v }) })), // saved on blur/Enter or +/-: typing "8" on the way to "85" must not save 8
         h("div", { class: "sub setnote" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course, so it isn't a setting. 'pakka detain' (below ${UI.DETAIN}%) and 'susegad' (${UI.SUSEGAD}% and up) are fixed too.`)),
       group("Counting",
         setRow("Medical per course until MSE", "Medical hours you mark count in their own course until the MSE is over. After that they only help the overall, at 74.5% to 84.49%.",

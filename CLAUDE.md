@@ -52,6 +52,7 @@ The full, current list lives in `docs/attendance_rules.md`; keep it in step with
 
 - **Never commit real portal pages or screenshots.** `Pages/` (gitignored) holds saved portal HTML with a real student's name and attendance; use it locally for selector work only. Anonymise or invent any fixture data.
 - The extension must make no network requests besides loading its own bundled files (`ui.css`, `fonts/`) (the README's privacy claim depends on it).
+- **Unreadable page notice:** if the attendance page has no readable course table for 5 seconds, `noteUnread` (content.js) replaces the pill with a panel: in grid view "Switch to table view" (clicks the portal's own `table view` toggle), otherwise "Couldn't read this page" + Reload. The next successful read rebuilds the drawer. ESE target: official 85%, editable 50-100 in Settings and the planner; the popup stepper saves on blur/Enter/+- (not while typing), Reset removes the key, and the popup shows how far the overall is above/below it.
 - **Known gap: grid view.** The portal's attendance page has a `table view` / `grid view` toggle; only the table is parsed, so nothing syncs in grid view (see `HANDOFF.md`). The overall % is shown to 2 decimals like the portal.
 - Portal markup changes; selectors like `table[aria-label="coursewise attendance table"]` are the fragile part. Only the table view of the course list is parsed.
 

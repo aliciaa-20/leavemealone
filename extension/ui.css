@@ -361,7 +361,7 @@ body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); m
 .arow .ac small { font-size: 11px; line-height: 1.3; color: var(--mute); white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .rr { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 /* a label beside a control: never push the control sideways (steppers line up across rows) */
-.lbl { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lbl { min-width: 0; flex: 1; overflow-wrap: anywhere; line-height: 1.25; } /* wraps instead of "CSEAM63…": two courses share that prefix */
 .lbl + .row { flex: none; }
 
 /* narrow windows: the on-page drawer shrinks with the viewport, so loosen the fixed widths.

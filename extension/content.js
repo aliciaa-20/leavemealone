@@ -337,7 +337,7 @@
       h("div", { class: "sub" }, "Safe means"),
       pills(opts, basis, (v) => { A.basis = v; store.set({ bunkBasis: v }); rerender(); }, { label: "Safe means", keyPrefix: "basis" }),
       basis === "end" ? [h("div", { class: "row" }, h("span", { class: "sub" }, "My ESE target, overall (%)"),
-        stepper(esePct, { min: 1, max: 100, label: "ESE target", key: "ese", onchange: (v) => { A.eseTarget = v; store.set({ eseTarget: v }); rerender(); } })),
+        stepper(esePct, { min: 50, max: 100, label: "ESE target", key: "ese", onchange: (v) => { A.eseTarget = v; store.set({ eseTarget: v }); rerender(); } })),
         h("div", { class: "sub" }, `The overall % you need to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Courses only need your ${threshold}% minimum.`)] : null));
     if (A.basis === "mse" && basis === "now") out.push(h("div", { class: "warnbox top" }, h("div", { class: "sub" }, "MSE isn't open for planning (no class days left before it, or it isn't in the calendar), so these are right-now numbers.")));
     if (dropped) out.push(h("div", { class: "sub note" }, `${plural(dropped, "selected day")} after the ${examName} cutoff ${dropped > 1 ? "were" : "was"} removed.`));
@@ -634,9 +634,26 @@
     if (el && (k.key || el.tagName === k.tag)) el.focus({ preventScroll: true });
   }
 
+  // When the page has no readable course table for 5 seconds (grid view, or the portal changed its markup), say so instead of
+  // leaving a stale pill or nothing at all. In grid view the notice can flip the portal's own toggle back to table view.
+  let unreadSince = 0, unreadShown = false;
+  async function noteUnread() {
+    if (!unreadSince) { unreadSince = Date.now(); setTimeout(tick, 5200); return; } // no DOM change may come to re-check us
+    if (unreadShown || Date.now() - unreadSince < 5000) return;
+    unreadShown = true;
+    await ensureHost();
+    const grid = !!document.querySelector('[role="progressbar"][aria-label$=" attendance"]') && !!document.querySelector('[aria-label="table view"]');
+    attSig = ""; shell = null; // the next successful read must rebuild the drawer
+    dock.replaceChildren(h("div", { class: "panel" },
+      h("div", { class: "h3" }, grid ? "Grid view isn't supported yet" : "Couldn't read this page"),
+      h("p", { class: "sub" }, grid ? "Switch to table view and your numbers will show here." : "The portal page may have changed. Reload it; if this keeps happening, please report it on the project's GitHub page."),
+      grid ? h("button", { class: "btn solid cta", onclick: () => document.querySelector('[aria-label="table view"]')?.click() }, "Switch to table view")
+        : h("button", { class: "btn solid cta", onclick: () => location.reload() }, "Reload page")));
+  }
   async function tickAtt() {
     const snap = parseCourses();
-    if (!snap) return;
+    if (!snap) { noteUnread(); return; }
+    unreadSince = 0; unreadShown = false;
     const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, sortBy: "portal", timetable: null, bunkBasis: "now", eseTarget: undefined, medBeforeMse: true });
     const prev = d.snapshots[snap.semester];
     const same = prev && JSON.stringify([prev.overall, prev.courses, prev.hasCc]) === JSON.stringify([snap.overall, snap.courses, snap.hasCc]);
@@ -1101,7 +1118,7 @@
     syncGutter();
     if (r !== lastRoute) { // page changed: clear the old UI, and a drawer left open on the last page shrinks back to its pill
       if (lastRoute !== null) { absOpen = false; attOpen = false; absShell = null; shell = null; drawerTour?.end(); tourChecked = false; }
-      dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; lastRoute = r;
+      dock?.replaceChildren(); attSig = ""; absSig = ""; ttSig = ""; unreadSince = 0; unreadShown = false; lastRoute = r;
     }
     if (!r) {
       host?.remove();

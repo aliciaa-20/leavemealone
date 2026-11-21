@@ -65,6 +65,8 @@ Saved from the portal's Timetable page, one week at a time, keyed by weekday. Sa
 ## 8. Alerts (`background.js`)
 Once a day: a notification if any course (actual numbers) is below your minimum; a "data is N days old" note after 3 days (also added when a course is low); and, if a timetable is saved, a warning for courses that cannot reach 75% by MSE ("out of reach") or have no spare class left within 7 days of it. Nothing is sent after the MSE cutoff or if alerts are turned off.
 
+**ESE target:** 85% overall officially (`Plan.ESE_OVERALL`); the user may set 50 to 100. The popup's exam card says how many points the overall is above or below it.
+
 **Stale data in the popup:** more than 3 days since the last sync (`STALE_DAYS` in `popup.js`, the same limit as the alert) turns the "synced ... ago" text amber and shows a banner with a Refresh button. The pill never shows it: it only exists on the attendance page, which re-reads the data every tick.
 
 ## 8b. The jokes ("pakka detain", "susegad")
