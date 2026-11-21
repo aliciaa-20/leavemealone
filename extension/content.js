@@ -722,6 +722,25 @@
   const sigOf = (key, rows, saved) =>
     [key, ...rows.map((r) => r.k + r.portal), "|", ...saved.map((r) => `${r.k}:${r.s}:${r.gone ? 1 : 0}`)].join(",");
 
+  // Bring one course's saved marks in line with what the portal lists as absent now (rows: [{ k, h, portal }]).
+  // A portal label that is gone or changed is dropped; a marked hour the portal no longer lists is "gone" (updated there,
+  // waiting for "Confirm present"); an hour the portal labels itself (medical / co-curricular) becomes a locked row.
+  // complete = false (a list that may be partial) only applies what is on the list and never marks anything gone.
+  function reconcileMarks(savedRows, rows, complete = true) {
+    const byK = new Map(rows.map((r) => [r.k, r]));
+    const saved = savedRows
+      .filter((r) => !(r.p && (complete || byK.has(r.k)) && byK.get(r.k)?.portal !== r.s)) // portal label gone or changed -> drop
+      .map((r) => (r.p || !complete ? r : { ...r, gone: !byK.has(r.k) })) // marked hour no longer absent -> "updated on portal"
+      .filter((r) => r.p || !byK.has(r.k) || byK.get(r.k).portal === "abs"); // portal now labels it itself -> portal wins
+    for (const r of rows) {
+      if (r.portal === "abs") continue;
+      const row = { k: r.k, h: r.h, s: r.portal, p: true }; // auto-record medical / co-curricular set by the portal
+      const i = saved.findIndex((x) => x.k === r.k);
+      if (i >= 0) saved[i] = row; else saved.push(row);
+    }
+    return saved;
+  }
+
   // forced = the course picked in the filter on /main/absence; without it the course is the one whose View Details was clicked.
   async function tickAbs(forced) {
     const rows = parseAbsentRows();
@@ -746,23 +765,13 @@
       return;
     }
 
-    const byK = new Map(rows.map((r) => [r.k, r]));
     const m = (d.excused[ctx.semester] = d.excused[ctx.semester] || {});
     const e0 = m[ctx.key];
     const snap = d.snapshots[ctx.semester];
     const courseNow = courseIn(snap, ctx.key);
 
     // Reconcile what we saved with what the portal shows now.
-    const saved = (e0?.rows || [])
-      .filter((r) => !(r.p && byK.get(r.k)?.portal !== r.s)) // portal label gone or changed -> drop
-      .map((r) => (r.p ? r : { ...r, gone: !byK.has(r.k) })) // marked hour no longer absent -> "updated on portal"
-      .filter((r) => r.p || !byK.has(r.k) || byK.get(r.k).portal === "abs"); // portal now labels it itself -> portal wins
-    for (const r of rows) {
-      if (r.portal === "abs") continue;
-      const row = { k: r.k, h: r.h, s: r.portal, p: true }; // auto-record medical / co-curricular set by the portal
-      const i = saved.findIndex((x) => x.k === r.k);
-      if (i >= 0) saved[i] = row; else saved.push(row);
-    }
+    const saved = reconcileMarks(e0?.rows || [], rows);
     if (JSON.stringify(saved) !== JSON.stringify(e0?.rows || [])) {
       if (saved.length) m[ctx.key] = { rows: saved, baseAbsent: e0?.baseAbsent ?? courseNow?.absent ?? undefined };
       else delete m[ctx.key];
@@ -964,6 +973,29 @@
   let absRows = [], absData = null;
   const legendEl = (grid) => h("div", { class: `lg${grid ? " grid" : ""}` }, CHOICES.map((c) => h("span", { title: c.tip }, h("b", { style: `background:${c.color}` }, c.letter), c.label))); // A / C / M / L key, shared by both marking views
   const absKey = (r) => (r.code && r.code.toUpperCase() !== "N/A" ? r.code : r.name);
+  // With the filter on "All courses" the list has every course's absent hours, so every course's marks are brought up to
+  // date here, the same way its own Absent Details page would (portal medical / co-curricular labels, hours updated on
+  // the portal). If the list may be partial (a page control, or a row whose course isn't in the snapshot), nothing is
+  // marked "gone", so a part of the list can't wipe marks.
+  async function syncMarksFromList(list) {
+    const d = await store.get({ latest: null, snapshots: {}, excused: {} });
+    const snap = d.snapshots[d.latest];
+    if (!snap) return;
+    const courseOf = new Map(list.map((r) => [r, courseIn(snap, absKey(r))]));
+    const complete = !document.querySelector(".MuiTablePagination-root") && [...courseOf.values()].every(Boolean);
+    const m = (d.excused[d.latest] = d.excused[d.latest] || {});
+    let changed = false;
+    for (const c of snap.courses) {
+      const key = c.code || c.name;
+      const rows = list.filter((r) => courseOf.get(r) === c).map((r) => ({ k: `${r.date}|${r.period}`, h: r.h, portal: r.kind }));
+      const before = m[key]?.rows || [];
+      const after = reconcileMarks(before, rows, complete);
+      if (JSON.stringify(after) === JSON.stringify(before)) continue;
+      changed = true;
+      if (after.length) m[key] = { rows: after, baseAbsent: m[key]?.baseAbsent ?? c.absent ?? undefined }; else delete m[key];
+    }
+    if (changed) await store.set({ excused: d.excused });
+  }
   async function refreshAbsData() {
     const d = await store.get({ latest: null, snapshots: {}, excused: {}, adjust: {} });
     absData = { sem: d.latest, snap: d.snapshots[d.latest], excused: d.excused[d.latest] || {}, adjust: d.adjust[d.latest] };
@@ -1025,6 +1057,7 @@
     if (allCourses) { // a single-course filter would overwrite the full list with a part of it
       const d = await store.get({ latest: null });
       await store.set({ absentList: { sem: d.latest, at: Date.now(), rows } });
+      await syncMarksFromList(rows);
     }
     await ensureHost();
     if (!absShell || !dock.contains(absShell.drawer)) {
