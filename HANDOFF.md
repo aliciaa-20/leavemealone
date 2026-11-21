@@ -1,8 +1,8 @@
 # Handoff
-Last updated: 2026-11-21 · branch main · last commit: see `git log -1` (pushed to origin/main)
+Last updated: 2026-11-21 · branch main · 0.7.0 (release zip built by the GitHub Action on push)
 
 ## State in one paragraph
-leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at version 0.6.0 (`extension/manifest.json`). 0.5.0 brought the guided tour, backup export/import, the Bangalorean copy and a cleanup pass. 0.6.0 adds: medical leave counting per course until the MSE is over (a setting, on by default), whole-day marking on both absent pages, and per-student profiles on a shared browser. Pushing a change under `extension/` runs `.github/workflows/release.yml`, which attaches `leavemealone.zip` to release `v<version>`; the README links to `releases/latest/download/leavemealone.zip`. How everything works: `CLAUDE.md`; rules for the maths: `docs/attendance_rules.md`.
+leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at version 0.7.0 (`extension/manifest.json`). 0.5.0 brought the guided tour, backup export/import, the Bangalorean copy and a cleanup pass. 0.6.0 adds: medical leave counting per course until the MSE is over (a setting, on by default), whole-day marking on both absent pages, and per-student profiles on a shared browser. Pushing a change under `extension/` runs `.github/workflows/release.yml`, which attaches `leavemealone.zip` to release `v<version>`; the README links to `releases/latest/download/leavemealone.zip`. How everything works: `CLAUDE.md`; rules for the maths: `docs/attendance_rules.md`.
 
 ## Done this session (and how it was verified)
 - **Medical per course until MSE** (`Calc.actual(..., { medInCourse })`, `Plan.medInCourse(setting)`, storage `medBeforeMse`). Node test: course 30/40 + 3h medical shows 33/40 through 9 Jan 2027 and 30/40 from 10 Jan, and 30/40 with the setting off; the overall's 74.5-85% band is unchanged.
@@ -22,6 +22,8 @@ leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at
 2. Antony tests the three features in Chrome and reports what looks off.
 3. Calendar checked against the official 2026-27 PDF (2026-11-21): holidays and student working Saturdays match; ESE start fixed to 9 Mar. The PDF's per-month instructional-day table does not reconcile with its own listing, so it is ignored.
 4. Open copy ideas, footer tagline, "Plan on CUE" rename, Web Store listing: unchanged from the last handoff (see git history of this file, commit a9b28f8).
+5. **Grid view is not parsed (TODO for Antony).** The attendance page has a `table view` / `grid view` toggle (`aria-label`s on the toggle); `parseCourses` only reads `table[aria-label="coursewise attendance table"]`, so in grid view nothing syncs and the pill goes stale. Needs a saved copy of the page in grid view (put it in `Pages/`, never commit it) to find the card markup; then parse it into the same `{ name, code, attended, scheduled, absent, type }` rows as `parseRow`, and make the "View Details" click tracking (`lastCourse`) work from the cards. Update `CLAUDE.md` ("Only the table view is parsed") and the README when done.
+6. 0.7.0 polish (merged from `fix/tour-and-settings-polish`): tour rewritten (readable card, progress bar, box follows its target, View Details highlighted), first-run setup chain (Timetable, then Absence Details, then back to Attendance, same tab, `setup` storage flag with 10-minute expiry), settings grouped into Targets / Counting / Alerts / Your data / Help, pill's "pakka detain" now judged on the overall (was: any course), stale-data banner in the popup after 3 days, overall % shown to 2 decimals like the portal. None of it seen in Chrome yet.
 
 ## User decisions and preferences to respect
 - "Bunk", not "skip", in all copy; the tab is "Put a bunk".

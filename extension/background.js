@@ -33,6 +33,7 @@ chrome.alarms.onAlarm.addListener((a) => {
       } else if (ageDays > 3) {
         message = `Data is ${Math.floor(ageDays)} days old. Open the CUE attendance page to refresh.`;
       }
+      if (low.length && ageDays > 3) message += ` (data is ${Math.floor(ageDays)} days old: open CUE attendance to refresh)`;
       // MSE needs 75%: warn about courses that can't get there or have no spare classes left.
       const risks = d.timetable ? Plan.mseRisks({ eff, tt: d.timetable, from: Cal.addDays(Cal.day0(), 1) }) : [];
       if (risks.length) {

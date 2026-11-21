@@ -6,6 +6,7 @@ const ago = (t) => {
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
 };
 
+const STALE_DAYS = 3; // the daily alert uses the same limit (background.js)
 let D = null;        // storage
 let viewSem = null;  // semester shown (defaults to the highest one)
 let skip = 0;        // what-if: classes skipped
@@ -41,15 +42,15 @@ function startTour() {
   tourRun = UI.tour({
     mount: document.body,
     steps: [
-      { target: () => q("hero"), title: "Your attendance", text: "Your actual overall %: the portal's numbers plus the hours you've marked. The tick on the bar is your minimum." },
-      { target: () => q("whatif"), title: "What if I put a bunk?", text: "Pick how many of your next classes to bunk and see where your overall would land." },
-      { target: () => q("exam"), title: "Exam countdown", text: `Days to MSE and ESE. MSE needs ${Math.round(Plan.MSE_MIN * 100)}% in every course; ESE needs your overall target.` },
-      { target: () => q("best"), title: "Best days to bunk", text: "Your safest days to bunk, worked out from your timetable. Open the CUE timetable once to unlock this." },
-      { before: () => { accOpen.add("settings"); draw(); }, target: () => q("settings"), title: "Settings and backup", text: "Your minimum, the ESE target and the daily alert. Export a backup of your data here, or import one on a new browser." },
-      D.timetable
-        ? { title: "You're all set", text: "On CUE, the pill at the bottom right shows the same numbers, plus Put a bunk. Mark absent hours from a course's View Details." }
-        : { title: "Last step: your timetable", text: "Open your CUE timetable once. The extension saves your weekly classes, so it can show your best days to bunk. On CUE, the pill at the bottom right has everything else.",
-            next: { label: "Open timetable", run: () => chrome.tabs.create({ url: "https://cue.christuniversity.in/main/timeTable" }) } },
+      { target: () => q("hero"), title: "Your attendance", text: "Your overall %, with the hours you've marked added in. The tick on the bar is your minimum." },
+      { target: () => q("whatif"), title: "What if I put a bunk?", text: "Choose how many of your next classes to bunk and see where your overall would land." },
+      { target: () => q("exam"), title: "Exam countdown", text: `Days left to MSE and ESE. MSE needs ${Math.round(Plan.MSE_MIN * 100)}% in every course. ESE needs your overall target.` },
+      { target: () => q("best"), title: "Best days to bunk", text: "The safest days to bunk, worked out from your timetable. Open the CUE timetable once to unlock this." },
+      { before: () => { accOpen.add("settings"); draw(); }, target: () => q("settings"), title: "Settings and backup", text: "Set your minimum, ESE target and daily alert. You can also export a backup, or import one on a new browser." },
+      D.timetable && D.absentList?.rows?.length
+        ? { title: "You're all set", text: "On CUE, the pill at the bottom right shows the same numbers, plus Put a bunk. To mark absent hours, use View Details on a course." }
+        : { title: "Last step: finish setting up", text: `On CUE I'll open ${D.timetable ? "" : "your Timetable, then "}Absence Details for a moment so the extension can read them, then take you back to Attendance.`,
+            next: { label: "Start setup", run: () => chrome.storage.local.set({ setup: { s: D.timetable ? "abs" : "tt", at: Date.now() } }).then(() => chrome.tabs.create({ url: `https://cue.christuniversity.in/main/${D.timetable ? "absence" : "timeTable"}` })) } },
     ],
     onEnd: () => { tourRun = null; save({ tour: { ...D.tour, popup: true } }); },
   });
@@ -185,11 +186,16 @@ function drawAll() {
   const toggleAcc = (id) => (v) => { v ? accOpen.add(id) : accOpen.delete(id); draw(); };
 
   // ---- 1. overall
+  const stale = Date.now() - snap.syncedAt > STALE_DAYS * 86400000;
   const header = h("div", { class: "top" },
     sems.length > 1
       ? h("select", { "aria-label": "Semester", onchange: (e) => { viewSem = e.target.value; draw(); } }, sems.map((s) => h("option", { value: s, selected: s === viewSem }, s)))
       : h("span", { class: "t" }, viewSem),
-    h("span", { class: "sub" }, `${profileCount() > 1 ? `${D.profiles[D.profile]?.label} · ` : ""}synced ${ago(snap.syncedAt)}`));
+    h("span", { class: `sub${stale ? " warn" : ""}` }, `${profileCount() > 1 ? `${D.profiles[D.profile]?.label} · ` : ""}synced ${ago(snap.syncedAt)}`));
+  // The numbers only change when the portal is opened, so say so once they are more than STALE_DAYS old.
+  const staleBox = stale ? h("div", { class: "stale", role: "status" },
+    h("span", {}, h("b", {}, `These numbers are ${Math.floor((Date.now() - snap.syncedAt) / 86400000)} days old.`), " Open CUE attendance to refresh them."),
+    h("button", { class: "btn sm", onclick: () => chrome.tabs.create({ url: CUE_URL }) }, "Refresh")) : null;
   // what-if: with a timetable the next `skip` classes are charged to their own courses; without one only the overall is known
   const wiFrom = Cal.addDays(Cal.day0(), 1);
   wi = skip && D.timetable ? Plan.nextClasses(D.timetable, eff.courses, wiFrom, skip) : null;
@@ -198,13 +204,13 @@ function drawAll() {
   const whatIf = h("div", { class: "whatif" },
     h("div", { class: "row" }, h("span", {}, "If I bunk the next"),
       h("span", { class: "row" }, stepper(skip, { min: 0, max: 999, label: "classes to skip", key: "skip", onchange: (v) => { skip = v; draw(); } }), h("span", {}, "classes"))),
-    skip ? h("p", { class: "sub" }, wi && wi.taken ? `Bunking the next ${plural(wi.taken, "class")}${wi.taken < skip ? " (all that are left)" : ""}, until ${dayLabel(wi.last)}: ` : "Overall would be ", h("b", { class: tone(after, thr) }, `${after.toFixed(1)}%`), wi && wi.taken ? " overall." : ".") : null);
+    skip ? h("p", { class: "sub" }, wi && wi.taken ? `Bunking the next ${plural(wi.taken, "class")}${wi.taken < skip ? " (all that are left)" : ""}, until ${dayLabel(wi.last)}: ` : "Overall would be ", h("b", { class: tone(after, thr) }, `${after.toFixed(2)}%`), wi && wi.taken ? " overall." : ".") : null);
   const overall = h("div", { class: `hero w-${tn}` },
-    h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${op.toFixed(1)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
+    h("div", { class: "row" }, h("span", { class: "v", style: `color:var(--${tn})` }, `${op.toFixed(2)}%`), h("span", { class: "sub" }, `${fmt(o.attended)} / ${o.scheduled}h`)),
     bar(op, thr),
     detained.length ? h("p", {}, UI.vibeLead(0), h("b", {}, plural(detained.length, "course")), ` below ${UI.DETAIN}%.`)
       : low.length ? h("p", {}, h("b", {}, plural(low.length, "course")), ` ${low.length > 1 ? "are" : "is"} below ${thr}%.`) : h("p", {}, UI.susegad(op) ? UI.vibeLead(op) : null, `All courses are at or above ${thr}%.`),
-    Math.abs(o.attended - effP.overall.attended) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(o.attended - effP.overall.attended))}h you added. The portal shows ${portalPct.toFixed(1)}%.`) : null,
+    Math.abs(o.attended - effP.overall.attended) > 1e-9 ? h("p", { class: "sub" }, `Includes ${fmt(Math.abs(o.attended - effP.overall.attended))}h you added. The portal shows ${portalPct.toFixed(2)}%.`) : null,
     o.medical ? h("p", { class: "sub" }, `Medical ${fmt(o.medical)}h: ${Calc.medicalText(o)}`) : null,
     o.ccIncluded ? h("p", { class: "sub" }, "Co-curricular is already included by the portal.") : null,
     whatIf);
@@ -271,7 +277,7 @@ function drawAll() {
   const pending = marked.length
     ? acc({ title: "Reclassified absences", icon: "checks", tone: "blue", sub: [`${fmt(markedHrs)}h moved out of absent`, sep(), plural(marked.length, "course")], open: accOpen.has("marks"), ontoggle: toggleAcc("marks") },
         h("div", { class: "sub", style: "padding: 12px 0 4px" }, "Absent hours you reclassified on the portal. The numbers in this popup already count them.",
-          h("div", { style: "margin-top:6px" }, "Overall: ", h("b", { class: tone(op, thr) }, `${op.toFixed(1)}%`), ` with your marks, ${portalPct.toFixed(1)}% on the portal`)),
+          h("div", { style: "margin-top:6px" }, "Overall: ", h("b", { class: tone(op, thr) }, `${op.toFixed(2)}%`), ` with your marks, ${portalPct.toFixed(2)}% on the portal`)),
         marked.map((c) => {
           const parts = [[c.laterHrs, "later"], [c.ccHrs, "co-curricular"], [c.medHrs, "medical"]].filter(([x]) => x).map(([x, n]) => `${fmt(x)}h ${n}`);
           const key = `clear:${c.key}`;
@@ -345,27 +351,33 @@ function drawAll() {
       h("span", { class: "row" }, num(c.adj.att, `${c.code || c.name} attended`, (v) => setCourseAdj(viewSem, c, "att", v)), num(c.adj.sch, `${c.code || c.name} held`, (v) => setCourseAdj(viewSem, c, "sch", v))))),
     h("div", { class: "sub", style: "margin-top:8px" }, "Went to an extra class the portal hasn't counted? Add 1 under Attended and 1 under Held."));
 
-  // Each setting says what it changes: the minimum and the ESE target are easy to mix up.
-  const setRow = (label, help, control, first) => h("div", { class: "it2 set", style: first ? "border-top:0" : null },
+  // Settings are grouped (Targets / Alerts / Your data / Help); each row has one short line saying what it changes.
+  const setRow = (label, help, control) => h("div", { class: "it2 set" },
     h("div", { class: "row" }, h("span", {}, label), control), help ? h("div", { class: "sub", style: "margin-top:4px" }, help) : null);
+  const group = (title, ...rows) => h("div", { class: "setgrp" }, h("div", { class: "setgrp-t" }, title), ...rows.filter(Boolean));
   const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Minimum, ESE target, medical, alert, profiles, backup", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
     h("div", { "data-tour": "settings" },
-      setRow("Minimum %", "For each course and the overall. Sets 'can bunk', 'attend next', the colours and the daily alert. Below 75% is always 'pakka detain', 85% and up is 'susegad'.",
-        stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", key: "set-min", live: true, onchange: (v) => save({ threshold: v }) }), true),
-      setRow("ESE target (overall) %", `The overall % you need to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Used by the ESE countdown and 'Before ESE' planning.`,
-        stepper(Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL)), { min: 1, max: 100, label: "ESE target", key: "set-ese", live: true, onchange: (v) => save({ eseTarget: v }) })),
-      h("div", { class: "sub", style: "padding-bottom:12px" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course; that one isn't a setting.`),
-      setRow("Medical counts per course until MSE", "Medical hours you mark count as attended in their own course until the MSE is over. After that they only help the overall, at 74.5% to 84.49%.",
-        toggle(D.medBeforeMse !== false, (v) => save({ medBeforeMse: v }), "Medical per course until MSE", "set-med")),
-      setRow("Daily alert if a course is low", null, toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert", "set-alert")),
-      dataRows(),
-      setRow("Erase saved data",
-        "Removes synced attendance, marks, adjustments and timetables from this browser, for every profile. Settings stay, and the portal is untouched.",
-        confirming.has("wipe")
-          ? h("span", {}, h("span", { class: "bad" }, "Erase? "), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); viewSem = null; chrome.storage.local.remove([...Profile.DATA, "profile", "profiles"]).then(load); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); draw(); } }, "no"))
-          : h("button", { class: "btn danger sm", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase")),
-      profilesRow(),
-      setRow("Quick tour", "Shows the popup tour now, and the pill tour next time you open CUE attendance.", h("button", { class: "link", onclick: () => chrome.storage.local.set({ tour: {} }).then(() => { D.tour = {}; startTour(); }) }, "Replay"))));
+      group("Targets",
+        setRow("Minimum %", "Used for 'can bunk', 'attend next', the colours and the alert.",
+          stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", key: "set-min", live: true, onchange: (v) => save({ threshold: v }) })),
+        setRow("ESE target %", `Overall % needed to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules).`,
+          stepper(Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL)), { min: 1, max: 100, label: "ESE target", key: "set-ese", live: true, onchange: (v) => save({ eseTarget: v }) })),
+        h("div", { class: "sub setnote" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course, so it isn't a setting. 'pakka detain' (below ${UI.DETAIN}%) and 'susegad' (${UI.SUSEGAD}% and up) are fixed too.`)),
+      group("Counting",
+        setRow("Medical per course until MSE", "Medical hours you mark count in their own course until the MSE is over. After that they only help the overall, at 74.5% to 84.49%.",
+          toggle(D.medBeforeMse !== false, (v) => save({ medBeforeMse: v }), "Medical per course until MSE", "set-med"))),
+      group("Alerts",
+        setRow("Daily alert", "A notification once a day if a course is low.", toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert", "set-alert"))),
+      group("Your data",
+        dataRows(),
+        setRow("Erase saved data",
+          "Clears synced attendance, marks, adjustments and timetables from this browser, for every profile. The portal is untouched.",
+          confirming.has("wipe")
+            ? h("span", {}, h("span", { class: "bad" }, "Erase? "), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); viewSem = null; chrome.storage.local.remove([...Profile.DATA, "profile", "profiles"]).then(load); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); draw(); } }, "no"))
+            : h("button", { class: "btn danger sm", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase")),
+        profilesRow()),
+      group("Help",
+        setRow("Quick tour", "Replays the popup tour now, and the pill tour next time you open CUE attendance.", h("button", { class: "btn sm", onclick: () => chrome.storage.local.set({ tour: {} }).then(() => { D.tour = {}; startTour(); }) }, "Replay")))));
 
   // anchors for the guided tour
   overall.dataset.tour = "hero";
@@ -374,7 +386,7 @@ function drawAll() {
   if (examTiles) examTiles.dataset.tour = "exam";
   if (bestCard) bestCard.dataset.tour = "best";
 
-  app.replaceChildren(...[header, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, UI.TAGLINE)].filter(Boolean));
+  app.replaceChildren(...[header, staleBox, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, UI.TAGLINE)].filter(Boolean));
   document.documentElement.scrollTop = y;
 }
 
