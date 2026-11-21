@@ -494,25 +494,9 @@ body.cue .hero .v { font-size: 36px; }
 .stale .btn { flex: none; }
 .eseflag { margin: 2px 0 6px; font-weight: 600; font-size: var(--t13); text-decoration: underline wavy color-mix(in srgb, var(--bad) 70%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 4px; } /* the red line under a below-85 ESE target */
 
-/* ---- welcome / about page (welcome.html): a full tab, so the popup's fixed 364px card is undone */
-body.cue.welcome { width: auto; max-width: 640px; margin: 0 auto; padding: var(--s5) 16px; border: 0; border-radius: 0; box-shadow: none; background: var(--bg); min-height: 100vh; font-size: var(--t15); }
-html:has(body.welcome) { background: var(--bg); }
-.welcome main { display: grid; gap: var(--s4); }
-.welcome h1 { margin: 0; font: 600 var(--t28)/1.1 var(--font-head); letter-spacing: -.02em; }
-.welcome h2 { margin: 0 0 var(--s2); }
-.wl-head { display: flex; align-items: center; gap: var(--s4); padding: var(--s3) 0; }
-.wl-head img { border-radius: var(--r-card); }
-.wl-steps { margin: var(--s2) 0 0; padding-left: 1.3em; line-height: 1.6; }
-.welcome a.btn { text-decoration: none; }
-.wl-note { margin-top: var(--s3); }
-.wl-ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s3); margin-top: var(--s3); }
-.wl-way { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); padding: var(--s4); border: 1px solid var(--line); border-radius: var(--r-card); background: var(--card2); }
-.wl-way[hidden] { display: none; }
-.wl-qr { background: #fff; padding: 8px; border-radius: var(--r-ctl); width: 180px; height: 180px; }
-.wl-upi { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
-.wl-upi code { font-size: var(--t13); color: var(--ink); }
-.wl-foot { text-align: center; padding: var(--s3) 0; }
-
-/* popup: the one-time "chip in" card, quieter than the stale warning and never chip-loud */
-.support { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s3); padding: var(--s3); border: 1px solid var(--line); border-radius: var(--r-card); background: var(--card); font-size: var(--t13); line-height: 1.4; }
+/* popup: the "chip in" card (first open, until answered), quieter than the stale warning and never chip-loud */
+.support { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin: var(--s3) 0; padding: var(--s3); border: 1px solid var(--line); border-radius: var(--r-card); background: var(--card); font-size: var(--t13); line-height: 1.4; }
 .support .row { flex: none; gap: var(--s2); }
+.help { margin-top: var(--s4); padding-bottom: var(--s3); }
+.help .setgrp-t { padding-top: var(--s3); }
+.help-na { padding-top: var(--s3); border-top: 1px solid var(--line); margin-top: var(--s2); }

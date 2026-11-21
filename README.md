@@ -42,8 +42,8 @@ Every rule used in the maths is in [docs/attendance_rules.md](docs/attendance_ru
 
 ## Contribute
 It's free and stays free. If it saved your attendance:
-- **Chip in by UPI:** the QR is on the extension's welcome page (popup → Settings → About & chip in).
-- **Build it with us:** star the repo, [report a bug](https://github.com/antiiiiny/leavemealone/issues), or send a fix. See [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Chip in by UPI:** the QR is on the extension's welcome page (popup → Help & support → Chip in).
+- **Build it with us:** star the repo, report a bug (popup → Help & support → Report a bug, or [open an issue](https://github.com/antiiiiny/leavemealone/issues)), or send a fix. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy
 Full policy: [PRIVACY.md](PRIVACY.md).

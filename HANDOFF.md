@@ -18,7 +18,7 @@ leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at
 - Still unverified from 0.5.0: tour end to end, Import file picker on Windows, `.vibe` styling.
 
 ## Publishing (1.0.0, in progress)
-Built: welcome page (opens on install), popup support card after 14 days, Settings → About & chip in, `PRIVACY.md`, `CONTRIBUTING.md`, `docs/store-listing.md` (paste-ready store copy), `.github/workflows/store.yml`. Waiting on Antony:
+Built: welcome page (opens on install; own light navy/gold design, report form that pre-fills a GitHub issue), popup chip-in card from the first open, Help & support block at the end of the popup, `PRIVACY.md`, `CONTRIBUTING.md`, `docs/store-listing.md` (paste-ready store copy), `.github/workflows/store.yml`. Waiting on Antony:
 1. Done: UPI `antonyjoyukken@ptyes` in `UI.ABOUT.upi`; `extension/support-qr.png` encodes `upi://pay?pa=antonyjoyukken@ptyes&pn=Alicia%20%26%20Antony%20Co.&tn=leavemealone&cu=INR` (made with Python `qrcode` 8.0). Antony must tap **Allow** on Paytm's "Receive money from all UPI apps" or GPay/PhonePe payers fail. Test with a Rs 1 payment.
 2. First upload by hand in the dashboard: a zip with `manifest.json` at its root (zip the *contents* of `extension/`; the GitHub release zip has a top folder and won't do). Listing text from `docs/store-listing.md`; screenshots with invented data only.
 3. Google Cloud OAuth client + refresh token → repo secrets `CWS_EXTENSION_ID`, `CWS_PUBLISHER_ID`, `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`.

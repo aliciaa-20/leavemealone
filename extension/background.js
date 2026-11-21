@@ -6,8 +6,6 @@ importScripts("calc.js", "calendar.js", "plan.js");
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   // A fresh install opens the bundled welcome page once (how to start, who makes it, how to chip in). Updates don't.
   if (reason === "install") chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
-  // installedAt dates the popup's one-time support card (popup.js SUPPORT_DAYS); set on update too, so existing users get a date.
-  chrome.storage.local.get({ installedAt: 0 }, (d) => { if (!d.installedAt) chrome.storage.local.set({ installedAt: Date.now() }); });
   chrome.alarms.create("daily-check", { periodInMinutes: 24 * 60, delayInMinutes: 1 });
   // Timetables saved before 0.5.0 could keep weekdays from an older semester. Drop them once; the tour asks for a fresh one.
   chrome.storage.local.get({ ttSchema: 0 }, (d) => {

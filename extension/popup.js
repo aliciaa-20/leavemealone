@@ -7,7 +7,6 @@ const ago = (t) => {
 };
 
 const STALE_DAYS = 3; // the daily alert uses the same limit (background.js)
-const SUPPORT_DAYS = 14; // the one-time "chip in" card shows after this many days of use (installedAt, background.js)
 const WELCOME = chrome.runtime.getURL("welcome.html");
 let D = null;        // storage
 let viewSem = null;  // semester shown (defaults to the highest one)
@@ -25,7 +24,7 @@ const save = (patch) => chrome.storage.local.set(patch).then(load);
 
 function load() {
   return chrome.storage.local
-    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: null, absentList: null, tour: {}, medBeforeMse: true, profile: null, profiles: {}, installedAt: 0, supportAsk: null })
+    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: null, absentList: null, tour: {}, medBeforeMse: true, profile: null, profiles: {}, supportAsk: null })
     .then((d) => {
       D = d;
       if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
@@ -166,10 +165,12 @@ function drawAll() {
   const y = document.documentElement.scrollTop; // a redraw rebuilds everything: keep the scroll position
   const snap = D.snapshots[viewSem];
   if (!snap) {
-    app.replaceChildren(
-      h("div", { class: "blk free" }, h("div", { class: "h3" }, "No attendance data yet"), h("p", { class: "sub" }, "Open the CUE attendance page once (table view) and it will appear here."), openBtn()),
-      h("div", { class: "blk", style: "margin-top:12px" }, dataRows()) // a new browser can bring its data in before syncing
-    );
+    app.replaceChildren(...[
+      supportCard(),
+      h("div", { class: "blk free", style: "margin-top:12px" }, h("div", { class: "h3" }, "No attendance data yet"), h("p", { class: "sub" }, "Open the CUE attendance page once (table view) and it will appear here."), openBtn()),
+      h("div", { class: "blk", style: "margin-top:12px" }, dataRows()), // a new browser can bring its data in before syncing
+      helpBlock(false),
+    ].filter(Boolean));
     return;
   }
   const thr = D.threshold, t = thr / 100;
@@ -198,13 +199,7 @@ function drawAll() {
   const staleBox = stale ? h("div", { class: "stale", role: "status" },
     h("span", {}, h("b", {}, `These numbers are ${Math.floor((Date.now() - snap.syncedAt) / 86400000)} days old.`), " Open CUE attendance to refresh them."),
     h("button", { class: "btn sm", onclick: () => chrome.tabs.create({ url: CUE_URL }) }, "Refresh")) : null;
-  // Once, after SUPPORT_DAYS of use and never over the stale warning: a quiet ask to chip in. Either button ends it for good.
-  const showSupport = !stale && !D.supportAsk && D.installedAt && Date.now() - D.installedAt > SUPPORT_DAYS * 86400000;
-  const supportBox = showSupport ? h("div", { class: "support", role: "status" },
-    h("span", {}, h("b", {}, "Glad it's saving your bunks?"), " Chip in, or star it on GitHub."),
-    h("span", { class: "row" },
-      h("button", { class: "btn sm", onclick: () => save({ supportAsk: "done" }).then(() => chrome.tabs.create({ url: `${WELCOME}#support` })) }, "Chip in"),
-      h("button", { class: "link", onclick: () => save({ supportAsk: "done" }) }, "No thanks"))) : null;
+  const supportBox = stale ? null : supportCard(); // never on top of the stale warning
   // what-if: with a timetable the next `skip` classes are charged to their own courses; without one only the overall is known
   const wiFrom = Cal.addDays(Cal.day0(), 1);
   wi = skip && D.timetable ? Plan.nextClasses(D.timetable, eff.courses, wiFrom, skip) : null;
@@ -361,7 +356,7 @@ function drawAll() {
       h("span", { class: "row" }, num(c.adj.att, `${c.code || c.name} attended`, (v) => setCourseAdj(viewSem, c, "att", v)), num(c.adj.sch, `${c.code || c.name} held`, (v) => setCourseAdj(viewSem, c, "sch", v))))),
     h("div", { class: "sub", style: "margin-top:8px" }, "Went to an extra class the portal hasn't counted? Add 1 under Attended and 1 under Held."));
 
-  // Settings are grouped (Targets / Alerts / Your data / Help); each row has one short line saying what it changes.
+  // Settings are grouped (Targets / Counting / Alerts / Your data); Help & support sits outside, at the end (helpBlock); each row has one short line saying what it changes.
   const setRow = (label, help, control) => h("div", { class: "it2 set" },
     h("div", { class: "row" }, h("span", {}, label), control), help ? h("div", { class: "sub", style: "margin-top:4px" }, help) : null);
   const group = (title, ...rows) => h("div", { class: "setgrp" }, h("div", { class: "setgrp-t" }, title), ...rows.filter(Boolean));
@@ -386,11 +381,7 @@ function drawAll() {
           confirming.has("wipe")
             ? h("span", {}, h("span", { class: "bad" }, "Erase? "), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); viewSem = null; chrome.storage.local.remove([...Profile.DATA, "profile", "profiles"]).then(load); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); draw(); } }, "no"))
             : h("button", { class: "btn danger sm", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase")),
-        profilesRow()),
-      group("Help",
-        setRow("About & chip in", `${UI.ABOUT.notAffiliated} Made by ${UI.ABOUT.by}. Open source; contributions by UPI or on GitHub.`,
-          h("button", { class: "btn sm", onclick: () => chrome.tabs.create({ url: WELCOME }) }, "Open")),
-        setRow("Quick tour", "Replays the popup tour now, and the pill tour next time you open CUE attendance.", h("button", { class: "btn sm", onclick: () => chrome.storage.local.set({ tour: {} }).then(() => { D.tour = {}; startTour(); }) }, "Replay")))));
+        profilesRow())));
 
   // anchors for the guided tour
   overall.dataset.tour = "hero";
@@ -399,7 +390,7 @@ function drawAll() {
   if (examTiles) examTiles.dataset.tour = "exam";
   if (bestCard) bestCard.dataset.tour = "best";
 
-  app.replaceChildren(...[header, staleBox, supportBox, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), h("div", { class: "tagline" }, UI.TAGLINE)].filter(Boolean));
+  app.replaceChildren(...[header, staleBox, supportBox, overall, examCard, bestCard, needs, safeBox, absBox, pending, holBox, adjBox, settings, bestCard && D.timetable ? null : openBtn(), helpBlock(true), h("div", { class: "tagline" }, UI.TAGLINE)].filter(Boolean));
   document.documentElement.scrollTop = y;
 }
 
@@ -418,6 +409,28 @@ function courseRow(c, thr, t, showAfter) {
         c.code || adjusted || UI.vibeTag(pct) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.vibeTag(pct), adjusted ? chip("mute", "adj", tip) : null) : null),
       afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status) : h("span", {}, num, " ", status)),
     bar(pct, thr));
+}
+
+// The ask to chip in: from the first popup open until either button is pressed, then never again (supportAsk).
+function supportCard() {
+  if (D.supportAsk) return null;
+  return h("div", { class: "support", role: "status" },
+    h("span", {}, h("b", {}, "Free, made by two students."), " If it saves your attendance, chip in or star it on GitHub."),
+    h("span", { class: "row" },
+      h("button", { class: "btn sm", onclick: () => save({ supportAsk: "done" }).then(() => chrome.tabs.create({ url: `${WELCOME}#support` })) }, "Chip in"),
+      h("button", { class: "link", onclick: () => save({ supportAsk: "done" }) }, "No thanks")));
+}
+
+// Help & support, always the last block of the popup (outside Settings). withTour: the tour needs synced data.
+function helpBlock(withTour) {
+  const row = (label, help, btn) => h("div", { class: "it2 set" }, h("div", { class: "row" }, h("span", {}, label), btn), h("div", { class: "sub", style: "margin-top:4px" }, help));
+  const open = (hash, text) => h("button", { class: "btn sm", onclick: () => chrome.tabs.create({ url: WELCOME + hash }) }, text);
+  return h("div", { class: "blk help", "data-tour": "help" },
+    h("div", { class: "setgrp-t" }, "Help & support"),
+    row("Chip in", "UPI or a star on GitHub. It stays free either way.", open("#support", "Open")),
+    row("Report a bug", "Opens a short form that files it on GitHub.", open("#report", "Report")),
+    withTour ? row("Quick tour", "Replays the popup tour now, and the pill tour next time you open CUE attendance.", h("button", { class: "btn sm", onclick: () => chrome.storage.local.set({ tour: {} }).then(() => { D.tour = {}; startTour(); }) }, "Replay")) : null,
+    h("div", { class: "sub help-na" }, `${UI.ABOUT.notAffiliated} Developed by ${UI.ABOUT.by}.`));
 }
 
 function openBtn(text = "Open CUE") {
