@@ -22,11 +22,13 @@ const Calc = {
     return Math.ceil((t * s - a) / (1 - t) - 1e-9);
   },
   // The attendance you actually have once your own hours and marks count (what the Overview shows): the portal's numbers plus typed hours,
-  // absent hours marked Later, and co-curricular hours, which count in their own course AND the overall. Medical counts in the overall only,
-  // and only while it is 74.5% to 84.49% (see effective). `exc` = your absent-hour marks.
-  actual(snap, adj, exc) {
+  // absent hours marked Later, and co-curricular hours, which count in their own course AND the overall. Medical counts in the overall
+  // only while it is 74.5% to 84.49% (see effective). `exc` = your absent-hour marks. opts.medInCourse (until the MSE is over, a setting:
+  // Plan.medInCourse) also counts medical hours in their own course; the overall keeps the band rule either way.
+  actual(snap, adj, exc, opts) {
     const e = Calc.effective(snap, adj, exc);
-    return { ...e, courses: e.courses.map((c) => ({ ...c, attended: c.attended + c.ccHrs })) };
+    const med = !!(opts && opts.medInCourse);
+    return { ...e, courses: e.courses.map((c) => ({ ...c, medInCourse: med && c.medHrs > 0, attended: c.attended + c.ccHrs + (med ? c.medHrs : 0) })) };
   },
   // Percentage after skipping n more classes.
   afterSkipping(a, s, n) {

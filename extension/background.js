@@ -14,10 +14,10 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.alarms.onAlarm.addListener((a) => {
   if (a.name !== "daily-check") return;
-  chrome.storage.local.get({ threshold: 75, snapshots: {}, latest: null, adjust: {}, excused: {}, alerts: true, timetable: null }, (d) => {
+  chrome.storage.local.get({ threshold: 75, snapshots: {}, latest: null, adjust: {}, excused: {}, alerts: true, timetable: null, medBeforeMse: true }, (d) => {
     if (d.alerts === false) return; // turned off in the popup settings
     const snap = d.snapshots[d.latest];
-    const eff = snap ? Calc.actual(snap, d.adjust[d.latest], d.excused[d.latest]) : null; // your actual attendance, the same numbers as the drawer
+    const eff = snap ? Calc.actual(snap, d.adjust[d.latest], d.excused[d.latest], { medInCourse: Plan.medInCourse(d.medBeforeMse) }) : null; // your actual attendance, the same numbers as the drawer
     if (snap) snap.courses = eff.courses;
     let title = "Attendance check";
     let message;

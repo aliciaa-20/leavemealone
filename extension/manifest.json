@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "leavemealone",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Bunk calculator and low-attendance alerts for the CUE student portal. Unofficial; not affiliated with CHRIST University.",
   "permissions": [
     "storage",
@@ -45,6 +45,7 @@
         "calendar.js",
         "plan.js",
         "ui.js",
+        "profile.js",
         "content.js"
       ],
       "run_at": "document_idle"

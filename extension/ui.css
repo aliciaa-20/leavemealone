@@ -333,6 +333,9 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .pday { display: flex; justify-content: space-between; align-items: baseline; padding: var(--s3) 0 var(--s1); border-top: 1px solid var(--line); }
 .pday:first-child { border-top: 0; }
 .pday b { font: 600 var(--t13) var(--font-head); }
+.pday.mk { align-items: center; gap: var(--s2); }
+.pday + .it2 { border-top: 0; }
+.dayseg { display: inline-flex; align-items: center; gap: var(--s2); flex: none; }
 .per { display: grid; grid-template-columns: 18px 24px 44px 1fr; gap: 10px; align-items: center; padding: 7px 0; cursor: pointer; width: 100%; background: transparent; border: 0; text-align: left; }
 .per .bx { width: 18px; height: 18px; border-radius: var(--r-tick); border: 1.5px solid var(--mute); display: grid; place-items: center; transition: background-color 150ms var(--ease), border-color 150ms var(--ease); }
 .per .bx.on { background: var(--pick); border-color: var(--pick); }

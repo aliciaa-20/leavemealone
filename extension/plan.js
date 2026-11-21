@@ -254,7 +254,11 @@ const Plan = (() => {
     return !skipped.size ? undefined : skipped.size === periods.length ? null : skipped;
   }
 
-  return { MSE_MIN, ESE_OVERALL, criteria, courseLine, courseOf, periodNum, classesOn, courseClasses, endMinutes, upcomingFrom, nextClasses, missedFor, setAttend, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
+  // Medical hours count in their own course until the MSE is over (the semester's MSE window has ended), when the
+  // `medBeforeMse` setting is on (unset = on). After that, per course they reset and only the overall's band rule applies.
+  const medInCourse = (setting, d = new Date()) => setting !== false && !!Cal.cutoffRef("mse", d);
+
+  return { MSE_MIN, ESE_OVERALL, medInCourse, criteria, courseLine, courseOf, periodNum, classesOn, courseClasses, endMinutes, upcomingFrom, nextClasses, missedFor, setAttend, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
 })();
 
 if (typeof module !== "undefined") module.exports = Plan;

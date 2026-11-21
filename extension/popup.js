@@ -22,7 +22,7 @@ const save = (patch) => chrome.storage.local.set(patch).then(load);
 
 function load() {
   return chrome.storage.local
-    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: undefined, absentList: null, tour: {} })
+    .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: undefined, absentList: null, tour: {}, medBeforeMse: true, profile: null, profiles: {} })
     .then((d) => {
       D = d;
       if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
@@ -55,8 +55,31 @@ function startTour() {
   });
 }
 
+// ---- profiles: one per student who logs in on CUE in this browser (Profile in profile.js)
+const profileCount = () => Object.keys(D.profiles || {}).length;
+function profilesRow() {
+  const ids = Object.keys(D.profiles || {});
+  const label = (id) => D.profiles[id]?.label || "Profile";
+  const help = ids.length > 1
+    ? "Each student who logs in on CUE here gets their own attendance, marks and timetable. This popup shows whoever logged in last; to see someone else's, log in as them."
+    : `Saved as ${D.profile ? label(D.profile) : "the next student to log in"}. Another student logging in on CUE in this browser gets their own profile, so your data doesn't mix.`;
+  return h("div", { class: "it2 set" },
+    h("div", { class: "row" }, h("span", {}, "Profiles"), h("span", { class: "sub" }, plural(ids.length, "profile"))),
+    h("div", { class: "sub", style: "margin-top:4px" }, help),
+    ids.length > 1 ? ids.map((id) => {
+      const key = `prof:${id}`;
+      return h("div", { class: "row", style: "margin-top:8px" }, h("span", {}, h("b", {}, label(id))),
+        id === D.profile ? h("span", { class: "sub" }, "showing now")
+          : confirming.has(key)
+            ? h("span", {}, h("span", { class: "bad" }, "Remove their data? "), h("button", { class: "link", onclick: () => { confirming.delete(key); Profile.remove(id).then(load); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete(key); draw(); } }, "no"))
+            : h("button", { class: "link", onclick: () => { confirming.add(key); draw(); } }, "Remove"));
+    }) : null);
+}
+// A CUE tab switched profiles while the popup is open: show the new person.
+chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && "profile" in ch && D && ch.profile.newValue !== D.profile) { viewSem = null; load(); } });
+
 // ---- backup: export / import everything the extension keeps
-const KEYS = ["snapshots", "latest", "adjust", "excused", "lastCourse", "timetable", "timetableSem", "absentList", "threshold", "alerts", "sortBy", "bunkBasis", "eseTarget", "tour"];
+const KEYS = ["snapshots", "latest", "adjust", "excused", "lastCourse", "timetable", "timetableSem", "absentList", "profile", "profiles", "threshold", "alerts", "sortBy", "bunkBasis", "eseTarget", "medBeforeMse", "tour"];
 async function exportData() {
   const data = await chrome.storage.local.get(KEYS);
   const n = new Date(), ymd = Cal.key(n);
@@ -148,7 +171,7 @@ function drawAll() {
   }
   const thr = D.threshold, t = thr / 100;
   const adj = D.adjust[viewSem] || { cocurricular: 0, courses: {} };
-  const eff = Calc.actual(snap, adj, D.excused[viewSem]); // your actual attendance (portal + typed hours + marks), the same numbers as the drawer's Overview
+  const eff = Calc.actual(snap, adj, D.excused[viewSem], { medInCourse: Plan.medInCourse(D.medBeforeMse) }); // your actual attendance (portal + typed hours + marks), the same numbers as the drawer's Overview
   const effP = Calc.effective(snap, {}, {}); // what the portal itself shows, for the Reclassified card
   const portalPct = Calc.percent(effP.overall.attended, effP.overall.scheduled);
   const o = eff.overall;
@@ -166,7 +189,7 @@ function drawAll() {
     sems.length > 1
       ? h("select", { "aria-label": "Semester", onchange: (e) => { viewSem = e.target.value; draw(); } }, sems.map((s) => h("option", { value: s, selected: s === viewSem }, s)))
       : h("span", { class: "t" }, viewSem),
-    h("span", { class: "sub" }, `synced ${ago(snap.syncedAt)}`));
+    h("span", { class: "sub" }, `${profileCount() > 1 ? `${D.profiles[D.profile]?.label} · ` : ""}synced ${ago(snap.syncedAt)}`));
   // what-if: with a timetable the next `skip` classes are charged to their own courses; without one only the overall is known
   const wiFrom = Cal.addDays(Cal.day0(), 1);
   wi = skip && D.timetable ? Plan.nextClasses(D.timetable, eff.courses, wiFrom, skip) : null;
@@ -325,20 +348,23 @@ function drawAll() {
   // Each setting says what it changes: the minimum and the ESE target are easy to mix up.
   const setRow = (label, help, control, first) => h("div", { class: "it2 set", style: first ? "border-top:0" : null },
     h("div", { class: "row" }, h("span", {}, label), control), help ? h("div", { class: "sub", style: "margin-top:4px" }, help) : null);
-  const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Minimum, ESE target, alert, backup", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
+  const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Minimum, ESE target, medical, alert, profiles, backup", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
     h("div", { "data-tour": "settings" },
       setRow("Minimum %", "For each course and the overall. Sets 'can bunk', 'attend next', the colours and the daily alert. Below 75% is always 'pakka detain', 85% and up is 'susegad'.",
         stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", key: "set-min", live: true, onchange: (v) => save({ threshold: v }) }), true),
       setRow("ESE target (overall) %", `The overall % you need to sit end-sem exams (${Plan.ESE_OVERALL}% by the rules). Used by the ESE countdown and 'Before ESE' planning.`,
         stepper(Math.min(100, Math.max(1, D.eseTarget ?? Plan.ESE_OVERALL)), { min: 1, max: 100, label: "ESE target", key: "set-ese", live: true, onchange: (v) => save({ eseTarget: v }) })),
       h("div", { class: "sub", style: "padding-bottom:12px" }, `MSE always needs ${Math.round(Plan.MSE_MIN * 100)}% in every course; that one isn't a setting.`),
+      setRow("Medical counts per course until MSE", "Medical hours you mark count as attended in their own course until the MSE is over. After that they only help the overall, at 74.5% to 84.49%.",
+        toggle(D.medBeforeMse !== false, (v) => save({ medBeforeMse: v }), "Medical per course until MSE", "set-med")),
       setRow("Daily alert if a course is low", null, toggle(D.alerts !== false, (v) => save({ alerts: v }), "Daily alert", "set-alert")),
       dataRows(),
       setRow("Erase saved data",
-        "Removes synced attendance, your marks, adjustments and timetable from this browser. Settings stay, and the portal is untouched.",
+        "Removes synced attendance, marks, adjustments and timetables from this browser, for every profile. Settings stay, and the portal is untouched.",
         confirming.has("wipe")
-          ? h("span", {}, h("span", { class: "bad" }, "Erase? "), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); viewSem = null; chrome.storage.local.remove(["snapshots", "latest", "adjust", "excused", "lastCourse", "timetable", "timetableSem", "timetableSavedAt", "absentList"]).then(load); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); draw(); } }, "no"))
+          ? h("span", {}, h("span", { class: "bad" }, "Erase? "), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); viewSem = null; chrome.storage.local.remove([...Profile.DATA, "profile", "profiles"]).then(load); } }, "yes"), sep(), h("button", { class: "link", onclick: () => { confirming.delete("wipe"); draw(); } }, "no"))
           : h("button", { class: "btn danger sm", onclick: () => { confirming.add("wipe"); draw(); } }, "Erase")),
+      profilesRow(),
       setRow("Quick tour", "Shows the popup tour now, and the pill tour next time you open CUE attendance.", h("button", { class: "link", onclick: () => chrome.storage.local.set({ tour: {} }).then(() => { D.tour = {}; startTour(); }) }, "Replay"))));
 
   // anchors for the guided tour

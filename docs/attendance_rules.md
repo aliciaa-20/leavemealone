@@ -36,7 +36,8 @@ This is what the Overview, the pill, the planner, the toolbar popup and the dail
 2. Add **typed hours** (per course: attended and scheduled; and co-curricular for the overall).
 3. Add **absent hours you marked "Later"** (the portal will update them to present) to that course.
 4. **Co-curricular** hours (marked on an absent hour, or typed) count in the **overall** and, in the actual view, in **their own course** too (counted once in the overall). Once the portal shows a Co-curricular column (semester end) it has already included them, so the extension adds none.
-5. **Medical** hours count in the **overall only, never in a course**, and only by the portal's band: overall (with co-curricular) **below 74.5%: not considered; 74.5% up to 84.49%: added; 85% or more: not needed**. Not capped at 85%.
+5. **Medical** hours count in the **overall** only by the portal's band: overall (with co-curricular) **below 74.5%: not considered; 74.5% up to 84.49%: added; 85% or more: not needed**. Not capped at 85%.
+   **Per course, until the MSE is over** (through the last day of the MSE window), medical hours also count as attended in their own course, so they help the MSE 75% line. From the day after the MSE window they reset: courses no longer count them, and only the overall band above applies. This is the Settings toggle "Medical counts per course until MSE" (`medBeforeMse`, on by default; `Plan.medInCourse`).
 6. Marked hours are never more than the portal's own absent count for that course (scaled down if they are). An hour the portal stops listing as absent is already in its numbers and is not counted again.
 7. If the portal's scheduled or absent count changes after you marked something, the mark is flagged "needs review".
 8. The portal's own labels (e.g. "Medical Leave", co-curricular) are locked and read as marks.

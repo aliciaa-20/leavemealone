@@ -1,36 +1,41 @@
 # Handoff
-Last updated: 2026-11-21 · branch main · last commit: see `git log -1` (0a5a00c and earlier are pushed; main matched origin/main at this handoff)
+Last updated: 2026-11-21 · branch main · last commit: see `git log -1` (pushed to origin/main)
 
 ## State in one paragraph
-leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at version 0.5.0 (`extension/manifest.json`). This session added a guided tour (popup and CUE pill/drawer), Settings backup export/import, clearer Minimum/ESE target settings, live settings sync to an open CUE tab, a timetable fix (old semesters leaked weekdays in; pre-0.5.0 timetables are wiped once), a cleanup pass (shared helpers, a Best days bug fix), and the Bangalorean copy ("bunk" everywhere, "pakka detain" below 75%, "susegad" at 85%+ as quiet italic asides). How everything works: `CLAUDE.md`; rules for the maths: `docs/attendance_rules.md`.
+leavemealone is a buildless MV3 Chrome/Edge extension for the CUE portal, now at version 0.6.0 (`extension/manifest.json`). 0.5.0 brought the guided tour, backup export/import, the Bangalorean copy and a cleanup pass. 0.6.0 adds: medical leave counting per course until the MSE is over (a setting, on by default), whole-day marking on both absent pages, and per-student profiles on a shared browser. Pushing a change under `extension/` runs `.github/workflows/release.yml`, which attaches `leavemealone.zip` to release `v<version>`; the README links to `releases/latest/download/leavemealone.zip`. How everything works: `CLAUDE.md`; rules for the maths: `docs/attendance_rules.md`.
 
 ## Done this session (and how it was verified)
-- All of the above is pushed to `origin/main`, including tour step 5 ("View Details and mark it" in red, underlined, via `.tour-em`, a9b28f8).
-- Release zip (0a5a00c): `.github/workflows/release.yml` zips `extension/` as `leavemealone/` into `leavemealone.zip` and attaches it to release `v<manifest version>` on pushes to main that touch `extension/**` (or a manual run). The README's download link is now `releases/latest/download/leavemealone.zip`.
-- Verified: `node --check extension/*.js` passes. The cleanup was checked by dumping `Cal`/`Plan` outputs for every day of 2026-27 before and after (identical). `Plan.bestDays` now returns ordinary days (bug: a dangling `if` only kept 3+ day breaks). Backup validation (`readBackup` in `popup.js`) was tested in Node.
-- **Nothing UI-side was seen in a browser by Claude**: Antony checks in Chrome and sends screenshots.
+- **Medical per course until MSE** (`Calc.actual(..., { medInCourse })`, `Plan.medInCourse(setting)`, storage `medBeforeMse`). Node test: course 30/40 + 3h medical shows 33/40 through 9 Jan 2027 and 30/40 from 10 Jan, and 30/40 with the setting off; the overall's 74.5-85% band is unchanged.
+- **Whole-day marking** (`UI.daySeg`): a day with 2+ markable hours gets a "Whole day" A/C/M/L control, on `/main/AbsentDetails` and in the all-courses "Mark hours" mode (`markAbs(list, choice)` writes several courses in one go). Smoke-tested `absentDays` with a fake DOM.
+- **Profiles** (`extension/profile.js`): detected from the portal header (name `p.MuiTypography-body2` + class-code `span.MuiTypography-caption`, e.g. "6BTIT"); data swapped per student. Node test with a fake `chrome.storage`: adopt, swap, switch back, remove; a bug where the first profile wiped existing data was found and fixed.
+- Calendar: 21 Nov 2026 working, 28 Nov compensatory holiday, third Saturdays off unless listed: already correct, checked with `Cal.dayInfo`.
+- `node --check extension/*.js` passes.
+- **Nothing UI-side was seen in a browser by Claude.** Antony checks in Chrome.
 
 ## In flight / not verified
-- Not checked: whether the release Action has run and `releases/latest/download/leavemealone.zip` works. 0a5a00c itself doesn't touch `extension/**`, so the Action may need a manual run (Actions tab → Release extension zip → Run workflow). The `gh` CLI isn't installed on the new laptop, so check on github.com. Until a release exists, the README link 404s.
-- Not checked in Chrome yet: the tour end-to-end (the drawer tour opens the drawer and switches tabs; the last step opens the timetable), whether the popup survives the Import file picker on Windows (fallback idea: open `popup.html#import` in a tab), the stepper fixes, live sync, the `.vibe` squiggle/tilt.
-- The "NOT IN TABLE" rows on the Today card should disappear once a fresh timetable is captured. If they persist, the timetable and attendance course names differ: get a screenshot of the Timetable page.
+- In Chrome: the medical setting row, the whole-day controls, and profiles with a real second login. If a second student sees the first one's numbers, the header name probably isn't on the page (e.g. only in a menu): check `Profile.who()` in the console.
+- Release Action for v0.6.0: not checked (no `gh` CLI on this laptop). Check the Actions tab / releases on github.com.
+- Still unverified from 0.5.0: tour end to end, Import file picker on Windows, `.vibe` styling.
+- Other working Saturdays (Dec-Mar) not checked against the official 2026-27 calendar PDF: Antony needs to send it.
 
 ## Next steps (ordered, concrete)
-0. Check the release zip link above works (run the workflow if not).
-1. Antony reloads the extension, uses Settings → Quick tour → Replay, and reports what looks off.
-2. Optional copy ideas Antony hasn't picked yet: "Full safe, machaa", "Sakkath! N bunks in hand", "Swalpa adjust maadi" (no bunks left), "Class ge hogu" (attend next), "Ayyo" (a bunk drops a course), "chill maadi" (long weekend), "Scene illa" (nothing left), "Namaskara, guru" (tour), "Yen guru" (stale data alert).
-3. Footer tagline: suggested replacing "Unofficially vibecoded UI just like this website, but better." with "Made in Namma Bengaluru…" before a public Web Store listing. Not decided.
-4. Popup button "Plan on CUE" was not renamed; asked if it should become "Put a bunk on CUE". No answer yet.
-5. Chrome Web Store publishing: steps were given (Unlisted first, $5 account, zip `extension/*`, privacy tab, no real data in screenshots). Not started.
+1. Confirm the v0.6.0 release zip exists and installs (Load unpacked on the unzipped `leavemealone` folder).
+2. Antony tests the three features in Chrome and reports what looks off.
+3. Check the calendar's working Saturdays once the PDF is shared.
+4. Open copy ideas, footer tagline, "Plan on CUE" rename, Web Store listing: unchanged from the last handoff (see git history of this file, commit a9b28f8).
 
 ## User decisions and preferences to respect
 - "Bunk", not "skip", in all copy; the tab is "Put a bunk".
-- "pakka detain" is tied to 75% and "susegad" to 85%, not to the user's Minimum. Jokes must stay visually quieter than the can-bunk / attend chips.
+- "pakka detain" is tied to 75% and "susegad" to 85%, not to the user's Minimum. Jokes stay quieter than the can-bunk / attend chips.
 - Onboarding lives inside the extension (tour), never a separate welcome tab.
-- Commit when asked; **push only when Antony says "push"** (a push without that was blocked).
+- Medical counts per course in full (not limited by the band) until the MSE window ends; the overall always uses the band.
+- Profiles are automatic from the portal login; settings are shared; the popup has no profile switch (to avoid saving one person's portal data into another's profile).
+- Commit when asked; **push only when Antony says "push"**.
 - Antony is on the Claude Pro plan: keep work focused, no subagents unless asked.
 
 ## Watch out for
-- `Pages/` and any saved portal HTML hold a real student's attendance: never commit them.
-- Editing from Git Bash: heredocs mangle backslashes in regexes (one turned `\b` into a backspace). Write edit scripts to a file, or use the Edit tool.
-- Contributor aliciaa-20 also pushes to this repo (PRs #1–#3 merged); pull before starting.
+- `Pages/` and any saved portal HTML hold a real student's attendance and name: never commit them. (`Pages/` isn't on the new laptop.)
+- A new per-person storage key goes in `Profile.DATA` (and the popup's backup `KEYS`).
+- Every `Calc.actual` caller must pass `{ medInCourse: Plan.medInCourse(medBeforeMse) }`.
+- Editing from Git Bash: heredocs mangle backslashes, and a bare `cat > file` waits on stdin forever. Write edit scripts with the Write tool and run them.
+- Contributor aliciaa-20 also pushes to this repo; pull before starting.

@@ -187,6 +187,13 @@ const UI = (() => {
   const absentSummary = (rows) => [`${fmt(hrsOf(rows, "abs"))}h absent`, hrsOf(rows, "cc") ? [sep(), `${fmt(hrsOf(rows, "cc"))}h co-curricular`] : null, hrsOf(rows, "med") ? [sep(), `${fmt(hrsOf(rows, "med"))}h medical`] : null];
   // opts (optional) turns the plain-absent rows into A / C / M / L controls: { on, choices, selOf(r), canMark(r), pick(r, choice) }.
   const MARKED = { later: ["mute", "later"], cc: ["gold", "co-curricular"], med: ["blue", "medical"] };
+  // Whole-day A / C / M / L: one pick for every markable hour of a day. cur = the choice all of them share (lit), else null.
+  // onpick(choice) always fires; the caller skips it when nothing would change.
+  const daySeg = ({ choices, cur, label, key, onpick }) => h("span", { class: "dayseg" }, h("span", { class: "sub" }, "Whole day"),
+    h("span", { class: "seg", role: "group", "aria-label": `Mark all of ${label}` },
+      choices.map((c) => h("button", { class: `${c.cls}${cur === c.s ? " on" : ""}`, "data-s": c.s, "data-key": key ? `${key}-${c.s}` : null, "aria-pressed": String(cur === c.s), title: `Whole day: ${c.tip}`, "aria-label": `${c.label}: every hour of ${label}`, onclick: () => onpick(c.s) }, c.letter))));
+  // The one choice every row shares, or null.
+  const sharedOf = (vals) => (vals.length && vals.every((v) => v === vals[0]) ? vals[0] : null);
   const absentDays = (rows, opts) => {
     const groups = [];
     for (const r of rows) { // the portal lists them newest first, so a day's rows are next to each other
@@ -194,8 +201,15 @@ const UI = (() => {
       if (!g || g.date !== r.date) groups.push((g = { date: r.date, label: niceDate(`${r.date} ${r.day}`), rows: [] }));
       g.rows.push(r);
     }
-    return groups.map((g) => [
-      h("div", { class: "pday" }, h("b", {}, g.label), h("span", { class: "sub" }, `${fmt(g.rows.reduce((n, r) => n + r.h, 0))}h`)),
+    return groups.map((g) => {
+      const hrs = h("span", { class: "sub" }, `${fmt(g.rows.reduce((n, r) => n + r.h, 0))}h`);
+      const free = opts && opts.on ? g.rows.filter((r) => r.kind === "abs" && opts.canMark(r)) : [];
+      const head = free.length > 1 && opts.pickDay
+        ? h("div", { class: "pday mk" }, h("span", {}, h("b", {}, g.label), " ", hrs),
+            daySeg({ choices: opts.choices, cur: sharedOf(free.map(opts.selOf)), label: g.label, key: `mkd-${g.date}`, onpick: (s) => { if (free.some((r) => opts.selOf(r) !== s)) opts.pickDay(free, s); } }))
+        : h("div", { class: "pday" }, h("b", {}, g.label), hrs);
+      return [
+      head,
       g.rows.map((r) => {
         const sel = opts && r.kind === "abs" ? opts.selOf(r) : "abs";
         const when = `${niceDate(`${r.date} ${r.day}`)}, ${nicePeriod(r.period)}`;
@@ -205,7 +219,8 @@ const UI = (() => {
           : sel !== "abs" ? chip(...MARKED[sel]) : chip(KIND[r.kind][0], KIND[r.kind][1]);
         return h("div", { class: `arow${opts && opts.on ? " mk" : ""}` }, h("span", {}, nicePeriod(r.period)), h("span", { class: "pt" }, startTime(r.time)), h("span", { class: "ac", title: r.name }, h("b", {}, r.code), r.name ? h("small", {}, r.name) : null), cell);
       }),
-    ]);
+      ];
+    });
   };
 
   // A cursor-following glow on cards (.blk, .acc, .cardcal, the popup tiles): a soft spotlight where the pointer is.
@@ -316,5 +331,5 @@ const UI = (() => {
     return { refresh: place, end: () => end(false), get active() { return live; } };
   };
 
-  return { h, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, spotlight, tour, absentSummary, absentDays, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, spotlight, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, placeThumb, tween, pills, stepper, toggle, acc };
 })();

@@ -35,6 +35,7 @@ Every rule used in the maths is in [docs/attendance_rules.md](docs/attendance_ru
 
 ## Privacy
 - Everything stays in your browser (`chrome.storage.local`).
+- If more than one student logs in on CUE in the same browser, each gets their own profile, picked by the name the portal shows. Only the first name is kept, as the profile's label.
 - No requests to any server (it only loads its own bundled stylesheet and font); nothing is sent anywhere.
 - It only runs on `https://cue.christuniversity.in/*`.
 
