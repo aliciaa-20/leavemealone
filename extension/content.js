@@ -21,7 +21,14 @@
     const m = /(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/.exec(txt || "");
     return m ? [parseFloat(m[1]), parseFloat(m[2])] : null;
   };
-  const semester = () => document.querySelector('[role="combobox"]')?.textContent.trim() || "unknown";
+  const semester = () => (document.querySelector('[role="combobox"]')?.textContent.trim() || "unknown").replace(/\s*\[[^\]]*\]\s*$/, ""); // the portal adds "[On Roll]" / "[Semester Completed]"
+  const plain = (k) => k.replace(/\s*\[[^\]]*\]\s*$/, "");
+  // Data saved while the label still carried the bracket moves to the plain label (the newer bracketed copy wins).
+  function plainKeys(o) {
+    let moved = false;
+    for (const k of Object.keys(o || {})) if (plain(k) !== k) { o[plain(k)] = o[k]; delete o[k]; moved = true; }
+    return moved;
+  }
   const COURSE_TABLE = 'table[aria-label="coursewise attendance table"]';
   const { h, plural, fmt, tone, mustText, bar, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, pills, stepper, acc, tween, placeThumb, absentSummary, absentDays, daySeg, hrsOf } = UI;
 
@@ -661,18 +668,31 @@
     unreadShown = true;
     await ensureHost();
     const grid = !!document.querySelector('[role="progressbar"][aria-label$=" attendance"]') && !!document.querySelector('[aria-label="table view"]');
+    // The Daily Log tab has no course table: offer a way back to Course Overview instead of calling it broken.
+    const overview = [...document.querySelectorAll('button,[role="tab"]')].find((b) => /^course overview$/i.test(b.textContent.trim()));
+    const daily = !grid && !!overview;
     attSig = ""; shell = null; // the next successful read must rebuild the drawer
-    dock.replaceChildren(h("div", { class: "panel" },
-      h("div", { class: "h3" }, grid ? "Grid view isn't supported yet" : "Couldn't read this page"),
-      h("p", { class: "sub" }, grid ? "Switch to table view and your numbers will show here." : "The portal page may have changed. Reload it; if this keeps happening, please report it on the project's GitHub page."),
-      grid ? h("button", { class: "btn solid cta", onclick: () => document.querySelector('[aria-label="table view"]')?.click() }, "Switch to table view")
-        : h("button", { class: "btn solid cta", onclick: () => location.reload() }, "Reload page")));
+    const title = grid ? "Grid view isn't supported yet" : daily ? "Nothing to read on this tab" : "Couldn't read this page";
+    const text = grid ? "Switch to table view and your numbers will show here."
+      : daily ? "leavemealone reads the Course Overview table. Go back to it and your numbers will show here."
+      : "The portal page may have changed. Try one of these; if it keeps happening, please report it so it can be fixed.";
+    const btns = grid ? [h("button", { class: "btn solid cta", onclick: () => document.querySelector('[aria-label="table view"]')?.click() }, "Switch to table view")]
+      : daily ? [h("button", { class: "btn solid cta", onclick: () => overview.click() }, "Open Course Overview"), h("button", { class: "btn cta", onclick: () => location.reload() }, "Reload page")]
+      : [h("button", { class: "btn solid cta", onclick: () => location.reload() }, "Reload page"),
+         h("button", { class: "btn cta", onclick: () => window.open("https://cue.christuniversity.in/main/attendence", "_self") }, "Go to Attendance"),
+         h("button", { class: "btn cta", onclick: () => window.open(`${UI.ABOUT.repo}/issues/new`, "_blank", "noopener") }, "Report it on GitHub")];
+    dock.replaceChildren(h("div", { class: "panel" }, h("div", { class: "h3" }, title), h("p", { class: "sub" }, text), ...btns));
   }
   async function tickAtt() {
     const snap = parseCourses();
     if (!snap) { noteUnread(); return; }
     unreadSince = 0; unreadShown = false;
-    const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, sortBy: "portal", timetable: null, bunkBasis: "now", eseTarget: null, medBeforeMse: true, bunkPlan: {} });
+    const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, sortBy: "portal", timetable: null, timetableSem: null, bunkBasis: "now", eseTarget: null, medBeforeMse: true, bunkPlan: {}, absentList: null });
+    const fix = {};
+    for (const k of ["snapshots", "adjust", "excused", "bunkPlan"]) if (plainKeys(d[k])) fix[k] = d[k];
+    if (d.timetableSem && plain(d.timetableSem) !== d.timetableSem) fix.timetableSem = plain(d.timetableSem);
+    if (d.absentList?.sem && plain(d.absentList.sem) !== d.absentList.sem) fix.absentList = { ...d.absentList, sem: plain(d.absentList.sem) };
+    if (Object.keys(fix).length) await store.set(fix);
     const prev = d.snapshots[snap.semester];
     const same = prev && JSON.stringify([prev.overall, prev.courses, prev.hasCc]) === JSON.stringify([snap.overall, snap.courses, snap.hasCc]);
     if (same && Date.now() - prev.syncedAt < 60000) snap.syncedAt = prev.syncedAt; // unchanged: don't rewrite storage on every tick
@@ -680,7 +700,7 @@
     const latest = Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
     if (!same || snap.syncedAt !== prev.syncedAt || d.latest !== latest) await store.set({ snapshots: d.snapshots, latest });
     renderAtt({
-      snap, threshold: d.threshold, adj: d.adjust[snap.semester], exc: d.excused[snap.semester],
+      snap, threshold: Plan.minOf(d.threshold), adj: d.adjust[snap.semester], exc: d.excused[snap.semester],
       open: attOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis, eseTarget: d.eseTarget, medBeforeMse: d.medBeforeMse, bunkPlan: d.bunkPlan,
     });
   }

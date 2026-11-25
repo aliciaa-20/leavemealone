@@ -134,6 +134,7 @@ const Plan = (() => {
   const ESE_MIN = 74.5; // the lowest ESE target the user can pick (the medical-leave floor); below the official ESE_OVERALL is allowed but flagged
   const ESE_OVERALL = 85; // ESE: the overall attendance needed, in percent (courses are not the criterion); medical leave helps the overall get there
   // Which numbers decide "safe" for a basis: now = courses and overall, mse = every course, end (ESE) = the overall.
+  const minOf = (v) => Math.min(100, Math.max(ESE_MIN, Number.isFinite(Number(v)) && v != null ? Number(v) : 75)); // the saved minimum, never below 74.5
   const eseOf = (v) => Math.min(100, Math.max(ESE_MIN, Number.isFinite(Number(v)) && v != null ? Number(v) : ESE_OVERALL)); // the stored target, or the default
   const CRITERIA = { now: { course: true, overall: true }, mse: { course: true, overall: false }, end: { course: false, overall: true } };
   const criteria = (basis) => CRITERIA[basis] || CRITERIA.now;
@@ -260,7 +261,7 @@ const Plan = (() => {
   // `medBeforeMse` setting is on (unset = on). After that, per course they reset and only the overall's band rule applies.
   const medInCourse = (setting, d = new Date()) => setting !== false && !!Cal.cutoffRef("mse", d);
 
-  return { MSE_MIN, ESE_OVERALL, ESE_MIN, eseOf, medInCourse, criteria, courseLine, courseOf, periodNum, classesOn, courseClasses, endMinutes, upcomingFrom, nextClasses, missedFor, setAttend, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
+  return { MSE_MIN, ESE_OVERALL, ESE_MIN, minOf, eseOf, medInCourse, criteria, courseLine, courseOf, periodNum, classesOn, courseClasses, endMinutes, upcomingFrom, nextClasses, missedFor, setAttend, remainingHours, impact, bestDays, breakLength, thresholdFor, horizon: horizonDate, resolveBasis, clipSelection, budgets, mseRisks };
 })();
 
 if (typeof module !== "undefined") module.exports = Plan;

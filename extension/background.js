@@ -26,7 +26,7 @@ chrome.alarms.onAlarm.addListener((a) => {
     if (!snap) {
       message = "No attendance data yet. Open the CUE attendance page once.";
     } else {
-      const low = snap.courses.filter((c) => (c.attended / c.scheduled) * 100 < d.threshold);
+      const low = snap.courses.filter((c) => (c.attended / c.scheduled) * 100 < Plan.minOf(d.threshold));
       const ageDays = (Date.now() - snap.syncedAt) / 86400000;
       if (low.length) {
         const detained = low.filter((c) => (c.attended / c.scheduled) * 100 < 75).length; // the university's detain line (UI.DETAIN)

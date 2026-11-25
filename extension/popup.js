@@ -27,6 +27,7 @@ function load() {
     .get({ threshold: 75, alerts: true, snapshots: {}, latest: null, adjust: {}, excused: {}, timetable: null, bunkBasis: "now", eseTarget: null, absentList: null, tour: {}, medBeforeMse: true, profile: null, profiles: {}, supportAsk: null })
     .then((d) => {
       D = d;
+      d.threshold = Plan.minOf(d.threshold);
       if (!viewSem || !d.snapshots[viewSem]) viewSem = d.latest || Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
       draw();
       // First popup open with data: a short guided tour (once; Settings can replay it).
@@ -363,8 +364,8 @@ function drawAll() {
   const settings = acc({ title: "Settings", icon: "sliders", tone: "mute", sub: "Minimum, ESE target, medical, alert, profiles, backup", open: accOpen.has("settings"), ontoggle: toggleAcc("settings") },
     h("div", { "data-tour": "settings" },
       group("Targets",
-        setRow("Minimum %", "Drives can bunk, attend next, the colours and the alert",
-          stepper(D.threshold, { min: 1, max: 100, label: "minimum attendance", key: "set-min", live: true, onchange: (v) => save({ threshold: v }) })),
+        setRow("Minimum %", `Drives can bunk, attend next, the colours and the alert. ${Plan.ESE_MIN}% to 100%`,
+          stepper(D.threshold, { min: Plan.ESE_MIN, max: 100, decimals: 1, label: "minimum attendance", key: "set-min", live: true, onchange: (v) => save({ threshold: v }) })),
         setRow("ESE target %", [UI.eseFlag(Plan.eseOf(D.eseTarget), Plan.ESE_OVERALL), `Overall % to sit end-sem exams. Official ${Plan.ESE_OVERALL}%, you can set ${Plan.ESE_MIN}% to 100%. `,
           D.eseTarget != null && D.eseTarget !== Plan.ESE_OVERALL ? h("button", { class: "link", onclick: () => chrome.storage.local.remove("eseTarget").then(load) }, `Reset to ${Plan.ESE_OVERALL}%`) : null],
           stepper(Plan.eseOf(D.eseTarget), { min: Plan.ESE_MIN, max: 100, decimals: 1, label: "ESE target", key: "set-ese", onchange: (v) => save({ eseTarget: v }) })), // saved on blur/Enter or +/-: typing "8" on the way to "85" must not save 8

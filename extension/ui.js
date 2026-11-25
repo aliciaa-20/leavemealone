@@ -17,7 +17,7 @@ const UI = (() => {
   const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
   // Semester labels end in a Roman numeral ("... VI"): its value, for picking the latest one (0 if none).
   const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
-  const semRank = (label) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(label.toUpperCase())?.[1]] || 0;
+  const semRank = (label) => ROMAN[/\b(VIII|VII|VI|V|IV|III|II|I)\s*$/.exec(label.toUpperCase().replace(/\s*\[[^\]]*\]\s*$/, ""))?.[1]] || 0;
   // Below 75% the university detains you, whatever minimum you set in the extension.
   const DETAIN = 75;
   const detain = (pct) => pct < DETAIN;
