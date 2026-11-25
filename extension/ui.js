@@ -87,6 +87,13 @@ const UI = (() => {
   const TAGLINE = "Unofficially vibecoded UI just like this website, but better."; // the footer under every drawer, panel and the popup
   // Who makes it and how to chip in (welcome page, popup Settings, the later support card).
   // UPI is the public Paytm ID shown with support-qr.png; empty = the pay section stays hidden until it is set.
+  // Lines for a bug report: versions, counts and which view was read. Never course names, hours, percentages or the student.
+  const diag = ({ version, page, via, courses, hasCc, sem, syncedAt, ttDays, absentRows, found } = {}) => [
+    `version ${version || "?"}`, page && `page ${page}`, via && `last read via ${via} view`,
+    Number.isFinite(courses) && `${courses} courses`, typeof hasCc === "boolean" && `co-curricular column: ${hasCc ? "yes" : "no"}`,
+    sem && `semester label: ${sem}`, syncedAt && `last read ${Math.max(0, Math.round((Date.now() - syncedAt) / 3600000))}h ago`,
+    Number.isFinite(ttDays) && `timetable days: ${ttDays}`, Number.isFinite(absentRows) && `absent rows saved: ${absentRows}`, found,
+  ].filter(Boolean);
   const ABOUT = { by: "Alicia & Antony Co.", repo: "https://github.com/antiiiiny/leavemealone", upi: "antonyjoyukken@ptyes", notAffiliated: "Unofficial. Not affiliated with CHRIST (Deemed to be University)." };
   const chip = (kind, text, title) => h("span", { class: `chip ${kind}`, title }, text);
   const bar = (pct, thr) =>
@@ -349,5 +356,5 @@ const UI = (() => {
     return { refresh: place, end: () => end(false), get active() { return live; } };
   };
 
-  return { h, eseFlag, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, ABOUT, placeThumb, tween, pills, stepper, toggle, acc };
+  return { h, diag, eseFlag, semRank, DETAIN, detain, SUSEGAD, susegad, vibeTag, vibeLead, tour, absentSummary, absentDays, daySeg, hrsOf, plural, fmt, tone, dayLabel, niceDate, nicePeriod, startTime, ico, sep, chip, bar, TAGLINE, mustText, breakTag, ABOUT, placeThumb, tween, pills, stepper, toggle, acc };
 })();

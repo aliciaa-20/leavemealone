@@ -91,7 +91,7 @@ if (location.hash === "#support" && A.upi) $("[data-qr]").showModal();
 
 // Report form -> github.com/<repo>/issues/new with the title and body filled in.
 const form = $("[data-report]");
-form.addEventListener("submit", (e) => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = new FormData(form);
   const title = String(f.get("title") || "").trim();
@@ -99,6 +99,15 @@ form.addEventListener("submit", (e) => {
   $("[data-err]").hidden = !!title;
   if (!title) { form.elements.title.focus(); return; }
   const ua = navigator.userAgentData?.brands?.filter((b) => !/not.a.brand/i.test(b.brand)).map((b) => `${b.brand} ${b.version}`).join(", ") || navigator.userAgent;
+  let tech = [];
+  if (form.elements.tech?.checked) { // counts and view names from local storage, never names, hours or percentages
+    try {
+      const d = await chrome.storage.local.get({ snapshots: {}, latest: null, timetable: null, absentList: null });
+      const s = d.snapshots[d.latest];
+      tech = UI.diag({ version, via: s?.via, courses: s?.courses?.length, hasCc: s ? !!s.hasCc : undefined, sem: d.latest, syncedAt: s?.syncedAt,
+        ttDays: d.timetable ? Object.keys(d.timetable).length : undefined, absentRows: d.absentList?.rows?.length });
+    } catch { tech = []; }
+  }
   const body = [
     `**Type:** ${f.get("kind")}`,
     `**Where:** ${f.get("where")}`,
@@ -107,6 +116,7 @@ form.addEventListener("submit", (e) => {
     "",
     "---",
     `leavemealone ${version || "?"} · ${ua}`,
+    ...(tech.length ? ["", "Technical details (counts and view names only, no numbers or names):", ...tech.map((l) => `- ${l}`)] : []),
   ].join("\n");
   const url = `${A.repo}/issues/new?title=${encodeURIComponent(`[${f.get("kind")}] ${title}`)}&body=${encodeURIComponent(body)}`;
   window.open(url, "_blank", "noopener");

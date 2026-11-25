@@ -17,6 +17,8 @@ Everything is saved in your own browser with `chrome.storage.local`:
 ## What it sends
 Nothing. The extension makes no network requests other than loading its own bundled files (its stylesheet and font). There is no account, no analytics, no tracking, no ads, and no data is sold or shared with anyone, including us. We never see your data.
 
+The one exception is a bug report you choose to send: the report form (and the "couldn't read this page" panel) opens a GitHub issue in a new tab with text already filled in, and you review it and press Submit yourself. If you leave "Add technical details" ticked it includes only the extension version, which view was read, and counts (for example "10 courses"), never names, hours, percentages or anything about you.
+
 ## Notifications
 The optional daily alert is generated on your device from the data above. Turn it off in the popup's Settings.
 

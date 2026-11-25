@@ -408,7 +408,7 @@ function courseRow(c, thr, t, showAfter) {
     h("div", { class: "row" },
       h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
         c.code || adjusted || UI.vibeTag(pct) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.vibeTag(pct), adjusted ? chip("mute", "adj", tip) : null) : null),
-      afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status) : h("span", {}, num, " ", status)),
+      afterN ? h("span", { class: "rr" }, h("span", {}, num, afterN), status) : h("span", { class: "pc" }, num, status)),
     bar(pct, thr));
 }
 

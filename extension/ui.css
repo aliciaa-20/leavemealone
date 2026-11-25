@@ -100,6 +100,7 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .it2.click { margin: 0 calc(var(--s4) * -1); padding-left: var(--s4); padding-right: var(--s4); width: calc(100% + var(--s4) * 2); text-align: left; background: transparent; border: 0; border-top: 1px solid var(--edge); display: block; transition: background-color var(--d-hover) var(--ease); }
 .it2.click:first-child { border-top: 0; }
 .it2.click:hover { background: color-mix(in srgb, var(--ink) 3.5%, transparent); }
+.it2.click:active { background: color-mix(in srgb, var(--ink) 6%, transparent); transition-duration: var(--d-press); }
 .it2.click.on { background: color-mix(in srgb, var(--pick) 10%, transparent); }
 .it2 > .row > :first-child > b.nm, .it2.minor > .row > :first-child > b.nm { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font: 500 var(--t13)/1.35 var(--font-head); color: var(--ink); }
 .cl { display: flex; align-items: center; }
@@ -173,8 +174,10 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .btn:disabled { opacity: .4; }
 .link { background: none; border: 0; color: var(--pick); font-weight: 600; padding: 0; text-decoration: none; }
 .link:hover { text-decoration: underline; }
+.link:active { opacity: .65; }
 .xb { width: 28px; height: 28px; border-radius: var(--r-ctl); border: 0; background: transparent; color: var(--mute); display: grid; place-items: center; padding: 0; transition: background-color var(--d-hover) var(--ease), color var(--d-hover) var(--ease); }
 .xb:hover:not(:disabled) { background: var(--card2); color: var(--ink); }
+.xb:active:not(:disabled) { background: var(--well); transition-duration: var(--d-press); }
 .xb:disabled { opacity: .3; }
 .cue select { height: 28px; padding: 0 8px; background: var(--well); color: var(--ink); border: 1px solid var(--edge); border-radius: var(--r-ctl); font: inherit; transition: border-color var(--d-hover) var(--ease); }
 .cue select:hover { border-color: var(--mute); }
@@ -338,10 +341,11 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .pday + .it2 { border-top: 0; }
 .dayseg { display: inline-flex; align-items: center; gap: var(--s2); flex: none; }
 .per { display: grid; grid-template-columns: 18px 24px 44px 1fr; gap: 10px; align-items: center; padding: 8px 0; cursor: pointer; width: 100%; background: transparent; border: 0; text-align: left; }
-.per .bx { width: 18px; height: 18px; border-radius: var(--r-tick); border: 1.5px solid var(--mute); display: grid; place-items: center; transition: background-color 150ms var(--ease), border-color 150ms var(--ease); }
+.per .bx { width: 18px; height: 18px; border-radius: var(--r-tick); border: 1.5px solid var(--mute); display: grid; place-items: center; transition: background-color 150ms var(--ease), border-color 150ms var(--ease), transform var(--d-hover) var(--ease); }
 .per .bx.on { background: var(--pick); border-color: var(--pick); }
 .per .bx.on::after { content: ""; width: 5px; height: 9px; border: solid var(--onpick); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
 .per:hover .bx:not(.on) { border-color: var(--ink); }
+.per:active .bx { transform: scale(.88); transition-duration: var(--d-press); }
 .per .pt { text-align: right; }
 .per .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -360,6 +364,7 @@ body.cue { width: 380px; margin: 0; padding: var(--s4); background: var(--bg); m
 .arow .ac small { overflow: hidden; }
 .arow .ac b { font-weight: 400; }
 .arow .ac small { font-size: 11px; line-height: 1.3; color: var(--mute); white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.pc { display: flex; align-items: center; gap: 10px; } /* percentage and its chip on one centred line (inline text put them on different baselines) */
 .rr { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 /* a label beside a control: never push the control sideways (steppers line up across rows) */
 .lbl { min-width: 0; flex: 1; overflow-wrap: anywhere; line-height: 1.25; } /* wraps instead of "CSEAM63…": two courses share that prefix */
@@ -455,6 +460,7 @@ body.cue .hero .v { font-size: 44px; }
 /* "Mark hours" switch in the all-courses drawer: label + track, both light up when marking is on. */
 .mkt { display: inline-flex; align-items: center; gap: var(--s2); height: 28px; padding: 0 var(--s1); background: transparent; border: 0; border-radius: var(--r-ctl); color: var(--mute); font: 500 var(--t12) var(--font-head); white-space: nowrap; flex: none; transition: color var(--d-hover) var(--ease); }
 .mkt:hover { color: var(--ink); }
+.mkt:active { color: var(--ink); opacity: .75; transition-duration: var(--d-press); }
 .mkt.on { color: var(--pick); }
 .mkt .trk { position: relative; display: inline-block; width: 36px; height: 20px; border-radius: 10px; background: var(--well); box-shadow: var(--in-well); transition: background-color 200ms var(--ease); }
 .mkt .trk::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--mute); transition: transform 200ms var(--ease), background-color 200ms var(--ease); }

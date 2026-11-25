@@ -87,6 +87,8 @@ code { font: 500 13.5px ui-monospace, "Cascadia Mono", Consolas, monospace; colo
 .form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; margin-top: 4px; }
 .form label { display: grid; gap: 5px; font: 500 var(--t13) var(--font-head); }
 .form .full { grid-column: 1 / -1; }
+.form label.chk { display: flex; align-items: flex-start; gap: var(--s2); font: 400 var(--t12)/1.4 var(--font-body); color: var(--mute); }
+.form label.chk input { margin-top: 2px; accent-color: var(--pick); }
 .form input, .form select, .form textarea { width: 100%; min-height: 40px; padding: 9px 12px; border: 0; border-radius: var(--r-ctl); background: var(--card-base); box-shadow: var(--hi); color: var(--ink); font: 400 var(--t13) var(--font-body); transition: border-color var(--d-hover) var(--ease); }
 .form textarea { resize: vertical; }
 .form ::placeholder { color: color-mix(in srgb, var(--mute) 70%, transparent); }

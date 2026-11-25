@@ -72,7 +72,7 @@
     const overallText = document.querySelector('[aria-label^="Overall attendance"]')?.textContent;
     // At semester end the portal adds a "Co-curricular" column and folds those hours into attended (grid view: unknown here, tickAtt keeps what the table said).
     const hasCc = table ? [...table.querySelectorAll("thead th")].some((x) => /co-?\s*curricular/i.test(x.textContent)) : null;
-    return { semester: semester(), syncedAt: Date.now(), overall: pair(overallText), courses, hasCc };
+    return { semester: semester(), syncedAt: Date.now(), overall: pair(overallText), courses, hasCc, via: table ? "table" : "grid" };
   }
 
   // Remember which course's details the user is opening (the Absent Details page doesn't say).
@@ -306,7 +306,7 @@
         h("div", { class: "row" },
           h("span", {}, h("b", { class: "nm", title: c.name }, c.name || c.code),
             c.code || adjusted || UI.vibeTag(pct) ? h("div", { class: "cl" }, c.code ? h("span", { class: "sub" }, c.code) : null, UI.vibeTag(pct), adjusted ? chip("mute", "adj", tip) : null) : null),
-          h("span", {}, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`), " ",
+          h("span", { class: "pc" }, h("span", { class: "p", style: `color:var(--${tone(pct, threshold)})` }, `${pct.toFixed(0)}%`),
             pct < threshold ? chip("bad", mustText(Calc.mustAttend(c.attended, c.scheduled, t))) : chip(skip ? "good" : "warn", skip ? `can bunk ${skip}` : "no bunks left"))),
         h("div", { class: "cbar" }, bar(pct, threshold), ico("chev", "ic chev")),
         h("div", { class: "cdet", inert: open ? null : "" }, h("div", {}, needView(c, pct, skip, t, threshold))));
@@ -695,12 +695,19 @@
       : daily ? [h("button", { class: "btn solid cta", onclick: () => overview.click() }, "Open Course Overview"), h("button", { class: "btn cta", onclick: () => location.reload() }, "Reload page")]
       : [h("button", { class: "btn solid cta", onclick: () => location.reload() }, "Reload page"),
          h("button", { class: "btn cta", onclick: () => window.open("https://cue.christuniversity.in/main/attendence", "_self") }, "Go to Attendance"),
-         h("button", { class: "btn cta", onclick: () => window.open(`${UI.ABOUT.repo}/issues/new`, "_blank", "noopener") }, "Report it on GitHub")];
+         h("button", { class: "btn cta", onclick: () => reportUnread() }, "Report it on GitHub")];
     dock.replaceChildren(h("div", { class: "panel" }, h("div", { class: "h3" }, title), h("p", { class: "sub" }, text), ...btns));
   }
   // The observer fires on every portal DOM change (MUI animations, ripples). When the table reads the same as last time and the
   // drawer is already drawn, there is nothing to do, so skip the storage round trip. The 30s cap still refreshes "synced".
   let lastRead = "", lastReadAt = 0;
+  // Opens a pre-filled GitHub issue (the person reviews it and presses Submit). It says what the page looked like, never what it said.
+  function reportUnread() {
+    const found = `found: table ${document.querySelector(COURSE_TABLE) ? "yes" : "no"}, grid cards ${document.querySelectorAll(CARD).length}, view toggle ${document.querySelector('[aria-label="table view"]') ? "yes" : "no"}, tabs ${document.querySelectorAll('[role="tab"]').length}`;
+    const lines = UI.diag({ version: chrome.runtime.getManifest().version, page: location.pathname, sem: semester(), found });
+    const body = ["**Type:** Bug", "**Where:** Attendance page", "", "The pill could not read the attendance page.", "", "---", "Added automatically (counts and view names only, no numbers or names):", ...lines.map((l) => `- ${l}`)].join("\n");
+    window.open(`${UI.ABOUT.repo}/issues/new?title=${encodeURIComponent("[Bug] Couldn't read the attendance page")}&body=${encodeURIComponent(body)}`, "_blank", "noopener");
+  }
   async function tickAtt() {
     const snap = parseCourses();
     const readKey = snap ? JSON.stringify([snap.semester, snap.overall, snap.courses]) : "";
