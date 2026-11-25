@@ -17,7 +17,7 @@ Until then, or for Edge, install it from the ZIP:
 1. Download the ZIP above and unzip it. You get a folder called `leavemealone`: that is the whole extension.
 2. Open `chrome://extensions` (Edge: `edge://extensions`) and turn on **Developer mode** (top right).
 3. Click **Load unpacked** and choose that `leavemealone` folder.
-4. Log in to the CUE portal and open **Attendance** in **table view** (grid view is not read yet). A small pill with your percentage appears at the bottom right; click it.
+4. Log in to the CUE portal and open **Attendance** (table or grid view, both are read). A small pill with your percentage appears at the bottom right; click it.
 5. Optional: open the portal's **Timetable** page once. That unlocks *Put a bunk today?* and *Put a bunk*.
 
 To update, download the ZIP again, replace the old folder, and press the reload icon on the extension's card in `chrome://extensions`.

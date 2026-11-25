@@ -51,14 +51,27 @@
     };
   }
 
+  // Grid view: one card per course (role=button, aria-label "NAME (CODE): 87.5% attendance, 14 of 16 classes attended. ...").
+  // It has no absent or Co-curricular column; absent = scheduled - attended, the same as the table's own sums.
+  const CARD = '[role="button"][aria-label$="Click to view absence details."]';
+  function parseCard(card) {
+    const name = (card.querySelector('[role="heading"]')?.textContent || "").trim();
+    const meta = (card.querySelector('[role="heading"]')?.nextElementSibling?.textContent || "").split("•").map((x) => x.trim());
+    const p = pair((card.querySelector("p")?.textContent || "").replace(/\s+of\s+/, " / "));
+    if (!name || !p) return null;
+    const code = /^(n\/a|null)?$/i.test(meta[0] || "") ? "" : meta[0];
+    return { name, code, key: code || name, type: meta[1] || "", attended: p[0], scheduled: p[1], absent: Math.max(0, p[1] - p[0]) };
+  }
+
   function parseCourses() {
     const table = document.querySelector(COURSE_TABLE);
-    if (!table) return null;
-    const courses = [...table.querySelectorAll("tbody tr")].map(parseRow).filter(Boolean);
+    const cards = table ? [] : [...document.querySelectorAll(CARD)];
+    if (!table && !cards.length) return null;
+    const courses = table ? [...table.querySelectorAll("tbody tr")].map(parseRow).filter(Boolean) : cards.map(parseCard).filter(Boolean);
     if (!courses.length) return null;
     const overallText = document.querySelector('[aria-label^="Overall attendance"]')?.textContent;
-    // At semester end the portal adds a "Co-curricular" column and folds those hours into attended.
-    const hasCc = [...table.querySelectorAll("thead th")].some((x) => /co-?\s*curricular/i.test(x.textContent));
+    // At semester end the portal adds a "Co-curricular" column and folds those hours into attended (grid view: unknown here, tickAtt keeps what the table said).
+    const hasCc = table ? [...table.querySelectorAll("thead th")].some((x) => /co-?\s*curricular/i.test(x.textContent)) : null;
     return { semester: semester(), syncedAt: Date.now(), overall: pair(overallText), courses, hasCc };
   }
 
@@ -71,8 +84,9 @@
       if (!b) return;
       const label = b.getAttribute("aria-label") || b.textContent || "";
       const tr = b.closest(`${COURSE_TABLE} tr`);
-      if (tr && /view details/i.test(label)) {
-        const c = parseRow(tr);
+      const card = b.closest(CARD);
+      if ((tr && /view details/i.test(label)) || card) {
+        const c = card ? parseCard(card) : parseRow(tr);
         if (c) store.set({ lastCourse: { semester: semester(), key: c.key, name: c.name, at: Date.now() } });
       } else if (/^view absent details/i.test(label)) {
         store.set({ lastCourse: null }); // overall list: not tied to one course
@@ -143,6 +157,7 @@
   const rerender = () => { if (A) { attSig = ""; renderAtt(A); } };
   function setOpen(v) {
     if (!v && shell && host?.shadowRoot?.activeElement && shell.drawer.contains(host.shadowRoot.activeElement)) shell.pill.focus(); // don't strand focus in a hidden drawer
+    if (v && !attOpen && shell) shell.drawer.scrollTop = 0; // opening always starts at the top, not where it was left
     attOpen = v;
     if (v) growBars = true;
     if (A) { A.open = v; rerender(); }
@@ -446,8 +461,8 @@
             onclick: () => { planSel = new Map([[b.key, null]]); planMonth = monthOffset(from, b.date); rerender(); } },
             h("div", { class: "row" }, h("b", { class: "d" }, dayLabel(b.date)), chip(b.safe ? "good" : "bad", b.safe ? "safe" : "risky")),
             b.lowest != null ? h("div", { class: "low" }, "Lowest after ", h("b", { style: `color:var(--${b.safe ? "good" : "bad"})` }, `${b.lowest.toFixed(0)}%`)) : null,
-            h("div", { class: "sub" }, plural(b.classes, "class")),
-            UI.breakTag(b.breakDays) ? h("div", { class: "brk" }, chip("mute", ...UI.breakTag(b.breakDays)), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
+            h("div", { class: "brk" }, h("span", { class: "sub" }, plural(b.classes, "class")), UI.breakTag(b.breakDays) ? chip("mute", ...UI.breakTag(b.breakDays)) : null),
+            UI.breakTag(b.breakDays) && b.breakNames.length ? h("div", { class: "sub brkn", title: b.breakNames.join(", ") }, b.breakNames.join(", ")) : null);
         }))
       : h("div", { class: "sub" }, "No class days left this semester"));
 
@@ -683,24 +698,39 @@
          h("button", { class: "btn cta", onclick: () => window.open(`${UI.ABOUT.repo}/issues/new`, "_blank", "noopener") }, "Report it on GitHub")];
     dock.replaceChildren(h("div", { class: "panel" }, h("div", { class: "h3" }, title), h("p", { class: "sub" }, text), ...btns));
   }
+  // The observer fires on every portal DOM change (MUI animations, ripples). When the table reads the same as last time and the
+  // drawer is already drawn, there is nothing to do, so skip the storage round trip. The 30s cap still refreshes "synced".
+  let lastRead = "", lastReadAt = 0;
   async function tickAtt() {
     const snap = parseCourses();
-    if (!snap) { noteUnread(); return; }
-    unreadSince = 0; unreadShown = false;
+    const readKey = snap ? JSON.stringify([snap.semester, snap.overall, snap.courses]) : "";
+    if (snap && attSig && readKey === lastRead && Date.now() - lastReadAt < 30000 && dock?.isConnected && shell && dock.contains(shell.drawer)) return;
     const d = await store.get({ threshold: 75, latest: null, snapshots: {}, adjust: {}, excused: {}, sortBy: "portal", timetable: null, timetableSem: null, bunkBasis: "now", eseTarget: null, medBeforeMse: true, bunkPlan: {}, absentList: null });
     const fix = {};
     for (const k of ["snapshots", "adjust", "excused", "bunkPlan"]) if (plainKeys(d[k])) fix[k] = d[k];
     if (d.timetableSem && plain(d.timetableSem) !== d.timetableSem) fix.timetableSem = plain(d.timetableSem);
     if (d.absentList?.sem && plain(d.absentList.sem) !== d.absentList.sem) fix.absentList = { ...d.absentList, sem: plain(d.absentList.sem) };
     if (Object.keys(fix).length) await store.set(fix);
-    const prev = d.snapshots[snap.semester];
-    const same = prev && JSON.stringify([prev.overall, prev.courses, prev.hasCc]) === JSON.stringify([snap.overall, snap.courses, snap.hasCc]);
-    if (same && Date.now() - prev.syncedAt < 60000) snap.syncedAt = prev.syncedAt; // unchanged: don't rewrite storage on every tick
-    d.snapshots[snap.semester] = snap;
-    const latest = Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
-    if (!same || snap.syncedAt !== prev.syncedAt || d.latest !== latest) await store.set({ snapshots: d.snapshots, latest });
+    let view = snap;
+    if (!snap) {
+      // The Daily Log tab has no course data: show the last Course Overview read instead of an error.
+      const onDaily = !!document.querySelector('[role="tab"][aria-controls="daily-panel"][aria-selected="true"]');
+      const saved = onDaily && (d.snapshots[semester()] || d.snapshots[d.latest]);
+      if (!saved) { noteUnread(); return; }
+      view = saved;
+    } else if (snap.hasCc == null) snap.hasCc = !!d.snapshots[snap.semester]?.hasCc;
+    unreadSince = 0; unreadShown = false;
+    if (snap) {
+      lastRead = readKey; lastReadAt = Date.now();
+      const prev = d.snapshots[snap.semester];
+      const same = prev && JSON.stringify([prev.overall, prev.courses, prev.hasCc]) === JSON.stringify([snap.overall, snap.courses, snap.hasCc]);
+      if (same && Date.now() - prev.syncedAt < 60000) snap.syncedAt = prev.syncedAt; // unchanged: don't rewrite storage on every tick
+      d.snapshots[snap.semester] = snap;
+      const latest = Object.keys(d.snapshots).sort((a, b) => UI.semRank(b) - UI.semRank(a))[0];
+      if (!same || snap.syncedAt !== prev.syncedAt || d.latest !== latest) await store.set({ snapshots: d.snapshots, latest });
+    }
     renderAtt({
-      snap, threshold: Plan.minOf(d.threshold), adj: d.adjust[snap.semester], exc: d.excused[snap.semester],
+      snap: view, threshold: Plan.minOf(d.threshold), adj: d.adjust[view.semester], exc: d.excused[view.semester],
       open: attOpen, sortBy: d.sortBy, tt: d.timetable, basis: d.bunkBasis, eseTarget: d.eseTarget, medBeforeMse: d.medBeforeMse, bunkPlan: d.bunkPlan,
     });
   }
@@ -735,10 +765,13 @@
     return Object.keys(days).length ? days : null;
   }
 
-  let ttSig = "";
+  let ttSig = "", ttSeen = "", ttSeenAt = 0;
   async function tickTt() {
     const seen = parseTimetable();
     if (!seen) return;
+    const seenKey = JSON.stringify(seen);
+    if (ttSig && seenKey === ttSeen && Date.now() - ttSeenAt < 30000 && host?.isConnected && dock?.querySelector(".panel")) return; // same page as last tick: skip the storage round trip
+    ttSeen = seenKey; ttSeenAt = Date.now();
     const d = await store.get({ timetable: null, timetableSem: null, snapshots: {}, latest: null });
     // The page shows one week. A holiday week has empty days, so a weekday with no classes in view keeps what was saved
     // before, but only from this semester's timetable: a weekday kept from an older one shows courses you no longer take.
@@ -813,9 +846,12 @@
   }
 
   // forced = the course picked in the filter on /main/absence; without it the course is the one whose View Details was clicked.
+  let absQuick = "", absQuickAt = 0; // what the table looked like when the panel was last built (skips the storage read on idle ticks)
   async function tickAbs(forced) {
     const rows = parseAbsentRows();
     if (!rows.length) return;
+    const quick = `${forced?.key || ""}#${rows.map((r) => r.k + r.portal).join(",")}`;
+    if (absSig && absSig !== "noctx" && quick === absQuick && Date.now() - absQuickAt < 30000 && host?.isConnected && dock?.querySelector(".panel")) return;
     const d = await store.get({ lastCourse: null, snapshots: {}, excused: {}, adjust: {}, medBeforeMse: true });
     const ctx = forced || d.lastCourse;
     await ensureHost();
@@ -852,6 +888,7 @@
     const sig = sigOf(ctx.key, rows, saved);
     if (sig === absSig) return;
     absSig = sig;
+    absQuick = quick; absQuickAt = Date.now();
     sel = new Map(
       rows.map((r) => {
         const u = saved.find((x) => x.k === r.k && !x.gone);
@@ -1108,6 +1145,7 @@
     if (fk) absShell.drawer.querySelector(`[data-key="${fk}"]`)?.focus({ preventScroll: true });
   }
   function setAbsOpen(v) {
+    if (v && !absOpen && absShell) absShell.drawer.scrollTop = 0;
     absOpen = v;
     if (absShell) { absShell.drawer.classList.toggle("open", v); absShell.pill.setAttribute("aria-expanded", String(v)); }
   }
@@ -1216,6 +1254,7 @@
     if (area === "local" && "profile" in ch && ch.profile.newValue !== profileId) profileId = null; // changed elsewhere: check again before the next save
     if (area !== "local" || !chrome.runtime?.id || route() !== "att" || !LIVE.some((k) => k in ch)) return; // the marking pages keep their own state
     if ("tour" in ch && !ch.tour.newValue?.drawer && !drawerTour) { tourChecked = false; attSig = ""; } // "Replay" in the popup: show the drawer tour again
+    lastRead = ""; // a setting changed: the next tick must re-read storage even if the table looks the same
     clearTimeout(timer);
     timer = setTimeout(() => { timer = 0; tick(); }, 50);
   });

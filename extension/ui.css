@@ -61,6 +61,7 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 
 /* ---- type ---- */
 .sub { font-size: var(--t12); color: var(--mute); }
+.it2.main > p.sub { margin: var(--s2) 0 0; } /* the Mark-hours hint is a bare <p>: without this it gets the browser's 1em margin (12.5px, off the grid) */
 .h3 { font: 500 var(--t17)/1.3 var(--font-head); letter-spacing: -.01em; }
 .sep { display: inline-block; width: 1px; height: 11px; margin: 0 8px; vertical-align: middle; background: var(--mute); opacity: .55; overflow: hidden; font-size: 0; line-height: 0; position: relative; top: -.5px; }
 .sec { margin: var(--s5) 0 var(--s2); font: 500 var(--t13)/1.3 var(--font-head); letter-spacing: .005em; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
@@ -108,9 +109,9 @@ svg.ic { width: 16px; height: 16px; flex: none; }
 .low b { font-weight: 600; }
 .stk { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .to { margin-left: 6px; font-size: var(--t13); color: var(--mute); }
-.brk { display: flex; align-items: flex-start; gap: 8px; margin-top: 6px; }
-.brk .chip { flex: none; }
-.brk .sub { padding-top: 1px; }
+.brk { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.brk .chip { flex: none; padding: 0 7px; font-size: 10px; }
+.brkn { margin-top: 4px; }
 
 /* ---- hero (the answer first) ---- */
 .hero { padding: var(--s1) 0 var(--s2); position: relative; overflow: hidden; } /* flush with the drawer's own edge, like every other block */

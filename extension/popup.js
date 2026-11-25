@@ -259,8 +259,8 @@ function drawAll() {
           ? h("div", { class: "blk" }, best.days.map((b) => {
               return h("div", { class: "it2" },
                 h("div", { class: "row" }, h("b", {}, dayLabel(b.date)), chip(b.safe ? "good" : "bad", b.safe ? "safe" : "risky")),
-                h("div", { class: "sub" }, plural(b.classes, "class")),
-                UI.breakTag(b.breakDays) ? h("div", { class: "brk" }, chip("mute", ...UI.breakTag(b.breakDays)), b.breakNames.length ? h("span", { class: "sub" }, b.breakNames.join(", ")) : null) : null);
+                h("div", { class: "brk" }, h("span", { class: "sub" }, plural(b.classes, "class")), UI.breakTag(b.breakDays) ? chip("mute", ...UI.breakTag(b.breakDays)) : null),
+                UI.breakTag(b.breakDays) && b.breakNames.length ? h("div", { class: "sub brkn", title: b.breakNames.join(", ") }, b.breakNames.join(", ")) : null);
             }))
           : h("div", { class: "sub" }, basis === "mse" ? "No class days left before MSE" : "No class days left this semester"),
         openBtn("Plan on CUE"));

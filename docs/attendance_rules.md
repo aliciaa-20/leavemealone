@@ -14,7 +14,7 @@ From the portal's "Attendance Information" panel:
 ## 2. The minimum and the criteria per exam
 | | What must be true | Where |
 |---|---|---|
-| Plain minimum (the "75%" setting) | each course >= your minimum, default **75%**, editable 1 to 100 | `threshold` in storage |
+| Plain minimum (the "75%" setting) | each course >= your minimum, default **75%**, editable 74.5 to 100 (`Plan.minOf` raises anything lower) | `threshold` in storage |
 | **MSE** | **every course >= 75%.** There is no overall criterion for MSE. | `Plan.MSE_MIN`, `CRITERIA.mse` |
 | **ESE** | the **overall >= 85%** (the "ESE target", default 85, editable). Courses are not the criterion; for information they are shown against the plain minimum. Medical leave helps the overall get there (section 4). | `Plan.ESE_OVERALL`, `CRITERIA.end` |
 | "After the bunk" (no exam) | both: courses and overall against your minimum | `CRITERIA.now` |
