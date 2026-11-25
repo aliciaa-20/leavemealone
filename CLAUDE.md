@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   `node -e "const C=require('./extension/calc.js'); console.log(C.canSkip(60,80,0.75))"`
   (`plan.js` `require`s `calc.js` and `calendar.js` itself when the globals are absent). There is no test suite or test runner.
 - Run: `chrome://extensions` → Developer mode → Load unpacked → `extension/`. After edits, reload the extension and the portal tab. Verifying UI needs the live portal (login required).
-- Release: bump `version` in `extension/manifest.json`, push (`.github/workflows/release.yml` refreshes the GitHub zip), then run **Publish to Chrome Web Store** (`.github/workflows/store.yml`, manual or a `v<version>` tag). It uploads `extension/` with `chrome-webstore-upload-cli` and submits it for review; it needs five `CWS_*` repo secrets (never in files). Store versions started at 1.0.0.
+- Release: bump `version` in `extension/manifest.json`, push (`.github/workflows/release.yml` refreshes the GitHub zip), then run **Publish to Chrome Web Store** (`.github/workflows/store.yml`, manual or a `v<version>` tag). It uploads `extension/` with `chrome-webstore-upload-cli` and submits it for review; it needs five `CWS_*` repo secrets (never in files). Store versions started at 1.0.0. The live listing id is `komhapklhkoicjaklcanacmnfgcffceb` (`https://chromewebstore.google.com/detail/leavemealone/<id>`).
 
 ## Architecture
 

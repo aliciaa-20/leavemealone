@@ -8,9 +8,9 @@ Developed by **Alicia & Antony Co.** Free and open source.
 
 ## Get it (for students)
 
-**Chrome Web Store:** coming soon. Installing from the store is one click and updates itself.
+**Chrome Web Store:** [install leavemealone](https://chromewebstore.google.com/detail/leavemealone/komhapklhkoicjaklcanacmnfgcffceb). It is one click and updates itself.
 
-Until then, or for Edge, install it from the ZIP:
+For Edge, or to try the latest build before the store has it, install it from the ZIP:
 
 **[Download the extension (ZIP)](https://github.com/antiiiiny/leavemealone/releases/latest/download/leavemealone.zip)**
 
